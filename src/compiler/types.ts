@@ -1067,6 +1067,9 @@ module ts {
         EnumMember             = 0x00000008,  // Enum member
         Function               = 0x00000010,  // Function
         Class                  = 0x00000020,  // Class
+        // [ConcreteTypeScript]
+        Brand                  = 0x80000000,  // Brand
+        // [/ConcreteTypeScript]
         Interface              = 0x00000040,  // Interface
         ConstEnum              = 0x00000080,  // Const enum
         RegularEnum            = 0x00000100,  // Enum
@@ -1098,7 +1101,7 @@ module ts {
         Enum                   = RegularEnum | ConstEnum,
         Variable  = FunctionScopedVariable | BlockScopedVariable,
         Value     = Variable | Property | EnumMember | Function | Class | Enum | ValueModule | Method | GetAccessor | SetAccessor,
-        Type      = Class | Interface | Enum | TypeLiteral | ObjectLiteral | TypeParameter | TypeAlias,
+        Type      = Class | Brand | Interface | Enum | TypeLiteral | ObjectLiteral | TypeParameter | TypeAlias,
         Namespace = ValueModule | NamespaceModule,
         Module    = ValueModule | NamespaceModule,
         Accessor  = GetAccessor | SetAccessor,
@@ -1120,7 +1123,7 @@ module ts {
         InterfaceExcludes       = Type & ~Interface,
         RegularEnumExcludes     = (Value | Type) & ~(RegularEnum | ValueModule), // regular enums merge only with regular enums and modules
         ConstEnumExcludes       = (Value | Type) & ~ConstEnum, // const enums merge only with const enums
-        ValueModuleExcludes     = Value & ~(Function | Class | RegularEnum | ValueModule),
+        ValueModuleExcludes     = Value & ~(Function | Class | Brand | RegularEnum | ValueModule),
         NamespaceModuleExcludes = 0,
         MethodExcludes          = Value & ~Method,
         GetAccessorExcludes     = Value & ~SetAccessor,
@@ -1129,13 +1132,13 @@ module ts {
         TypeAliasExcludes       = Type,
         ImportExcludes          = Import,  // Imports collide with all other imports with the same name
 
-        ModuleMember = Variable | Function | Class | Interface | Enum | Module | TypeAlias | Import,
+        ModuleMember = Variable | Function | Class | Brand | Interface | Enum | Module | TypeAlias | Import,
 
-        ExportHasLocal = Function | Class | Enum | ValueModule,
+        ExportHasLocal = Function | Class | Brand | Enum | ValueModule,
 
         HasLocals  = Function | Module | Method | Constructor | Accessor | Signature,
-        HasExports = Class | Enum | Module,
-        HasMembers = Class | Interface | TypeLiteral | ObjectLiteral,
+        HasExports = Class | Brand | Enum | Module,
+        HasMembers = Class | Brand | Interface | TypeLiteral | ObjectLiteral,
 
         IsContainer        = HasLocals | HasExports | HasMembers,
         PropertyOrAccessor = Property | Accessor,
@@ -1223,12 +1226,15 @@ module ts {
         FloatHint               = 0x20000000,
         // Flag for the int hint
         IntHint                 = 0x40000000,
+        // Object brand, nominal typing stemming from a code location
+        Brand                   = 0x80000000,
         // [/ConcreteTypeScript]
 
         Intrinsic  = Any | String | Number | Boolean | Void | Undefined | Null,
         StringLike = String | StringLiteral,
         NumberLike = Number | Enum,
-        ObjectType = Class | Interface | Reference | Tuple | Anonymous,
+        ObjectType = Class | Brand | Interface | Reference | Tuple | Anonymous,
+        RuntimeCheckable = Intrinsic | StringLiteral | Class | Brand, // [/ConcreteTypeScript]
     }
 
     // Properties common to all types
@@ -1253,6 +1259,7 @@ module ts {
     export interface ObjectType extends Type { }
 
     // Class and interface types (TypeFlags.Class and TypeFlags.Interface)
+    // Brand types too // [ConcreteTypeScript]
     export interface InterfaceType extends ObjectType {
         typeParameters: TypeParameter[];           // Type parameters (undefined if non-generic)
         baseTypes: ObjectType[];                   // Base types
@@ -1261,6 +1268,11 @@ module ts {
         declaredConstructSignatures: Signature[];  // Declared construct signatures
         declaredStringIndexType: Type;             // Declared string index type
         declaredNumberIndexType: Type;             // Declared numeric index type
+    }
+
+    // [ConcreteTypeScript] Brand types
+    export interface BrandType extends Type {
+        monomorphicProperties: Symbol[];  // Which fields are guaranteed to be in a fixed place in the object?
     }
 
     // [ConcreteTypeScript] Concrete types

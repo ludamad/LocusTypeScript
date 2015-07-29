@@ -297,7 +297,6 @@ module ts {
             messageText: text,
             category: message.category,
             code: message.code,
-
             next: details
         };
     }

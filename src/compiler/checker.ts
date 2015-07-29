@@ -673,13 +673,18 @@ module ts {
         }
 
         // [ConcreteTypeScript]
+        // Create a brand type
+        function createBrandType() {
+            var type = <BrandType>createType(TypeFlags.Brand);
+            type.monomorphicProperties = [];
+            return type;
+        }
+
+        // [ConcreteTypeScript]
         // Wrap a type as a concrete type
         function createConcreteType(target: Type) {
             var type = target.concreteType;
-            if (!type && !(target.flags & TypeFlags.Any) &&
-                ((target.flags & TypeFlags.Intrinsic) ||
-                 (target.flags & TypeFlags.StringLiteral) ||
-                 (target.flags & TypeFlags.Class))) {
+            if (!type && !(target.flags & TypeFlags.Any) && (target.flags & TypeFlags.RuntimeCheckable)) {
                 type = target.concreteType = <ConcreteType>createType(TypeFlags.Concrete);
                 type.baseType = target;
             }
@@ -2016,7 +2021,7 @@ module ts {
                         forEach(getInterfaceBaseTypeNodes(<InterfaceDeclaration>declaration), node => {
                             var baseType = getTypeFromTypeReferenceNode(node);
                             if (baseType !== unknownType) {
-                                if (getTargetType(baseType).flags & (TypeFlags.Class | TypeFlags.Interface)) {
+                                if (getTargetType(baseType).flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Brand)) {
                                     if (type !== baseType && !hasBaseType(<InterfaceType>baseType, type)) {
                                         type.baseTypes.push(baseType);
                                     }
@@ -2147,6 +2152,7 @@ module ts {
             }
         }
 
+        // Brands too // [ConcreteTypeScript]
         function resolveClassOrInterfaceMembers(type: InterfaceType): void {
             var members = type.symbol.members;
             var callSignatures = type.declaredCallSignatures;
@@ -2334,7 +2340,7 @@ module ts {
 
         function resolveObjectOrUnionTypeMembers(type: ObjectType): ResolvedType {
             if (!(<ResolvedType>type).members) {
-                if (type.flags & (TypeFlags.Class | TypeFlags.Interface)) {
+                if (type.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Brand)) {
                     resolveClassOrInterfaceMembers(<InterfaceType>type);
                 }
                 else if (type.flags & TypeFlags.Anonymous) {
@@ -2837,7 +2843,7 @@ module ts {
                     }
                     else {
                         type = getDeclaredTypeOfSymbol(symbol);
-                        if (type.flags & (TypeFlags.Class | TypeFlags.Interface) && type.flags & TypeFlags.Reference) {
+                        if (type.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Brand) && type.flags & TypeFlags.Reference) {
                             var typeParameters = (<InterfaceType>type).typeParameters;
                             if (node.typeArguments && node.typeArguments.length === typeParameters.length) {
                                 type = createTypeReference(<GenericType>type, map(node.typeArguments, getTypeFromTypeNode));
@@ -3646,7 +3652,7 @@ module ts {
 
                 // [ConcreteTypeScript]
                 // We enforce that classes are only related if specified as such
-                if (result && target.flags & TypeFlags.Class) {
+                if (result && target.flags & (TypeFlags.Class | TypeFlags.Brand)) {
                     if (source.flags & TypeFlags.Class && hasBaseType(<InterfaceType> source, <InterfaceType> target)) {
                         result = Ternary.True;
                     } else {
@@ -5400,7 +5406,7 @@ module ts {
                 return;
             }
             // An instance property must be accessed through an instance of the enclosing class
-            if (!(getTargetType(type).flags & (TypeFlags.Class | TypeFlags.Interface) && hasBaseType(<InterfaceType>type, enclosingClass))) {
+            if (!(getTargetType(type).flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Brand) && hasBaseType(<InterfaceType>type, enclosingClass))) {
                 error(node, Diagnostics.Property_0_is_protected_and_only_accessible_through_an_instance_of_class_1, symbolToString(prop), typeToString(enclosingClass));
             }
         }
@@ -5458,7 +5464,7 @@ module ts {
 
                 // And may use direct access if the target object is concrete
                 if (type.flags & TypeFlags.Concrete &&
-                    (<ConcreteType>type).baseType.flags & TypeFlags.Class) {
+                    (<ConcreteType>type).baseType.flags & (TypeFlags.Class | TypeFlags.Brand)) {
                     node.direct = true;
 
                     // As well as name-mangled access if the target value is concrete, or a method being called
@@ -8378,7 +8384,7 @@ module ts {
                         var t = getTypeFromTypeReferenceNode(typeRefNode);
                         if (t !== unknownType) {
                             var declaredType = (t.flags & TypeFlags.Reference) ? (<TypeReference>t).target : t;
-                            if (declaredType.flags & (TypeFlags.Class | TypeFlags.Interface)) {
+                            if (declaredType.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Brand)) {
                                 checkTypeAssignableTo(type, t, node.name, Diagnostics.Class_0_incorrectly_implements_interface_1);
                             }
                             else {
