@@ -366,9 +366,19 @@ compileFile(nodeDefinitionsFile, servicesSources,[builtLocalDirectory, copyright
                 jake.rmRf(tempDirPath, {silent: true});
            });
 
+// [ConcreteTypeScript] The runtime file
+desc("Copies ConcreteTypeScript runtime into the target directory");
+task("ctsruntime", function() {
+    if (!fs.existsSync(builtLocalDirectory+"cts-runtime.js")) {
+        jake.mkdirP(builtLocalDirectory);
+        jake.cpR("src/concretetypescript/cts-runtime.js", builtLocalDirectory);
+    }
+});
+// [/ConcreteTypeScript]
+
 // Local target to build the compiler and services
 desc("Builds the full compiler and services");
-task("local", ["generate-diagnostics", "lib", tscFile, servicesFile, nodeDefinitionsFile]);
+task("local", ["generate-diagnostics", "lib", "ctsruntime", tscFile, servicesFile, nodeDefinitionsFile]);
 
 // Local target to build the compiler and services
 desc("Sets release mode flag");

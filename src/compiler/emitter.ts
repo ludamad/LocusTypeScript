@@ -76,7 +76,7 @@ module ts {
         var indent = 0;
         var lineStart = true;
         var lineCount = 0;
-        var linePos = 0;
+        var linePos: number = 0;
 
         function write(s: string) {
             if (s && s.length) {
@@ -1551,7 +1551,7 @@ module ts {
                     sourceColumn: 1,
                     sourceIndex: 0
                 };
-                var lastEncodedNameIndex = 0;
+                var lastEncodedNameIndex: number = 0;
 
                 // Encoding for sourcemap span
                 function encodeLastRecordedSourceMapSpan() {
@@ -1617,7 +1617,7 @@ module ts {
                         }
 
                         // Encode 5 bits at a time starting from least significant bits
-                        var encodedStr = "";
+                        var encodedStr: string = "";
                         do {
                             var currentDigit = inValue & 31; // 11111
                             inValue = inValue >> 5;
@@ -1705,7 +1705,7 @@ module ts {
                     }
 
                     function recordScopeNameStart(scopeName: string) {
-                        var scopeNameIndex = -1;
+                        var scopeNameIndex: number = -1;
                         if (scopeName) {
                             var parentIndex = getSourceMapNameIndex();
                             if (parentIndex !== -1) {
@@ -2307,9 +2307,37 @@ module ts {
                 if (tryEmitConstantValue(node)) {
                     return;
                 }
+
+                // [ConcreteTypeScript] Use direct access if possible
+                var v8closers = "";
+                if (compilerOptions.emitV8Intrinsics) {
+                    if (node.assertFloat) {
+                        write("%_UnsafeAssumeFloat(");
+                        v8closers += ")";
+                    }
+                    if (node.assertInt) {
+                        write("%_UnsafeAssumeInt(");
+                        v8closers += ")";
+                    }
+                    if (node.direct) {
+                        write("%_UnsafeAssumeMono(");
+                        v8closers += ")";
+                    }
+                }
+                // [/ConcreteTypeScript]
+
                 emit(node.expression);
                 write(".");
+
+                // [ConcreteTypeScript] Use the mangled name if requested
+                if (node.mangled) {
+                    write("$$cts$$value$");
+                }
+                // [/ConcreteTypeScript]
+
                 emit(node.name);
+
+                write(v8closers); // [ConcreteTypeScript]
             }
 
             function emitQualifiedName(node: QualifiedName) {
@@ -2329,6 +2357,7 @@ module ts {
             }
 
             function emitCallExpression(node: CallExpression) {
+                if (compilerOptions.emitV8Intrinsics && node.direct) write("%_UnsafeAssumeMethod("); // [ConcreteTypeScript]
                 var superCall = false;
                 if (node.expression.kind === SyntaxKind.SuperKeyword) {
                     write("_super");
@@ -2352,6 +2381,7 @@ module ts {
                     emitCommaList(node.arguments, /*includeTrailingComma*/ false);
                     write(")");
                 }
+                if (compilerOptions.emitV8Intrinsics && node.direct) write(")");
             }
 
             function emitNewExpression(node: NewExpression) {
@@ -2370,6 +2400,111 @@ module ts {
                 write(" ");
                 emit(node.template);
             }
+
+            // [ConcreteTypeScript]
+            // Emitter for references to CTS runtime functions
+            function emitCTSRT(name: string) {
+                if (compilerOptions.emitV8Intrinsics) write("%_UnsafeAssumeMono(");
+                write("$$cts$$runtime." + name);
+                if (compilerOptions.emitV8Intrinsics) write(")");
+            }
+
+            // Emitter for a type, as part of casting/protection/etc
+            function emitCTSType(type: Type) {
+                if (type.flags & TypeFlags.String ||
+                    type.flags & TypeFlags.StringLiteral) {
+                    write("String");
+                } else if (type.flags & TypeFlags.Number) {
+                    write("Number");
+                } else if (type.flags & TypeFlags.Boolean) {
+                    write("Boolean");
+                } else if (type.symbol) {
+                    // FIXME
+                    write(type.symbol.name);
+                } else {
+                    console.log(type);
+                    throw new Error("Cannot create dynamic type check!");
+                }
+            }
+
+            // Emitter for a TypeNode, similar to a Type but without the checker
+            function emitCTSTypeNode(type: TypeNode) {
+                function emitEntityName(entityName: EntityName) {
+                    if (entityName.kind === SyntaxKind.Identifier) {
+                        writeTextOfNode(currentSourceFile, entityName);
+                    } else {
+                        var qualifiedName = <QualifiedName>entityName;
+                        emitEntityName(qualifiedName.left);
+                        write(".");
+                        writeTextOfNode(currentSourceFile, qualifiedName.right);
+                    }
+                }
+
+                switch (type.kind) {
+                    case SyntaxKind.AnyKeyword:
+                    case SyntaxKind.VoidKeyword:
+                        return write("Object");
+                    case SyntaxKind.StringKeyword:
+                    case SyntaxKind.StringLiteral:
+                        return write("String");
+                    case SyntaxKind.NumberKeyword:
+                    case SyntaxKind.FloatNumberKeyword:
+                    case SyntaxKind.IntNumberKeyword:
+                        return write("Number");
+                    case SyntaxKind.BooleanKeyword:
+                        return write("Boolean");
+                    case SyntaxKind.TypeReference:
+                        return emitEntityName((<TypeReferenceNode>type).typeName);
+                    default:
+                        Debug.fail("Unsupported CTS type: " + type.kind);
+                }
+            }
+
+            // Emit a default value for this type
+            function emitCTSDefault(type: TypeNode) {
+                switch (type.kind) {
+                    case SyntaxKind.StringKeyword:
+                    case SyntaxKind.StringLiteral:
+                        return write("\"\"");
+                    case SyntaxKind.NumberKeyword:
+                        return write("0");
+                    case SyntaxKind.BooleanKeyword:
+                        return write("false");
+                    default:
+                        return write("void 0");
+                }
+            }
+
+            // A general way to wrap an expression in a type cast
+            function emitCastPre(type: Type) {
+                if (type.flags & TypeFlags.Concrete) {
+                    type = (<ConcreteType>type).baseType;
+                }
+                write("(");
+                emitCTSRT("cast");
+                write("(");
+                emitCTSType(type);
+                write(",(");
+            }
+
+            function emitCastPost(type: Type) {
+                write(")))");
+            }
+
+            // And similarly in a falsey coercion
+            function emitFalseyCoercionPre(type: Type) {
+                if (type.flags & TypeFlags.Concrete) {
+                    type = (<ConcreteType>type).baseType;
+                }
+                write("(");
+                emitCTSType(type);
+                write(".$$cts$$falsey(");
+            }
+
+            function emitFalseyCoercionPost(type: Type) {
+                write("))");
+            }
+            // [/ConcreteTypeScript]
 
             function emitParenExpression(node: ParenthesizedExpression) {
                 if (node.expression.kind === SyntaxKind.TypeAssertionExpression) {
@@ -2457,11 +2592,15 @@ module ts {
 
 
             function emitBinaryExpression(node: BinaryExpression) {
+                // [ConcreteTypeScript] Direct access (for assignments)
+                if (node.direct && compilerOptions.emitV8Intrinsics) write("%_UnsafeAssumeMono(");
+                // [/ConcreteTypeScript]
                 emit(node.left);
                 if (node.operator !== SyntaxKind.CommaToken) write(" ");
                 write(tokenToString(node.operator));
                 write(" ");
                 emit(node.right);
+                if (node.direct && compilerOptions.emitV8Intrinsics) write(")"); // [ConcreteTypeScript]
             }
 
             function emitConditionalExpression(node: ConditionalExpression) {
@@ -2725,6 +2864,41 @@ module ts {
                 emitEnd(node.name);
             }
 
+            // [ConcreteTypeScript]
+            // We need a way of getting just the module object emitte
+            function emitModuleContainerName(node: Declaration) {
+                var container = getContainingModule(node);
+                write(container ? resolver.getLocalNameOfContainer(container) : "exports");
+            }
+
+            // And a general way of saying "cement this declaration"
+            function emitDeclarationCement(node: Declaration) {
+                // If it's a global or exported, we need to cement it
+                if (node.parent && node.parent.kind === SyntaxKind.SourceFile) {
+                    writeLine();
+                    emitCTSRT("cementGlobal");
+                    write("(" + JSON.stringify((<Identifier>node.name).text) + ",");
+                    emit(node.name);
+                    write(");");
+                } else if (node.flags & NodeFlags.Export) {
+                    writeLine();
+                    if (compilerOptions.emitV8Intrinsics) {
+                        // Use AddNamedProperty instead
+                        write("%AddNamedProperty");
+                    } else
+                    emitCTSRT("cement");
+                    write("(");
+                    emitModuleContainerName(node);
+                    write("," + JSON.stringify((<Identifier>node.name).text) + ",");
+                    emit(node.name);
+                    if (compilerOptions.emitV8Intrinsics) {
+                        write(",7"); // magic number for no-write/enum/config
+                    }
+                    write(");");
+                }
+            }
+            // [/ConcreteTypeScript]
+
             function emitVariableDeclaration(node: VariableDeclaration) {
                 emitLeadingComments(node);
                 emitModuleMemberName(node);
@@ -2814,6 +2988,43 @@ module ts {
                 }
             }
 
+            // [ConcreteTypeScript] Protection for function arguments
+            function emitArgumentProtectors(node: FunctionLikeDeclaration) {
+                var didEmitProtectors = false;
+
+                // Possibly check 'this' first
+                var classNode = node.parent && node.parent.kind === SyntaxKind.ClassDeclaration ? node.parent : void 0;
+                if (classNode && !(node.flags & NodeFlags.Static)) {
+                    // Non-static method, must check 'this'
+                    var symbol = classNode.symbol;
+                    writeLine();
+                    emitCTSRT("cast");
+                    write("(");
+                    write(symbol.name);
+                    write(",this);");
+                    didEmitProtectors = true;
+                }
+
+                // Now check each of the arguments
+                forEach(node.parameters, param => {
+                    if (param.type && (<TypeNode>param.type).isConcrete) {
+                        writeLine();
+                        emitStart(param);
+                        emitCTSRT("cast");
+                        write("(");
+                        emitCTSTypeNode(<TypeNode>param.type);
+                        write(",");
+                        emitNode(param.name);
+                        write(");");
+                        emitEnd(param);
+                        didEmitProtectors = true;
+                    }
+                });
+
+                return didEmitProtectors;
+            }
+            // [/ConcreteTypeScript]
+
             function emitAccessor(node: AccessorDeclaration) {
                 emitLeadingComments(node);
                 write(node.kind === SyntaxKind.GetAccessor ? "get " : "set ");
@@ -2822,9 +3033,10 @@ module ts {
                 emitTrailingComments(node);
             }
 
-            function emitFunctionDeclaration(node: FunctionLikeDeclaration) {
+            function emitFunctionDeclaration(node: FunctionLikeDeclaration, name?: string, doEmitProtectors: boolean = true, realBodyIfProtectors?: string /* [ConcreteTypeScript] */) {
                 if (!node.body) {
-                    return emitPinnedOrTripleSlashComments(node);
+                    emitPinnedOrTripleSlashComments(node);
+                    return true; // [ConcreteTypeScript]
                 }
 
                 if (node.kind !== SyntaxKind.Method) {
@@ -2833,12 +3045,20 @@ module ts {
                 }
                 write("function ");
                 if (node.kind === SyntaxKind.FunctionDeclaration || (node.kind === SyntaxKind.FunctionExpression && node.name)) {
+                    // [ConcreteTypeScript] Use our name
+                    if (name) {
+                        write(name);
+                    } else
+                    // [/ConcreteTypeScript]
                     emit(node.name);
                 }
-                emitSignatureAndBody(node);
+                var ret = emitSignatureAndBody(node, doEmitProtectors, realBodyIfProtectors); // [ConcreteTypeScript]
                 if (node.kind !== SyntaxKind.Method) {
                     emitTrailingComments(node);
                 }
+
+                emitDeclarationCement(node); // [ConcreteTypeScript]
+                return ret; // [ConcreteTypeScript]
             }
 
             function emitCaptureThisForNodeIfNecessary(node: Node): void {
@@ -2860,7 +3080,7 @@ module ts {
                 decreaseIndent();
             }
 
-            function emitSignatureAndBody(node: FunctionLikeDeclaration) {
+            function emitSignatureAndBody(node: FunctionLikeDeclaration, doEmitProtectors: boolean = true, realBodyIfProtectors?: string /* [ConcreteTypeScript] */) {
                 emitSignatureParameters(node);
                 write(" {");
                 scopeEmitStart(node);
@@ -2868,7 +3088,7 @@ module ts {
 
                 emitDetachedComments(node.body.kind === SyntaxKind.Block ? (<Block>node.body).statements : node.body);
 
-                var startIndex = 0;
+                var startIndex: number = 0;
                 if (node.body.kind === SyntaxKind.Block) {
                     startIndex = emitDirectivePrologues((<Block>node.body).statements, /*startWithNewLine*/ true);
                 }
@@ -2876,6 +3096,19 @@ module ts {
                 emitCaptureThisForNodeIfNecessary(node);
                 emitDefaultValueAssignments(node);
                 emitRestParameter(node);
+
+                // [ConcreteTypeScript] Protect arguments
+                if (doEmitProtectors && emitArgumentProtectors(node) && realBodyIfProtectors) {
+                    // Just the protection shell
+                    writeLine();
+                    write("return " + realBodyIfProtectors + ".apply(this, arguments);");
+                    decreaseIndent();
+                    writeLine();
+                    write("}");
+                    return false; // false means "I didn't write a body"
+                }
+                // [/ConcreteTypeScript]
+
                 if (node.body.kind !== SyntaxKind.Block && outPos === writer.getTextPos()) {
                     decreaseIndent();
                     write(" ");
@@ -2923,6 +3156,8 @@ module ts {
                     emitEnd(node);
                     write(";");
                 }
+
+                return true; // [ConcreteTypeScript]
             }
 
             function findInitialSuperCall(ctor: ConstructorDeclaration): ExpressionStatement {
@@ -2946,11 +3181,30 @@ module ts {
                         writeLine();
                         emitStart(param);
                         emitStart(param.name);
+                        // [ConcreteTypeScript]
+                        // We need to write it differently if it's the internal property
+                        if (param.type && (<TypeNode>param.type).isConcrete) {
+                            if (compilerOptions.emitV8Intrinsics) {
+                                write("%AddNamedProperty");
+                            } else
+                            emitCTSRT("addUnenum");
+                            write("(this," + JSON.stringify("$$cts$$value$" + (<Identifier>param.name).text) + ",");
+                        } else {
+                        // [/ConcreteTypeScript]
                         write("this.");
                         emitNode(param.name);
                         emitEnd(param.name);
                         write(" = ");
+                        } // [ConcreteTypeScript]
                         emit(param.name);
+                        // [ConcreteTypeScript]
+                        if (param.type && (<TypeNode>param.type).isConcrete) {
+                            if (compilerOptions.emitV8Intrinsics) {
+                                write(",2"); // magic number for unenumerable
+                            }
+                            write(")");
+                        }
+                        // [/ConcreteTypeScript]
                         write(";");
                         emitEnd(param);
                     }
@@ -2974,21 +3228,55 @@ module ts {
 
             function emitMemberAssignments(node: ClassDeclaration, staticFlag: NodeFlags) {
                 forEach(node.members, member => {
-                    if (member.kind === SyntaxKind.Property && (member.flags & NodeFlags.Static) === staticFlag && (<PropertyDeclaration>member).initializer) {
+                    // [ConcreteTypeScript] Need an assignment regardless of initializer
+                    if (member.kind === SyntaxKind.Property && (member.flags & NodeFlags.Static) === staticFlag /*&& (<PropertyDeclaration>member).initializer*/) {
+                    // [/ConcreteTypeScript]
                         writeLine();
                         emitLeadingComments(member);
                         emitStart(member);
                         emitStart((<PropertyDeclaration>member).name);
+                        // [ConcreteTypeScript]
+                        // If we're emitting the unprotected mangled member, make it unenumerable
+                        var memberTypeConcrete = (<PropertyDeclaration>member).type ? (<PropertyDeclaration>member).type.isConcrete : false;
+                        if (memberTypeConcrete) {
+                            if (compilerOptions.emitV8Intrinsics) {
+                                write("%AddNamedProperty");
+                            } else
+                            emitCTSRT("addUnenum");
+                            write("(");
+                        }
+                        // [/ConcreteTypeScript]
                         if (staticFlag) {
                             emitNode(node.name);
                         }
                         else {
                             write("this");
                         }
+                        // [ConcreteTypeScript]
+                        if (memberTypeConcrete) {
+                            write("," + JSON.stringify("$$cts$$value$" + (<Identifier>(<PropertyDeclaration>member).name).text) + ",");
+                            emitEnd((<PropertyDeclaration>member).name);
+                        } else {
+                        // [/ConcreteTypeScript]
                         emitMemberAccessForPropertyName((<PropertyDeclaration>member).name);
                         emitEnd((<PropertyDeclaration>member).name);
                         write(" = ");
+                        // [ConcreteTypeScript]
+                        }
+
+                        // Only emit the initializer if there is one, else use default
+                        if ((<PropertyDeclaration>member).initializer)
                         emit((<PropertyDeclaration>member).initializer);
+                        else if ((<PropertyDeclaration>member).type) emitCTSDefault((<PropertyDeclaration>member).type);
+                        else write("void 0");
+                        if (memberTypeConcrete) {
+                            if (compilerOptions.emitV8Intrinsics) {
+                                write(",2"); // magic number for unenumerable
+                            }
+                            write(")");
+                        }
+                        // [/ConcreteTypeScript]
+
                         write(";");
                         emitEnd(member);
                         emitTrailingComments(member);
@@ -3007,17 +3295,53 @@ module ts {
                         emitLeadingComments(member);
                         emitStart(member);
                         emitStart((<MethodDeclaration>member).name);
+                        // [ConcreteTypeScript]
+                        if (compilerOptions.emitV8Intrinsics) {
+                            write("%AddNamedProperty");
+                        } else
+                        emitCTSRT("cement");
+                        write("(");
+                        // [/ConcreteTypeScript]
                         emitNode(node.name);
                         if (!(member.flags & NodeFlags.Static)) {
                             write(".prototype");
                         }
-                        emitMemberAccessForPropertyName((<MethodDeclaration>member).name);
+                        // [ConcreteTypeScript]
+                        //emitMemberAccessForPropertyName((<MethodDeclaration>member).name);
+                        write("," + JSON.stringify((<Identifier>(<MethodDeclaration>member).name).text) + ",");
                         emitEnd((<MethodDeclaration>member).name);
-                        write(" = ");
+                        //write(" = ");
+                        // [/ConcreteTypeScript]
                         emitStart(member);
-                        emitFunctionDeclaration(<MethodDeclaration>member);
+                        // [ConcreteTypeScript]
+                        if (compilerOptions.emitV8Intrinsics) {
+                            write(",7"); // magic number for "do not touch"
+                        }
+                        // Might need to emit twice (with/without checks)
+                        var second = "$$cts$$value$" + (<Identifier>(<MethodDeclaration>member).name).text;
+                        if (!emitFunctionDeclaration(<MethodDeclaration>member, void 0, true, "this." + second)) {
+                            // Yup, need to emit twice
+                            write(");");
+                            writeLine();
+                            if (compilerOptions.emitV8Intrinsics) {
+                                write("%AddNamedProperty");
+                            } else
+                            emitCTSRT("cement");
+                            write("(");
+                            emitNode(node.name);
+                            if (!(member.flags & NodeFlags.Static)) {
+                                write(".prototype");
+                            }
+                            write("," + JSON.stringify(second) + ",");
+                            emitFunctionDeclaration(<MethodDeclaration>member, void 0, false);
+                            if (compilerOptions.emitV8Intrinsics) {
+                                write(",7");
+                            }
+                        }
+                        // [/ConcreteTypeScript]
                         emitEnd(member);
                         emitEnd(member);
+                        write(")"); // [ConcreteTypeScript]
                         write(";");
                         emitTrailingComments(member);
                     }
@@ -3072,6 +3396,44 @@ module ts {
                 });
             }
 
+            // [ConcreteTypeScript] Protection for parameter properties
+            function emitParameterPropertyProtectors(klass: ClassDeclaration, node: ConstructorDeclaration) {
+                forEach(node.parameters, param => {
+                    if (param.flags & NodeFlags.AccessibilityModifier && param.type && (<TypeNode>param.type).isConcrete) {
+                        writeLine();
+                        emitStart(param);
+                        emitStart(param.name);
+                        emitCTSRT("protect");
+                        write("(");
+                        emitCTSTypeNode(<TypeNode>param.type);
+                        write("," + JSON.stringify(param.name.text) + ",");
+                        emitNode(klass.name);
+                        write(".prototype,true);");
+                        emitEnd(param);
+                    }
+                });
+            }
+
+            function emitMemberProtectors(node: ClassDeclaration) {
+                forEach(node.members, member => {
+                    if (member.kind === SyntaxKind.Property && (<PropertyDeclaration>member).type && (<PropertyDeclaration>member).type.isConcrete) {
+                        writeLine();
+                        emitStart(member);
+                        emitCTSRT("protect");
+                        write("(");
+                        emitCTSTypeNode((<PropertyDeclaration>member).type);
+                        write("," + JSON.stringify((<Identifier>(<PropertyDeclaration>member).name).text) + ",");
+                        emitNode(node.name);
+                        if (!(member.flags & NodeFlags.Static))
+                            write(".prototype");
+                        write(",true);");
+                        emitEnd(member);
+                        emitTrailingComments(member);
+                    }
+                });
+            }
+            // [/ConcreteTypeScript]
+
             function emitClassDeclaration(node: ClassDeclaration) {
                 emitLeadingComments(node);
                 write("var ");
@@ -3093,7 +3455,14 @@ module ts {
                     emitEnd(baseTypeNode);
                 }
                 writeLine();
-                emitConstructorOfClass();
+
+                var ctor = emitConstructorOfClass(); // [ConcreteTypeScript] We need to remember the constructor
+
+                // [ConcreteTypeScript] Protection!
+                if (ctor) emitParameterPropertyProtectors(node, ctor);
+                emitMemberProtectors(node);
+                // [/ConcreteTypeScript]
+
                 emitMemberFunctions(node);
                 emitMemberAssignments(node, NodeFlags.Static);
                 writeLine();
@@ -3123,6 +3492,7 @@ module ts {
                     emitEnd(node);
                     write(";");
                 }
+                emitDeclarationCement(node); // [ConcreteTypeScript]
                 emitTrailingComments(node);
 
                 function emitConstructorOfClass() {
@@ -3151,6 +3521,7 @@ module ts {
                     if (ctor) {
                         emitDefaultValueAssignments(ctor);
                         emitRestParameter(ctor);
+                        emitArgumentProtectors(ctor); // [ConcreteTypeScript] Must protect constructor arguments
                         if (baseTypeNode) {
                             var superCall = findInitialSuperCall(ctor);
                             if (superCall) {
@@ -3185,6 +3556,8 @@ module ts {
                     if (ctor) {
                         emitTrailingComments(ctor);
                     }
+
+                    return ctor; // [ConcreteTypeScript] We need this
                 }
             }
 
@@ -3469,6 +3842,17 @@ module ts {
                 writeLine();
                 emitDetachedComments(node);
 
+                // [ConcreteTypeScript] Make sure CTS is loaded
+                writeLine();
+                write("if (typeof $$cts$$runtime === \"undefined\") {"); writeLine();
+                increaseIndent();
+                write("if (typeof require !== \"undefined\") require(\".\/cts-runtime.js\");"); writeLine();
+                write("else if (typeof document !== \"undefined\") { document.writeLine(\"<script src=\\\"cts-runtime.js\\\"></script>\"); }"); writeLine();
+                write("else throw new Error(\"Could not load ConcreteTypeScript runtime!\");"); writeLine();
+                decreaseIndent();
+                write("}");
+                // [/ConcreteTypeScript]
+
                 // emit prologue directives prior to __extends
                 var startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ false);
                 if (!extendsEmitted && resolver.getNodeCheckFlags(node) & NodeCheckFlags.EmitExtends) {
@@ -3513,6 +3897,43 @@ module ts {
                     return emitPinnedOrTripleSlashComments(node);
                 }
 
+            // [ConcreteTypeScript] Emit type check if necessary
+                if (node.mustFloat && compilerOptions.emitV8Intrinsics) {
+                    write("%_ToFloat(");
+                }
+
+                if (node.mustInt) {
+                    write("(~~(");
+                }
+
+                if (node.mustCheck) {
+                    emitCastPre(node.mustCheck);
+                }
+
+                if (node.forceFalseyCoercion) {
+                    emitFalseyCoercionPre(node.forceFalseyCoercion);
+                }
+
+                emitNodePrime(node);
+
+                if (node.forceFalseyCoercion) {
+                    emitFalseyCoercionPost(node.forceFalseyCoercion);
+                }
+
+                if (node.mustCheck) {
+                    emitCastPost(node.mustCheck);
+                }
+
+                if (node.mustInt) {
+                    write("))");
+                }
+                if (node.mustFloat && compilerOptions.emitV8Intrinsics) {
+                    write(")");
+                }
+            }
+
+            function emitNodePrime(node: Node): void {
+            // [/ConcreteTypeScript]
                 // Check if the node can be emitted regardless of the ScriptTarget
                 switch (node.kind) {
                     case SyntaxKind.Identifier:
@@ -3571,7 +3992,8 @@ module ts {
                     case SyntaxKind.FunctionDeclaration:
                     case SyntaxKind.FunctionExpression:
                     case SyntaxKind.ArrowFunction:
-                        return emitFunctionDeclaration(<FunctionLikeDeclaration>node);
+                        emitFunctionDeclaration(<FunctionLikeDeclaration>node);
+                        return; // [ConcreteTypeScript]
                     case SyntaxKind.DeleteExpression:
                         return emitDeleteExpression(<DeleteExpression>node);
                     case SyntaxKind.TypeOfExpression:
@@ -3827,7 +4249,7 @@ module ts {
             if (!emitDeclarationResult.reportedDeclarationError) {
                 var declarationOutput = emitDeclarationResult.referencePathsOutput;
                 // apply additions
-                var appliedSyncOutputPos = 0;
+                var appliedSyncOutputPos: number = 0;
                 forEach(emitDeclarationResult.aliasDeclarationEmitInfo, aliasEmitInfo => {
                     if (aliasEmitInfo.asynchronousOutput) {
                         declarationOutput += emitDeclarationResult.synchronousDeclarationOutput.substring(appliedSyncOutputPos, aliasEmitInfo.outputPos);

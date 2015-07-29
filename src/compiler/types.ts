@@ -122,6 +122,7 @@ module ts {
         ImplementsKeyword,
         InterfaceKeyword,
         LetKeyword,
+        LikeKeyword, // [ConcreteTypeScript]
         PackageKeyword,
         PrivateKeyword,
         ProtectedKeyword,
@@ -133,7 +134,9 @@ module ts {
         BooleanKeyword,
         ConstructorKeyword,
         DeclareKeyword,
+        FloatNumberKeyword, // [ConcreteTypeScript]
         GetKeyword,
+        IntNumberKeyword, // [ConcreteTypeScript]
         ModuleKeyword,
         RequireKeyword,
         NumberKeyword,
@@ -333,6 +336,17 @@ module ts {
         nextContainer?: Node;         // Next container in declaration order (initialized by binding)
         localSymbol?: Symbol;         // Local symbol declared by node (initialized by binding only for exported nodes)
         modifiers?: ModifiersArray;           // Array of modifiers
+
+        // [ConcreteTypeScript]
+        mustCheck?: Type;             // If this node must be type-checked at runtime, the type to check
+        mustFloat?: boolean;          // If set, this value must be explicitly coerced to float instead of generic number
+        mustInt?: boolean;            // If set, this value must be explicitly coerced to int instead of generic number
+        forceFalseyCoercion?: Type;   // If set, must coerce falsey values to the given type
+        mangled?: boolean;            // If set, use mangled name to access (i.e., access to concrete type/call of concrete type)
+        direct?: boolean;             // If set, may use direct access (i.e., is an access with correct, concrete types)
+        assertFloat?: boolean;        // If set, can assert that this value is always a float instead of generic number
+        assertInt?: boolean;          // If set, can assert that this value is always an int instead of generic number
+        // [/ConcreteTypeScript]
     }
 
     export interface NodeArray<T> extends Array<T>, TextRange {
@@ -469,6 +483,8 @@ module ts {
     }
 
     export interface TypeNode extends Node {
+        specifiedConcrete: boolean; // [ConcreteTypeScript]
+        isConcrete: boolean; // [ConcreteTypeScript]
         _typeNodeBrand: any;
     }
 
@@ -1200,6 +1216,15 @@ module ts {
         Anonymous          = 0x00008000,  // Anonymous
         FromSignature      = 0x00010000,  // Created for signature assignment check
 
+        // [ConcreteTypeScript]
+        // Flag for concrete types, which wrap their non-concrete base types
+        Concrete                = 0x10000000,
+        // Flag for the floating-point hint
+        FloatHint               = 0x20000000,
+        // Flag for the int hint
+        IntHint                 = 0x40000000,
+        // [/ConcreteTypeScript]
+
         Intrinsic  = Any | String | Number | Boolean | Void | Undefined | Null,
         StringLike = String | StringLiteral,
         NumberLike = Number | Enum,
@@ -1211,6 +1236,7 @@ module ts {
         flags: TypeFlags;  // Flags
         id: number;        // Unique ID
         symbol?: Symbol;   // Symbol associated with type (if any)
+        concreteType?: ConcreteType; // [ConcreteTypeScript] The concrete wrapper for this type
     }
 
     // Intrinsic types (TypeFlags.Intrinsic)
@@ -1235,6 +1261,11 @@ module ts {
         declaredConstructSignatures: Signature[];  // Declared construct signatures
         declaredStringIndexType: Type;             // Declared string index type
         declaredNumberIndexType: Type;             // Declared numeric index type
+    }
+
+    // [ConcreteTypeScript] Concrete types
+    export interface ConcreteType extends Type {
+        baseType: IntrinsicType | ObjectType;
     }
 
     // Type references (TypeFlags.Reference)
@@ -1385,6 +1416,9 @@ module ts {
         version?: boolean;
         watch?: boolean;
         [option: string]: string | number | boolean;
+
+        defaultConcrete?: boolean; // [ConcreteTypeScript]
+        emitV8Intrinsics?: boolean; // [ConcreteTypeScript]
     }
 
     export const enum ModuleKind {

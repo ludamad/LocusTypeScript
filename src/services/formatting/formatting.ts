@@ -615,7 +615,7 @@ module ts.formatting {
                 Debug.assert(rangeContainsRange(parent, currentTokenInfo.token));
 
                 var lastTriviaWasNewLine = formattingScanner.lastTrailingTriviaWasNewLine();
-                var indentToken = false;
+                var indentToken: boolean = false;
 
                 if (currentTokenInfo.leadingTrivia) {
                     processTrivia(currentTokenInfo.leadingTrivia, parent, childContextNode, dynamicIndentation);
@@ -879,7 +879,11 @@ module ts.formatting {
         }
 
         function newTextChange(start: number, len: number, newText: string): TextChange {
-            return { span: new TextSpan(start, len), newText }
+            //return { span: new TextSpan(start, len), newText }
+            var ret = new TextChange();
+            ret.span = new TextSpan(start, len);
+            ret.newText = newText;
+            return ret;
         }
 
         function recordDelete(start: number, len: number) {

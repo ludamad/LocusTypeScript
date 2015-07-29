@@ -859,7 +859,7 @@ module ts {
         }
 
         public static createSourceFileObject(filename: string, scriptSnapshot: IScriptSnapshot, languageVersion: ScriptTarget, version: string, isOpen: boolean) {
-            var newSourceFile = <SourceFileObject><any>createSourceFile(filename, scriptSnapshot.getText(0, scriptSnapshot.getLength()), languageVersion, version, isOpen);
+            var newSourceFile = <SourceFileObject><any>createSourceFile(filename, scriptSnapshot.getText(0, scriptSnapshot.getLength()), languageVersion, version, {} /* [ConcreteTypeScript] */, isOpen);
             newSourceFile.scriptSnapshot = scriptSnapshot;
             return newSourceFile;
         }
@@ -1990,7 +1990,7 @@ module ts {
     export function preProcessFile(sourceText: string, readImportFiles = true): PreProcessedFileInfo {
         var referencedFiles: FileReference[] = [];
         var importedFiles: FileReference[] = [];
-        var isNoDefaultLib = false;
+        var isNoDefaultLib: boolean = false;
 
         function processTripleSlashDirectives(): void {
             var commentRanges = getLeadingCommentRanges(sourceText, 0);
@@ -3016,7 +3016,7 @@ module ts {
             var displayParts: SymbolDisplayPart[] = [];
             var documentation: SymbolDisplayPart[];
             var symbolFlags = symbol.flags;
-            var symbolKind = getSymbolKindOfConstructorPropertyMethodAccessorFunctionOrVar(symbol, symbolFlags, typeResolver, location);
+            var symbolKind: string = getSymbolKindOfConstructorPropertyMethodAccessorFunctionOrVar(symbol, symbolFlags, typeResolver, location);
             var hasAddedSymbolInfo: boolean;
             // Class at constructor site need to be shown as constructor apart from property,method, vars
             if (symbolKind !== ScriptElementKind.unknown || symbolFlags & SymbolFlags.Class || symbolFlags & SymbolFlags.Import) {

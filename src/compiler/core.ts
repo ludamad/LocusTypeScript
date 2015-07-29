@@ -664,7 +664,7 @@ module ts {
 
         export function assert(expression: boolean, message?: string, verboseDebugInfo?: () => string): void {
             if (!expression) {
-                var verboseDebugString = "";
+                var verboseDebugString: string = "";
                 if (verboseDebugInfo) {
                     verboseDebugString = "\r\nVerbose Debug Information: " + verboseDebugInfo();
                 }

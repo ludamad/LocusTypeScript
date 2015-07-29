@@ -1,3 +1,64 @@
+# ConcreteTypeScript
+
+This is a modified version of TypeScript which adds safe, concrete types using
+the `!` type constructor. Types annotated with `!` are reliable and checked,
+while normal TypeScript types are unchecked. Concrete and non-concrete types
+may be mixed freely in a single program.
+
+## Concrete types
+
+Classes and primitive types may use the `!` type constructor. On other types,
+including arrays, generics and unions, `!` is syntactically accepted but
+ignored. Note that `!` binds tightly in type definitions, so `!number[]` is an
+array of concrete numbers, not a concrete array of numbers (as concrete arrays
+are unsupported regardless).
+
+Concrete types are guaranteed correct at runtime. Because concrete types can be
+members of non-concrete types or returns from non-concrete functions and
+methods, typechecking can be incurred at the boundary. As such, accessing
+members of concrete types can never fail, but accessing concrete members (or
+returns) of non-concrete types can.
+
+Classes protect their concrete members, and functions protect their concrete
+parameters. This allows for mixing between concrete-aware and
+non-concrete-aware code.
+
+## Concrete semantics
+
+`!T <: T`, and `T <: U => !T <: !U`. `undefined <: T` for all `T` including
+concrete types, and `null <: T` for all object types T including concrete
+object types.
+
+Methods are unwritable in ConcreteTypeScript.
+
+Many builtin operations are modified to evaluate to concrete types when their
+JavaScript semantics assures this, including most operators and `new`.
+
+## Numeric types
+
+ConcreteTypeScript adds two numeric types: `floatNumber` and `intNumber`.
+`floatNumber`, `intNumber`, `number`, `!floatNumber` and `!number` (but not
+`!intNumber`) are all semantically identical, each compiling to JavaScript
+numbers, with no checks on the non-concrete variants. `floatNumber` and
+`intNumber` are subtypes of `number`. Since all mathematical operations yield
+`number` or `!number`, the `floatNumber` and `intNumber` types are easily lost
+and act principally as hints for the optimizer.
+
+`!intNumber` does affect semantics, unlike the others: When a value is casted
+to an `!intNumber`, whether through an explicit cast (`<!intNumber>`) or
+implicit cast of assigning to an `!intNumber`-typed variable, parameter or
+field, it will be coerced to a 32-bit integer, with the semantics of the
+often-used double-negation in JavaScript, e.g. `~~(value)`. Since `!intNumber`
+are assuredly always ints, an optimizer may be able to avoid checks of their
+type, which is particularly important for e.g. indexing arrays.
+
+## TypeScript
+
+The complete, original README.md is included below, but note that many of the
+links are irrelevant to this fork.
+
+# TypeScript
+
 [![Build Status](https://travis-ci.org/Microsoft/TypeScript.svg?branch=master)](https://travis-ci.org/Microsoft/TypeScript)
 [![Issue Stats](http://issuestats.com/github/Microsoft/TypeScript/badge/pr)](http://issuestats.com/github/microsoft/typescript)
 [![Issue Stats](http://issuestats.com/github/Microsoft/TypeScript/badge/issue)](http://issuestats.com/github/microsoft/typescript)

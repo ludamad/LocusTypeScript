@@ -62,6 +62,7 @@ module ts {
         "extends": SyntaxKind.ExtendsKeyword,
         "false": SyntaxKind.FalseKeyword,
         "finally": SyntaxKind.FinallyKeyword,
+        "floatNumber": SyntaxKind.FloatNumberKeyword, // [ConcreteTypeScript]
         "for": SyntaxKind.ForKeyword,
         "function": SyntaxKind.FunctionKeyword,
         "get": SyntaxKind.GetKeyword,
@@ -71,7 +72,9 @@ module ts {
         "in": SyntaxKind.InKeyword,
         "instanceof": SyntaxKind.InstanceOfKeyword,
         "interface": SyntaxKind.InterfaceKeyword,
+        "intNumber": SyntaxKind.IntNumberKeyword, // [ConcreteTypeScript]
         "let": SyntaxKind.LetKeyword,
+        "like": SyntaxKind.LikeKeyword, // [ConcreteTypeScript]
         "module": SyntaxKind.ModuleKeyword,
         "new": SyntaxKind.NewKeyword,
         "null": SyntaxKind.NullKeyword,
@@ -533,7 +536,7 @@ module ts {
 
         function scanHexDigits(count: number, mustMatchCount?: boolean): number {
             var digits = 0;
-            var value = 0;
+            var value: number = 0;
             while (digits < count || !mustMatchCount) {
                 var ch = text.charCodeAt(pos);
                 if (ch >= CharacterCodes._0 && ch <= CharacterCodes._9) {

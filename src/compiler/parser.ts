@@ -294,7 +294,7 @@ module ts {
                 }
                 text = "";
             }
-            return text !== undefined ? createSourceFile(filename, text, languageVersion, /*version:*/ "0") : undefined;
+            return text !== undefined ? createSourceFile(filename, text, languageVersion, /*version:*/ "0", options /* [ConcreteTypeScript] */) : undefined;
         }
 
         function writeFile(fileName: string, data: string, writeByteOrderMark: boolean, onError?: (message: string) => void) {
@@ -417,7 +417,7 @@ module ts {
         return nodeText === '"use strict"' || nodeText === "'use strict'";
     }
 
-    export function createSourceFile(filename: string, sourceText: string, languageVersion: ScriptTarget, version: string, isOpen: boolean = false): SourceFile {
+    export function createSourceFile(filename: string, sourceText: string, languageVersion: ScriptTarget, version: string, options: CompilerOptions /* [ConcreteTypeScript] */, isOpen: boolean = false): SourceFile {
         var token: SyntaxKind;
         var parsingContext: ParsingContext;
         var identifiers: Map<string> = {};
@@ -1116,7 +1116,7 @@ module ts {
             var result = <NodeArray<T>>[];
             result.pos = getNodePos();
 
-            var commaStart = -1; // Meaning the previous token was not a comma
+            var commaStart: number = -1; // Meaning the previous token was not a comma
             while (true) {
                 if (isListElement(kind, /* inErrorRecovery */ false)) {
                     result.push(parseElement());
@@ -1298,8 +1298,10 @@ module ts {
 
         // TYPES
 
-        function parseTypeReference(): TypeReferenceNode {
+        function parseTypeReference(specifiedConcrete?: boolean, isConcrete?: boolean /* [ConcreteTypeScript] */): TypeReferenceNode {
             var node = <TypeReferenceNode>createNode(SyntaxKind.TypeReference);
+            node.specifiedConcrete = !!specifiedConcrete; // [ConcreteTypeScript]
+            node.isConcrete = !!isConcrete; // [ConcreteTypeScript]
             node.typeName = parseEntityName(/*allowReservedWords*/ false, Diagnostics.Type_expected);
             if (!scanner.hasPrecedingLineBreak() && token === SyntaxKind.LessThanToken) {
                 node.typeArguments = parseBracketedList(ParsingContext.TypeArguments, parseType, SyntaxKind.LessThanToken, SyntaxKind.GreaterThanToken);
@@ -1695,13 +1697,38 @@ module ts {
         }
 
         function parseNonArrayType(): TypeNode {
+            var specifiedConcrete: boolean = false; // [ConcreteTypeScript]
+            var isConcrete: boolean = !!options.defaultConcrete; // [ConcreteTypeScript]
+
+            while (1) { // [ConcreteTypeScript] to accept concrete/deconcrete
             switch (token) {
+
+                // [ConcreteTypeScript] Specifications for concreteness
+                case SyntaxKind.ExclamationToken:
+                case SyntaxKind.LikeKeyword:
+                    if (specifiedConcrete) return undefined; // FIXME
+                    specifiedConcrete = true;
+                    isConcrete = (token === SyntaxKind.ExclamationToken);
+                    nextToken();
+                    break;
+                // [/ConcreteTypeScript]
+
                 case SyntaxKind.AnyKeyword:
                 case SyntaxKind.StringKeyword:
                 case SyntaxKind.NumberKeyword:
+                case SyntaxKind.FloatNumberKeyword: // [ConcreteTypeScript]
+                case SyntaxKind.IntNumberKeyword: // [ConcreteTypeScript]
                 case SyntaxKind.BooleanKeyword:
                     // If these are followed by a dot, then parse these out as a dotted type reference instead.
                     var node = tryParse(parseKeywordAndNoDot);
+
+                    // [ConcreteTypeScript] Copy over concreteness
+                    if (node) {
+                        node.specifiedConcrete = specifiedConcrete;
+                        node.isConcrete = isConcrete;
+                    }
+                    // [/ConcreteTypeScript]
+
                     return node || parseTypeReference();
                 case SyntaxKind.VoidKeyword:
                     return parseTokenNode<TypeNode>();
@@ -1714,15 +1741,19 @@ module ts {
                 case SyntaxKind.OpenParenToken:
                     return parseParenthesizedType();
                 default:
-                    return parseTypeReference();
+                    return parseTypeReference(specifiedConcrete, isConcrete /* [ConcreteTypeScript] */);
+            }
             }
         }
 
         function isStartOfType(): boolean {
             switch (token) {
+                case SyntaxKind.ExclamationToken: // [ConcreteTypeScript]
                 case SyntaxKind.AnyKeyword:
                 case SyntaxKind.StringKeyword:
                 case SyntaxKind.NumberKeyword:
+                case SyntaxKind.FloatNumberKeyword: // [ConcreteTypeScript]
+                case SyntaxKind.IntNumberKeyword: // [ConcreteTypeScript]
                 case SyntaxKind.BooleanKeyword:
                 case SyntaxKind.VoidKeyword:
                 case SyntaxKind.TypeOfKeyword:
@@ -4323,12 +4354,12 @@ module ts {
         function checkEnumDeclaration(enumDecl: EnumDeclaration): boolean {
             var enumIsConst = (enumDecl.flags & NodeFlags.Const) !== 0;
 
-            var hasError = false;
+            var hasError: boolean = false;
 
             // skip checks below for const enums  - they allow arbitrary initializers as long as they can be evaluated to constant expressions.
             // since all values are known in compile time - it is not necessary to check that constant enum section precedes computed enum members.
             if (!enumIsConst) {
-                var inConstantEnumMemberSection = true;
+                var inConstantEnumMemberSection: boolean = true;
                 for (var i = 0, n = enumDecl.members.length; i < n; i++) {
                     var node = enumDecl.members[i];
                     if (node.name.kind === SyntaxKind.ComputedPropertyName) {
@@ -4441,7 +4472,7 @@ module ts {
                     return grammarErrorAtPos(start, end - start, Diagnostics.new_T_cannot_be_used_to_create_an_array_Use_new_Array_T_instead);
                 }
                 else {
-                    var start = node.end - "]".length;
+                    var start: number = node.end - "]".length;
                     var end = node.end;
                     return grammarErrorAtPos(start, end - start, Diagnostics.Expression_expected);
                 }

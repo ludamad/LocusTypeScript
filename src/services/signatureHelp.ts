@@ -300,7 +300,7 @@ module ts.SignatureHelp {
                     return undefined;
                 }
 
-                var spanIndex = templateExpression.templateSpans.indexOf(templateSpan);
+                var spanIndex = <!number> templateExpression.templateSpans.indexOf(templateSpan); // [ConcreteTypeScript] FIXME
                 var argumentIndex = getArgumentIndexForTemplatePiece(spanIndex, node);
 
                 return getArgumentListInfoForTemplate(tagExpression, argumentIndex);
@@ -319,7 +319,7 @@ module ts.SignatureHelp {
 
         // spanIndex is either the index for a given template span.
         // This does not give appropriate results for a NoSubstitutionTemplateLiteral
-        function getArgumentIndexForTemplatePiece(spanIndex: number, node: Node): number {
+        function getArgumentIndexForTemplatePiece(spanIndex: !number, node: Node): !number {
             // Because the TemplateStringsArray is the first argument, we have to offset each substitution expression by 1.
             // There are three cases we can encounter:
             //      1. We are precisely in the template literal (argIndex = 0).
@@ -434,7 +434,7 @@ module ts.SignatureHelp {
          */
         function selectBestInvalidOverloadIndex(candidates: Signature[], argumentCount: number): number {
             var maxParamsSignatureIndex = -1;
-            var maxParams = -1;
+            var maxParams: number = -1;
             for (var i = 0; i < candidates.length; i++) {
                 var candidate = candidates[i];
 

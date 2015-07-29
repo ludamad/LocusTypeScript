@@ -134,6 +134,20 @@ module ts {
             type: "boolean",
             description: Diagnostics.Watch_input_files,
         }
+
+        // [ConcreteTypeScript]
+        ,
+        {
+            name: "defaultConcrete",
+            type: "boolean",
+            description: {key: "Use concrete, instead of optional, typing by default."},
+        },
+        {
+            name: "emitV8Intrinsics",
+            type: "boolean",
+            description: {key: "Emit intrinsics for the modified V8 JS VM."},
+        }
+        // [/ConcreteTypeScript]
     ];
     
     var shortOptionNames: Map<string> = {};

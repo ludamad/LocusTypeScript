@@ -76,6 +76,8 @@ module ts {
         var anyType = createIntrinsicType(TypeFlags.Any, "any");
         var stringType = createIntrinsicType(TypeFlags.String, "string");
         var numberType = createIntrinsicType(TypeFlags.Number, "number");
+        var floatNumberType = createIntrinsicType(TypeFlags.Number | TypeFlags.FloatHint, "floatNumber"); // [ConcreteTypeScript]
+        var intNumberType = createIntrinsicType(TypeFlags.Number | TypeFlags.IntHint, "intNumber"); // [ConcreteTypeScript]
         var booleanType = createIntrinsicType(TypeFlags.Boolean, "boolean");
         var voidType = createIntrinsicType(TypeFlags.Void, "void");
         var undefinedType = createIntrinsicType(TypeFlags.Undefined, "undefined");
@@ -670,6 +672,55 @@ module ts {
             return type;
         }
 
+        // [ConcreteTypeScript]
+        // Wrap a type as a concrete type
+        function createConcreteType(target: Type) {
+            var type = target.concreteType;
+            if (!type && !(target.flags & TypeFlags.Any) &&
+                ((target.flags & TypeFlags.Intrinsic) ||
+                 (target.flags & TypeFlags.StringLiteral) ||
+                 (target.flags & TypeFlags.Class))) {
+                type = target.concreteType = <ConcreteType>createType(TypeFlags.Concrete);
+                type.baseType = target;
+            }
+            return type;
+        }
+
+        // And force a type to its non-concrete equivalent
+        function stripConcreteType(target: Type) {
+            if (target.flags & TypeFlags.Concrete) {
+                return (<ConcreteType>target).baseType;
+            } else {
+                return target;
+            }
+        }
+
+        /* Check for assignability problems related to concreteness, namely
+         * requiring checks or float/int coercion, and mark the given node as
+         * requiring those checks */
+        function checkCTSCoercion(node: Node, fromType: Type, toType: Type) {
+            /* If the target type is concrete and value type isn't, must check,
+             * unless it's known null or undefined */
+            if (toType.flags & TypeFlags.Concrete &&
+                !(fromType.flags & TypeFlags.Concrete) &&
+                fromType !== nullType && fromType !== undefinedType) {
+                node.mustCheck = toType;
+            }
+
+            // If the target is float and expression isn't, must coerce
+            if ((toType.flags & TypeFlags.Concrete && (<ConcreteType>toType).baseType.flags & TypeFlags.FloatHint) &&
+                !(fromType.flags & TypeFlags.Concrete && (<ConcreteType>fromType).baseType.flags & TypeFlags.FloatHint)) {
+                node.mustFloat = true;
+            }
+
+            // And similar for int
+            if ((toType.flags & TypeFlags.Concrete && (<ConcreteType>toType).baseType.flags & TypeFlags.IntHint) &&
+                !(fromType.flags & TypeFlags.Concrete && (<ConcreteType>fromType).baseType.flags & TypeFlags.IntHint)) {
+                node.mustInt = true;
+            }
+        }
+        // [/ConcreteTypeScript]
+
         // A reserved member name starts with two underscores followed by a non-underscore
         function isReservedMemberName(name: string) {
             return name.charCodeAt(0) === CharacterCodes._ && name.charCodeAt(1) === CharacterCodes._ && name.charCodeAt(2) !== CharacterCodes._;
@@ -1150,6 +1201,14 @@ module ts {
                     else if (type.flags & TypeFlags.StringLiteral) {
                         writer.writeStringLiteral((<StringLiteralType>type).text);
                     }
+
+                    // [ConcreteTypeScript]
+                    else if (type.flags & TypeFlags.Concrete) {
+                        writer.writeOperator("!");
+                        writeType((<ConcreteType>type).baseType, flags);
+                    }
+                    // [/ConcreteTypeScript]
+
                     else {
                         // Should never get here
                         // { ... }
@@ -2156,7 +2215,7 @@ module ts {
                     return signature;
                 });
             }
-            return [createSignature(undefined, classType.typeParameters, emptyArray, classType, 0, false, false)];
+            return [createSignature(undefined, classType.typeParameters, emptyArray, createConcreteType(classType) /* [ConcreteTypeScript] */, 0, false, false)];
         }
 
         function createTupleTypeMemberSymbols(memberTypes: Type[]): SymbolTable {
@@ -2411,6 +2470,13 @@ module ts {
             if (type.flags & TypeFlags.Union) {
                 return getPropertyOfUnionType(<UnionType>type, name);
             }
+
+            // [ConcreteTypeScript] In terms of member access, properties of
+            // concrete types are the properties of their non-concrete
+            // equivalent
+            type = stripConcreteType(type);
+            // [/ConcreteTypeScript]
+
             if (!(type.flags & TypeFlags.ObjectType)) {
                 type = getApparentType(type);
                 if (!(type.flags & TypeFlags.ObjectType)) {
@@ -2479,7 +2545,7 @@ module ts {
                     declaration.typeParameters ? getTypeParametersFromDeclaration(declaration.typeParameters) : undefined;
                 var parameters: Symbol[] = [];
                 var hasStringLiterals = false;
-                var minArgumentCount = -1;
+                var minArgumentCount: number = -1;
                 for (var i = 0, n = declaration.parameters.length; i < n; i++) {
                     var param = declaration.parameters[i];
                     parameters.push(param.symbol);
@@ -2500,6 +2566,11 @@ module ts {
                 var returnType: Type;
                 if (classType) {
                     returnType = classType;
+
+                    // [ConcreteTypeScript] Constructors return concrete types
+                    returnType = createConcreteType(returnType);
+                    // [/ConcreteTypeScript]
+
                 }
                 else if (declaration.type) {
                     returnType = getTypeFromTypeNode(declaration.type);
@@ -2978,7 +3049,13 @@ module ts {
             return links.resolvedType;
         }
 
-        function getStringLiteralType(node: LiteralExpression): StringLiteralType {
+        // [ConcreteTypeScript] Made concrete
+        function getStringLiteralType(node: LiteralExpression): ConcreteType {
+            return createConcreteType(getStringLiteralTypePrime(node));
+        }
+
+        function getStringLiteralTypePrime(node: LiteralExpression): StringLiteralType {
+        // [/ConcreteTypeScript]
             if (hasProperty(stringLiteralTypes, node.text)) {
                 return stringLiteralTypes[node.text];
             }
@@ -2996,7 +3073,24 @@ module ts {
             return links.resolvedType;
         }
 
+        // [ConcreteTypeScript] Modified to support concrete
         function getTypeFromTypeNode(node: TypeNode | LiteralExpression): Type {
+            var type = getTypeFromTypeNodePrime(node);
+            if ((<TypeNode> node).isConcrete) {
+                var ctype = createConcreteType(type);
+                if (ctype || (<TypeNode> node).specifiedConcrete) {
+                    type = ctype;
+                } else {
+                    // Forget about concreteness
+                    (<TypeNode> node).isConcrete = false;
+                }
+            }
+            if (!type) return unknownType;
+            return type;
+        }
+
+        function getTypeFromTypeNodePrime(node: TypeNode | LiteralExpression): Type {
+        // [/ConcreteTypeScript]
             switch (node.kind) {
                 case SyntaxKind.AnyKeyword:
                     return anyType;
@@ -3004,6 +3098,12 @@ module ts {
                     return stringType;
                 case SyntaxKind.NumberKeyword:
                     return numberType;
+                // [ConcreteTypeScript]
+                case SyntaxKind.FloatNumberKeyword:
+                    return floatNumberType;
+                case SyntaxKind.IntNumberKeyword:
+                    return intNumberType;
+                // [/ConcreteTypeScript]
                 case SyntaxKind.BooleanKeyword:
                     return booleanType;
                 case SyntaxKind.VoidKeyword:
@@ -3327,10 +3427,24 @@ module ts {
                     if (source === undefinedType) return Ternary.True;
                     if (source === nullType && target !== undefinedType) return Ternary.True;
                     if (source.flags & TypeFlags.Enum && target === numberType) return Ternary.True;
+
+                    // [ConcreteTypeScript]
+                    // Enum types are also related to !number
+                    // FIXME: I'm not convinced that this is safe
+                    if (source.flags & TypeFlags.Enum &&
+                        target === numberType.concreteType) return Ternary.True;
+                    // floatNumber and intNumber are subtypes of number
+                    if ((source === floatNumberType || source === intNumberType) && target === numberType) return Ternary.True;
+                    // [/ConcreteTypeScript]
+
                     if (source.flags & TypeFlags.StringLiteral && target === stringType) return Ternary.True;
                     if (relation === assignableRelation) {
                         if (source.flags & TypeFlags.Any) return Ternary.True;
                         if (source === numberType && target.flags & TypeFlags.Enum) return Ternary.True;
+
+                        // [ConcreteTypeScript] numbers are assignable to floatNumbers and intNumbers
+                        if (source === numberType && (target === floatNumberType || target === intNumberType)) return Ternary.True;
+                        // [/ConcreteTypeScript]
                     }
                 }
                 if (source.flags & TypeFlags.Union) {
@@ -3343,6 +3457,20 @@ module ts {
                         return result;
                     }
                 }
+
+                // [ConcreteTypeScript] Support for concrete type relationships
+                else if (source.flags & TypeFlags.Concrete) {
+                    if (result = concreteTypeRelatedToType(<ConcreteType>source, target, reportErrors)) {
+                        return result;
+                    }
+                }
+                else if (target.flags & TypeFlags.Concrete) {
+                    if (result = typeRelatedToConcreteType(source, <ConcreteType>target, reportErrors)) {
+                        return result;
+                    }
+                }
+                // [/ConcreteTypeScript]
+
                 else if (source.flags & TypeFlags.TypeParameter && target.flags & TypeFlags.TypeParameter) {
                     if (result = typeParameterRelatedTo(<TypeParameter>source, <TypeParameter>target, reportErrors)) {
                         return result;
@@ -3397,6 +3525,26 @@ module ts {
                 }
                 return result;
             }
+
+            // [ConcreteTypeScript] Type relationships between concrete and unconcrete types
+            function typeRelatedToConcreteType(source: Type, target: ConcreteType, reportErrors: boolean): Ternary {
+                if (source.flags & TypeFlags.Concrete) {
+                    // !x <: !y iff x <: y
+                    return isRelatedTo((<ConcreteType>source).baseType, target.baseType, reportErrors);
+                }
+                return Ternary.False;
+            }
+
+            function concreteTypeRelatedToType(source: ConcreteType, target: Type, reportErrors: boolean): Ternary {
+                if (target.flags & TypeFlags.Concrete) {
+                    // !x <: !y iff x <: y
+                    return isRelatedTo(source.baseType, (<ConcreteType>target).baseType, reportErrors);
+                } else {
+                    // !x <: y iff x <: y
+                    return isRelatedTo(source.baseType, target, reportErrors);
+                }
+            }
+            // [/ConcreteTypeScript]
 
             function typesRelatedTo(sources: Type[], targets: Type[], reportErrors: boolean): Ternary {
                 var result = Ternary.True;
@@ -3495,6 +3643,18 @@ module ts {
                 }
                 expandingFlags = saveExpandingFlags;
                 depth--;
+
+                // [ConcreteTypeScript]
+                // We enforce that classes are only related if specified as such
+                if (result && target.flags & TypeFlags.Class) {
+                    if (source.flags & TypeFlags.Class && hasBaseType(<InterfaceType> source, <InterfaceType> target)) {
+                        result = Ternary.True;
+                    } else {
+                        result = Ternary.False;
+                    }
+                }
+                // [/ConcreteTypeScript]
+
                 if (result) {
                     var maybeCache = maybeStack[depth];
                     // If result is definitely true, copy assumptions to global cache, else copy to next level up
@@ -4266,8 +4426,11 @@ module ts {
         function subtractPrimitiveTypes(type: Type, subtractMask: TypeFlags): Type {
             if (type.flags & TypeFlags.Union) {
                 var types = (<UnionType>type).types;
-                if (forEach(types, t => t.flags & subtractMask)) {
-                    return getUnionType(filter(types, t => !(t.flags & subtractMask)));
+                // [ConcreteTypeScript]
+                // Also remove concrete equivalents
+                if (forEach(types, t => ((t.flags & subtractMask) || (t.flags & TypeFlags.Concrete && (<ConcreteType>t).baseType.flags & subtractMask)))) {
+                    return getUnionType(filter(types, t => !((t.flags & subtractMask) || (t.flags & TypeFlags.Concrete && (<ConcreteType>t).baseType.flags & subtractMask))));
+                // [/ConcreteTypeScript]
                 }
             }
             return type;
@@ -4470,6 +4633,12 @@ module ts {
                 if (assumeTrue) {
                     // The assumed result is true. If check was for a primitive type, that type is the narrowed type. Otherwise we can
                     // remove the primitive types from the narrowed type.
+
+                    // [ConcreteTypeScript]
+                    // We can safely assume that the type is concrete here
+                    if (checkType !== emptyObjectType) checkType = createConcreteType(checkType);
+                    // [/ConcreteTypeScript]
+
                     return checkType === emptyObjectType ? subtractPrimitiveTypes(type, TypeFlags.String | TypeFlags.Number | TypeFlags.Boolean) : checkType;
                 }
                 else {
@@ -4627,7 +4796,15 @@ module ts {
             var classNode = container.parent && container.parent.kind === SyntaxKind.ClassDeclaration ? container.parent : undefined;
             if (classNode) {
                 var symbol = getSymbolOfNode(classNode);
-                return container.flags & NodeFlags.Static ? getTypeOfSymbol(symbol) : getDeclaredTypeOfSymbol(symbol);
+                //return container.flags & NodeFlags.Static ? getTypeOfSymbol(symbol) : getDeclaredTypeOfSymbol(symbol);
+
+                // [ConcreteTypeScript] Need to assure 'this' is concrete
+                if (container.flags & NodeFlags.Static) {
+                    return getTypeOfSymbol(symbol);
+                } else {
+                    return createConcreteType(getDeclaredTypeOfSymbol(symbol));
+                }
+                // [/ConcreteTypeScript]
             }
             return anyType;
         }
@@ -5268,7 +5445,42 @@ module ts {
                         checkClassPropertyAccess(node, left, type, prop);
                     }
                 }
-                return getTypeOfSymbol(prop);
+
+                //return getTypeOfSymbol(prop);
+                // [ConcreteTypeScript]
+                var ptype = getTypeOfSymbol(prop);
+
+                // Must check if the member is concrete but it is being accessed on a non-concrete type
+                if ((ptype.flags & TypeFlags.Concrete) &&
+                    !(type.flags & TypeFlags.Concrete)) {
+                    node.mustCheck = ptype;
+                }
+
+                // And may use direct access if the target object is concrete
+                if (type.flags & TypeFlags.Concrete &&
+                    (<ConcreteType>type).baseType.flags & TypeFlags.Class) {
+                    node.direct = true;
+
+                    // As well as name-mangled access if the target value is concrete, or a method being called
+                    if (ptype.flags & TypeFlags.Concrete ||
+                        (prop.flags & SymbolFlags.Method && node.parent.kind === SyntaxKind.CallExpression &&
+                         (<CallExpression>node.parent).expression === <any>node)) {
+                        node.mangled = true;
+                    }
+                }
+
+                // And float/intness
+                if (ptype.flags & TypeFlags.Concrete &&
+                    (<ConcreteType>ptype).baseType.flags & TypeFlags.FloatHint) {
+                    node.assertFloat = true;
+                }
+                if (ptype.flags & TypeFlags.Concrete &&
+                    (<ConcreteType>ptype).baseType.flags & TypeFlags.IntHint) {
+                    node.assertInt = true;
+                }
+
+                return ptype;
+                // [/ConcreteTypeScript]
             }
             return anyType;
         }
@@ -5295,10 +5507,25 @@ module ts {
             return true;
         }
 
+        // [ConcreteTypeScript] Must check index access if it returns a concrete type
         function checkIndexedAccess(node: ElementAccessExpression): Type {
+            var type = checkIndexedAccessPrime(node);
+            if (type.flags & TypeFlags.Concrete) {
+                node.mustCheck = type;
+            }
+            return type;
+        }
+
+        function checkIndexedAccessPrime(node: ElementAccessExpression): Type {
+        // [/ConcreteTypeScript]
             // Obtain base constraint such that we can bail out if the constraint is an unknown type
             var objectType = getApparentType(checkExpression(node.expression));
             var indexType = node.argumentExpression ? checkExpression(node.argumentExpression) : unknownType;
+
+            // [ConcreteTypeScript] Allow concrete indexes
+            objectType = stripConcreteType(objectType);
+            indexType = stripConcreteType(indexType);
+            // [/ConcreteTypeScript]
 
             if (objectType === unknownType) {
                 return unknownType;
@@ -5531,7 +5758,7 @@ module ts {
 
         function checkTypeArguments(signature: Signature, typeArguments: TypeNode[], typeArgumentResultTypes: Type[], reportErrors: boolean): boolean {
             var typeParameters = signature.typeParameters;
-            var typeArgumentsAreAssignable = true;
+            var typeArgumentsAreAssignable: boolean = true;
             for (var i = 0; i < typeParameters.length; i++) {
                 var typeArgNode = typeArguments[i];
                 var typeArgument = getTypeFromTypeNode(typeArgNode);
@@ -5691,6 +5918,26 @@ module ts {
                 resultOfFailedInference = undefined;
                 result = chooseOverload(candidates, assignableRelation);
             }
+
+            // [ConcreteTypeScript]
+            // If any of the arguments were casted from a non-concrete to a
+            // concrete type (any->!something), we need to make that cast
+            // explicit
+            if (result && result.declaration) {
+                var params = result.declaration.parameters;
+                var cargs = (<CallExpression>node).arguments;
+                if (params && cargs && cargs.length <= params.length) {
+                    for (var i = 0; i < cargs.length; i++) {
+                        var param = params[i];
+                        var arg = cargs[i];
+                        var paramType = param.type ? getTypeFromTypeNode(param.type) : anyType;
+                        var argType = checkExpression(arg); // FIXME: rechecking
+                        checkCTSCoercion(arg, argType, paramType);
+                    }
+                }
+            }
+            // [/ConcreteTypeScript]
+
             if (result) {
                 return result;
             }
@@ -6019,7 +6266,49 @@ module ts {
                     return anyType;
                 }
             }
-            return getReturnTypeOfSignature(signature);
+
+            //return getReturnTypeOfSignature(signature);
+            // [ConcreteTypeScript]
+            // If this:
+            // 1. Is a method call,
+            // 2. returns a concrete type, and
+            // 3. is over a non-concrete object,
+            // then its return must be checked.
+            var rtype = getReturnTypeOfSignature(signature);
+            if (rtype.flags & TypeFlags.Concrete) { // 2
+                var fnode = node.expression;
+                if (fnode.kind === SyntaxKind.PropertyAccessExpression) { // 1
+                    var target = (<PropertyAccessExpression>fnode).expression;
+                    var ttype = checkExpression(target);
+                    if (!(ttype.flags & TypeFlags.Concrete || (ttype.symbol && ttype.symbol.flags & SymbolFlags.Class))) { // 3
+                        // Must check!
+                        node.mustCheck = rtype;
+
+                    } else if (ttype.flags & TypeFlags.Concrete &&
+                        (<ConcreteType>rtype).baseType.flags & TypeFlags.FloatHint) {
+                        // Can assert that it's a float
+                        node.assertFloat = true;
+
+                    } else if (ttype.flags & TypeFlags.Concrete &&
+                        (<ConcreteType>rtype).baseType.flags & TypeFlags.IntHint) {
+                        // Can assert that it's an int
+                        node.assertInt = true;
+
+                    }
+                } else if (node.kind === SyntaxKind.CallExpression) {
+                    // non-method non-constructors must be checked too
+                    node.mustCheck = rtype;
+                }
+            }
+
+            // If the call target used direct access, that actually belongs on the call (because of how methods work in JS)
+            if (node.expression.direct) {
+                node.expression.direct = void 0;
+                node.direct = true;
+            }
+
+            return rtype;
+            // [/ConcreteTypeScript]
         }
 
         function checkTaggedTemplateExpression(node: TaggedTemplateExpression): Type {
@@ -6034,6 +6323,10 @@ module ts {
                 if (!(isTypeAssignableTo(targetType, widenedType))) {
                     checkTypeAssignableTo(exprType, targetType, node, Diagnostics.Neither_type_0_nor_type_1_is_assignable_to_the_other);
                 }
+
+                // [ConcreteTypeScript]
+                checkCTSCoercion(node, exprType, targetType);
+                // [/ConcreteTypeScript]
             }
             return targetType;
         }
@@ -6233,6 +6526,7 @@ module ts {
 
         function checkArithmeticOperandType(operand: Node, type: Type, diagnostic: DiagnosticMessage): boolean {
             if (!(type.flags & (TypeFlags.Any | TypeFlags.NumberLike))) {
+                console.log(typeToString(type));
                 error(operand, diagnostic);
                 return false;
             }
@@ -6314,17 +6608,17 @@ module ts {
 
         function checkDeleteExpression(node: DeleteExpression): Type {
             var operandType = checkExpression(node.expression);
-            return booleanType;
+            return createConcreteType(booleanType); // [ConcreteTypeScript] Always concrete
         }
 
         function checkTypeOfExpression(node: TypeOfExpression): Type {
             var operandType = checkExpression(node.expression);
-            return stringType;
+            return createConcreteType(stringType); // [ConcreteTypeScript] Always concrete
         }
 
         function checkVoidExpression(node: VoidExpression): Type {
             var operandType = checkExpression(node.expression);
-            return undefinedType;
+            return createConcreteType(undefinedType); // [ConcreteTypeScript] Always concrete
         }
 
         function checkPrefixUnaryExpression(node: PrefixUnaryExpression): Type {
@@ -6333,11 +6627,12 @@ module ts {
                 case SyntaxKind.PlusToken:
                 case SyntaxKind.MinusToken:
                 case SyntaxKind.TildeToken:
-                    return numberType;
+                    return createConcreteType(numberType); // [ConcreteTypeScript] Always concrete
                 case SyntaxKind.ExclamationToken:
-                    return booleanType;
+                    return createConcreteType(booleanType); // [ConcreteTypeScript] Always concrete
                 case SyntaxKind.PlusPlusToken:
                 case SyntaxKind.MinusMinusToken:
+                    operandType = stripConcreteType(operandType); // [ConcreteTypeScript] Concreteness irrelevant for us
                     var ok = checkArithmeticOperandType(node.operand, operandType, Diagnostics.An_arithmetic_operand_must_be_of_type_any_number_or_an_enum_type);
                     if (ok) {
                         // run check only if former checks succeeded to avoid reporting cascading errors
@@ -6345,13 +6640,22 @@ module ts {
                             Diagnostics.The_operand_of_an_increment_or_decrement_operator_must_be_a_variable_property_or_indexer,
                             Diagnostics.The_operand_of_an_increment_or_decrement_operator_cannot_be_a_constant);
                     }
-                    return numberType;
+
+                    // [ConcreteTypeScript]
+                    // If we determined that we had to check the operand, we can't, as it's a reference
+                    node.operand.mustCheck = node.operand.mustFloat = node.operand.mustInt = void 0;
+                    node.operand.assertFloat = node.operand.assertInt = void 0;
+                    node.operand.direct = void 0;
+                    // [/ConcreteTypeScript]
+
+                    return createConcreteType(numberType); // [ConcreteTypeScript] Always concrete
             }
             return unknownType;
         }
 
         function checkPostfixUnaryExpression(node: PostfixUnaryExpression): Type {
             var operandType = checkExpression(node.operand);
+            operandType = stripConcreteType(operandType); // [ConcreteTypeScript] Concreteness irrelevant for us
             var ok = checkArithmeticOperandType(node.operand, operandType, Diagnostics.An_arithmetic_operand_must_be_of_type_any_number_or_an_enum_type);
             if (ok) {
                 // run check only if former checks succeeded to avoid reporting cascading errors
@@ -6359,7 +6663,15 @@ module ts {
                     Diagnostics.The_operand_of_an_increment_or_decrement_operator_must_be_a_variable_property_or_indexer,
                     Diagnostics.The_operand_of_an_increment_or_decrement_operator_cannot_be_a_constant);
             }
-            return numberType;
+
+            // [ConcreteTypeScript]
+            // If we determined that we had to check the operand, we can't, as it's a reference
+            node.operand.mustCheck = node.operand.mustFloat = node.operand.mustInt = void 0;
+            node.operand.assertFloat = node.operand.assertInt = void 0;
+            node.operand.direct = void 0;
+            // [/ConcreteTypeScript]
+
+            return createConcreteType(numberType); // [ConcreteTypeScript] Result always concrete
         }
 
         // Return true if type an object type, a type parameter, or a union type composed of only those kinds of types
@@ -6391,7 +6703,7 @@ module ts {
             if (!(rightType.flags & TypeFlags.Any || isTypeSubtypeOf(rightType, globalFunctionType))) {
                 error(node.right, Diagnostics.The_right_hand_side_of_an_instanceof_expression_must_be_of_type_any_or_of_a_type_assignable_to_the_Function_interface_type);
             }
-            return booleanType;
+            return createConcreteType(booleanType); // [ConcreteTypeScript] Always concrete
         }
 
         function checkInExpression(node: BinaryExpression, leftType: Type, rightType: Type): Type {
@@ -6399,13 +6711,19 @@ module ts {
             // The in operator requires the left operand to be of type Any, the String primitive type, or the Number primitive type,
             // and the right operand to be of type Any, an object type, or a type parameter type.
             // The result is always of the Boolean primitive type.
-            if (leftType !== anyType && leftType !== stringType && leftType !== numberType) {
+
+            // [ConcreteTypeScript] Either side may of course be concrete
+            if (leftType.flags & TypeFlags.Concrete) leftType = (<ConcreteType>leftType).baseType;
+            if (rightType.flags & TypeFlags.Concrete) rightType = (<ConcreteType>rightType).baseType;
+            // [/ConcreteTypeScript]
+
+            if (leftType !== anyType && leftType !== stringType && leftType !== numberType && (leftType !== floatNumberType && leftType !== intNumberType) /* [ConcreteTypeScript] */) {
                 error(node.left, Diagnostics.The_left_hand_side_of_an_in_expression_must_be_of_types_any_string_or_number);
             }
             if (!(rightType.flags & TypeFlags.Any || isStructuredType(rightType))) {
                 error(node.right, Diagnostics.The_right_hand_side_of_an_in_expression_must_be_of_type_any_an_object_type_or_a_type_parameter);
             }
-            return booleanType;
+            return createConcreteType(booleanType); // [ConcreteTypeScript] Always concrete
         }
 
         function checkBinaryExpression(node: BinaryExpression, contextualMapper?: TypeMapper) {
@@ -6433,6 +6751,12 @@ module ts {
                 case SyntaxKind.CaretEqualsToken:
                 case SyntaxKind.AmpersandToken:
                 case SyntaxKind.AmpersandEqualsToken:
+                    // [ConcreteTypeScript]
+                    // Since the result type is always concrete, input concreteness doesn't matter
+                    leftType = stripConcreteType(leftType);
+                    rightType = stripConcreteType(rightType);
+                    // [/ConcreteTypeScript]
+
                     // TypeScript 1.0 spec (April 2014): 4.15.1
                     // These operators require their operands to be of type Any, the Number primitive type,
                     // or an enum type. Operands of an enum type are treated 
@@ -6455,11 +6779,11 @@ module ts {
                         var leftOk = checkArithmeticOperandType(node.left, leftType, Diagnostics.The_left_hand_side_of_an_arithmetic_operation_must_be_of_type_any_number_or_an_enum_type);
                         var rightOk = checkArithmeticOperandType(node.right, rightType, Diagnostics.The_right_hand_side_of_an_arithmetic_operation_must_be_of_type_any_number_or_an_enum_type);
                         if (leftOk && rightOk) {
-                            checkAssignmentOperator(numberType);
+                            checkAssignmentOperator(createConcreteType(numberType)); // [ConcreteTypeScript] Result is concrete
                         }    
                     }
 
-                    return numberType;
+                    return createConcreteType(numberType); // [ConcreteTypeScript] Result is concrete
                 case SyntaxKind.PlusToken:
                 case SyntaxKind.PlusEqualsToken:
                     // TypeScript 1.0 spec (April 2014): 4.15.2
@@ -6467,8 +6791,22 @@ module ts {
                     // or at least one of the operands to be of type Any or the String primitive type.
 
                     // If one operand is the null or undefined value, it is treated as having the type of the other operand.
-                    if (leftType.flags & (TypeFlags.Undefined | TypeFlags.Null)) leftType = rightType;
-                    if (rightType.flags & (TypeFlags.Undefined | TypeFlags.Null)) rightType = leftType;
+                    // [ConcreteTypeScript] But don't trust concreteness here!
+                    if (leftType.flags & (TypeFlags.Undefined | TypeFlags.Null)) leftType = stripConcreteType(rightType);
+                    if (rightType.flags & (TypeFlags.Undefined | TypeFlags.Null)) rightType = stripConcreteType(leftType);
+                    // [/ConcreteTypeScript]
+
+                    // [ConcreteTypeScript]
+                    // We must support passing through concreteness
+                    var leftConcrete: boolean = false,
+                        rightConcrete: boolean = false,
+                        resultConcrete: boolean = false;
+                    if (leftType.flags & TypeFlags.Concrete) leftConcrete = true;
+                    if (rightType.flags & TypeFlags.Concrete) rightConcrete = true;
+                    if (leftConcrete && rightConcrete) resultConcrete = true;
+                    leftType = stripConcreteType(leftType);
+                    rightType = stripConcreteType(rightType);
+                    // [/ConcreteTypeScript]
 
                     var resultType: Type;
                     if (leftType.flags & TypeFlags.NumberLike && rightType.flags & TypeFlags.NumberLike) {
@@ -6479,6 +6817,14 @@ module ts {
                     else if (leftType.flags & TypeFlags.StringLike || rightType.flags & TypeFlags.StringLike) {
                         // If one or both operands are of the String primitive type, the result is of the String primitive type.
                         resultType = stringType;
+
+                        // [ConcreteTypeScript]
+                        // If one side is known concretely to be a string, then we know concretely that the result is a string
+                        if ((leftConcrete && leftType.flags & TypeFlags.StringLike) ||
+                            (rightConcrete && rightType.flags & TypeFlags.StringLike)) {
+                            resultConcrete = true;
+                        }
+                        // [/ConcreteTypeScript]
                     }
                     else if (leftType.flags & TypeFlags.Any || leftType === unknownType || rightType.flags & TypeFlags.Any || rightType === unknownType) {
                         // Otherwise, the result is of type Any.
@@ -6490,6 +6836,10 @@ module ts {
                         reportOperatorError();
                         return anyType;
                     }
+
+                    // [ConcreteTypeScript] Apply concreteness to result
+                    if (resultConcrete) resultType = createConcreteType(resultType);
+                    // [/ConcreteTypeScript]
 
                     if (operator === SyntaxKind.PlusEqualsToken) {
                         checkAssignmentOperator(resultType);
@@ -6506,12 +6856,29 @@ module ts {
                     if (!isTypeAssignableTo(leftType, rightType) && !isTypeAssignableTo(rightType, leftType)) {
                         reportOperatorError();
                     }
-                    return booleanType;
+                    return createConcreteType(booleanType); // [ConcreteTypeScript] Result is concrete
                 case SyntaxKind.InstanceOfKeyword:
                     return checkInstanceOfExpression(node, leftType, rightType);
                 case SyntaxKind.InKeyword:
                     return checkInExpression(node, leftType, rightType);
                 case SyntaxKind.AmpersandAmpersandToken:
+                    // [ConcreteTypeScript]
+                    // This type is completely wrong, but the pattern is too
+                    // common to outright ignore. So instead, we coerce the
+                    // left to the right brand of falsey if concreteness was
+                    // asked for.
+                    // FIXME: This could break trace-preservation, if the
+                    // falseyness behaves differently
+                    if (rightType.flags & TypeFlags.Concrete) {
+                        if (isTypeAssignableTo(leftType, rightType)) {
+                            // it's fine, but may need an optimizing-hint coercion
+                            checkCTSCoercion(node.left, leftType, rightType);
+                        } else {
+                            // need a hardcore coercion!
+                            node.left.forceFalseyCoercion = rightType;
+                        }
+                    }
+                    // [/ConcreteTypeScript]
                     return rightType;
                 case SyntaxKind.BarBarToken:
                     return getUnionType([leftType, rightType]);
@@ -6552,6 +6919,24 @@ module ts {
                         // to avoid cascading errors check assignability only if 'isReference' check succeeded and no errors were reported
                         checkTypeAssignableTo(valueType, leftType, node.left, /*headMessage*/ undefined);
                     }
+
+                    // [ConcreteTypeScript]
+                    // If we determined that we had to check the LHS... well, we don't, we're just assigning
+                    if (node.left.mustCheck) node.left.mustCheck = void 0;
+                    if (node.left.mustFloat) node.left.mustFloat = void 0;
+                    if (node.left.mustInt) node.left.mustInt = void 0;
+                    if (node.left.assertFloat) node.left.assertFloat = void 0;
+                    if (node.left.assertInt) node.left.assertInt = void 0;
+
+                    // And if the LHS could be direct, it's actually the assignment
+                    if (node.left.direct) {
+                        node.left.direct = void 0;
+                        node.direct = true;
+                    }
+
+                    // We may have to check the RHS
+                    checkCTSCoercion(node.right, valueType, leftType);
+                    // [/ConcreteTypeScript]
                 }
             }
 
@@ -6666,12 +7051,13 @@ module ts {
                     return nullType;
                 case SyntaxKind.TrueKeyword:
                 case SyntaxKind.FalseKeyword:
-                    return booleanType;
+                    return createConcreteType(booleanType); // [ConcreteTypeScript]
                 case SyntaxKind.NumericLiteral:
-                    return numberType;
+                    return createConcreteType(numberType); // [ConcreteTypeScript]
                 case SyntaxKind.TemplateExpression:
                     return checkTemplateExpression(<TemplateExpression>node);
                 case SyntaxKind.StringLiteral:
+                    return createConcreteType(stringType); // [ConcreteTypeScript]
                 case SyntaxKind.NoSubstitutionTemplateLiteral:
                     return stringType;
                 case SyntaxKind.RegularExpressionLiteral:
@@ -7662,6 +8048,11 @@ module ts {
             if (node.initializer && !(getNodeLinks(node.initializer).flags & NodeCheckFlags.TypeChecked)) {
                 // Use default messages
                 checkTypeAssignableTo(checkAndMarkExpression(node.initializer), type, node, /*headMessage*/ undefined);
+
+                // [ConcreteTypeScript]
+                var initType = checkAndMarkExpression(node.initializer); // FIXME: rechecking
+                checkCTSCoercion(node.initializer, initType, type);
+                // [/ConcreteTypeScript]
             }
 
             return type;
@@ -7797,6 +8188,12 @@ module ts {
                                 error(node.expression, Diagnostics.Return_type_of_constructor_signature_must_be_assignable_to_the_instance_type_of_the_class);
                             }
                         }
+
+                        // [ConcreteTypeScript]
+                        // If we took advantage of return-assignability to sneak in a non-concrete or non-float, check it
+                        var expType = checkExpression(node.expression); // FIXME: rechecking
+                        checkCTSCoercion(node.expression, expType, returnType);
+                        // [/ConcreteTypeScript]
                     }
                 }
             }
@@ -8189,7 +8586,7 @@ module ts {
             if (!(nodeLinks.flags & NodeCheckFlags.EnumValuesComputed)) {
                 var enumSymbol = getSymbolOfNode(node);
                 var enumType = getDeclaredTypeOfSymbol(enumSymbol);
-                var autoValue = 0;
+                var autoValue: number = 0;
                 var ambient = isInAmbientContext(node);
                 var enumIsConst = isConst(node);
 
@@ -8861,6 +9258,8 @@ module ts {
             switch (node.kind) {
                 case SyntaxKind.AnyKeyword:
                 case SyntaxKind.NumberKeyword:
+                case SyntaxKind.FloatNumberKeyword: // [ConcreteTypeScript]
+                case SyntaxKind.IntNumberKeyword: // [ConcreteTypeScript]
                 case SyntaxKind.StringKeyword:
                 case SyntaxKind.BooleanKeyword:
                     return true;

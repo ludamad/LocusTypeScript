@@ -362,7 +362,7 @@ module ts {
 
         // We want our descriptions to align at the same column in our output,
         // so we keep track of the longest option usage string.
-        var marginLength = 0;
+        var marginLength: number = 0;
         var usageColumn: string[] = []; // Things like "-d, --declaration" go in here.
         var descriptionColumn: string[] = [];
 
