@@ -4,6 +4,8 @@ function makePoint(x, y) : Point {
     return point;
 }
 
-function usePoint(x, y) {
-    var point : Point = makePoint(1,2);
-}
+var point : Point = makePoint(1,2);
+
+var doodad : brand Doodad = {};
+doodad = {};
+

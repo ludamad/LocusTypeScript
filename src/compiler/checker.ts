@@ -320,11 +320,6 @@ module ts {
                             break loop;
                         }
                         break;
-                    case SyntaxKind.BrandTypeDeclaration:
-                        if (result = getSymbol(getSymbolOfNode(location).exports, name, meaning & SymbolFlags.Brand)) {
-                            break loop;
-                        }
-                        break;
                     case SyntaxKind.Property:
                         // TypeScript 1.0 spec (April 2014): 8.4.1
                         // Initializer expressions for instance member variables are evaluated in the scope 
@@ -8075,10 +8070,8 @@ module ts {
 
             if (node.initializer && !(getNodeLinks(node.initializer).flags & NodeCheckFlags.TypeChecked)) {
                 var isBrandTypeDeclaration = false;
-                // TODO Hackish setting of TypeChecked
                 if (node.type && node.kind == SyntaxKind.VariableDeclaration) {
                     isBrandTypeDeclaration = !!(<VariableDeclaration>node).type.brandTypeDeclaration;
-                    getNodeLinks(node.initializer).flags |= NodeCheckFlags.TypeChecked;
                 }
                 // Brand type declarations get a free pass
                 if (!isBrandTypeDeclaration) {
@@ -9225,8 +9218,8 @@ module ts {
                             copySymbol(source[id], meaning);
                         }
                     }
-                }
             }
+                }
 
             if (isInsideWithStatementBody(location)) {
                 // We cannot answer semantic questions within a with block, do not proceed any further
@@ -9252,10 +9245,23 @@ module ts {
                             copySymbols(getSymbolOfNode(location).members, meaning & SymbolFlags.Type);
                         }
                         break;
+                        
                     case SyntaxKind.FunctionExpression:
                         if ((<FunctionExpression>location).name) {
                             copySymbol(location.symbol, meaning);
                         }
+                    // case SyntaxKind.FunctionType:
+                    // case SyntaxKind.ConstructorType:
+                    // case SyntaxKind.CallSignature:
+                    // case SyntaxKind.ConstructSignature:
+                    // case SyntaxKind.IndexSignature:
+                    // case SyntaxKind.Method:
+                    // case SyntaxKind.Constructor:
+                    // case SyntaxKind.GetAccessor:
+                    // case SyntaxKind.SetAccessor:
+                    // case SyntaxKind.FunctionDeclaration:
+                    // case SyntaxKind.ArrowFunction:
+                    //     copySymbols(getSymbolOfNode(location).exports, meaning & SymbolFlags.Brand);
                         break;
                     case SyntaxKind.CatchClause:
                         if ((<CatchClause>location).name.text) {

@@ -1145,7 +1145,7 @@ module ts {
         ExportHasLocal = Function | Class | Brand | Enum | ValueModule,
 
         HasLocals  = Function | Module | Method | Constructor | Accessor | Signature,
-        HasExports = Class | Brand | Enum | Module,
+        HasExports = Function | Class | Brand | Enum | Module,
         HasMembers = Class | Brand | Interface | TypeLiteral | ObjectLiteral,
 
         IsContainer        = HasLocals | HasExports | HasMembers,

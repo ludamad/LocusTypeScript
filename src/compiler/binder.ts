@@ -272,7 +272,16 @@ module ts {
                 case SyntaxKind.FunctionDeclaration:
                 case SyntaxKind.FunctionExpression:
                 case SyntaxKind.ArrowFunction:
-                    declareSymbol(container.locals, undefined, node, symbolKind, symbolExcludes);
+                    if (node.kind == SyntaxKind.BrandTypeDeclaration) {
+                        // Set to parent, unless we are in the global scope:
+                        var parentScope = container.parent || container;
+                        while (!parentScope.locals) {
+                            parentScope = parentScope.parent;
+                        }
+                        declareSymbol(parentScope.locals, container.symbol, node, symbolKind, symbolExcludes);
+                    } else {
+                        declareSymbol(container.locals, undefined, node, symbolKind, symbolExcludes);
+                    }
                     break;
                 case SyntaxKind.ClassDeclaration:
                     if (node.flags & NodeFlags.Static) {
@@ -287,18 +296,6 @@ module ts {
                 case SyntaxKind.EnumDeclaration:
                     declareSymbol(container.symbol.exports, container.symbol, node, symbolKind, symbolExcludes);
                     break;
-                // [ConcreteTypeScript]
-                // case SyntaxKind.VariableDeclaration:
-                //     var typeNode:TypeNode = (<VariableDeclaration>node).type;
-                //     if (typeNode.brandTypeDeclaration) {
-                //         console.log("HAD DECL");
-                //         declareSymbol(container.symbol.exports, container.symbol, typeNode.brandTypeDeclaration, symbolKind, symbolExcludes);
-                //     }
-                //     break;
-                case SyntaxKind.BrandTypeDeclaration:
-                    declareSymbol(container.symbol.exports, container.symbol, node, symbolKind, symbolExcludes);
-                    break;
-                // [/ConcreteTypeScript]
             }
             bindChildren(node, symbolKind, isBlockScopeContainer);
         }
