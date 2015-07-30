@@ -123,6 +123,7 @@ module ts {
         InterfaceKeyword,
         LetKeyword,
         LikeKeyword, // [ConcreteTypeScript]
+        BrandKeyword, // [ConcreteTypeScript]
         PackageKeyword,
         PrivateKeyword,
         ProtectedKeyword,
@@ -221,6 +222,7 @@ module ts {
         ClassDeclaration,
         InterfaceDeclaration,
         TypeAliasDeclaration,
+        BrandTypeDeclaration, // [ConcreteTypeScript]
         EnumDeclaration,
         ModuleDeclaration,
         ModuleBlock,
@@ -485,6 +487,7 @@ module ts {
     export interface TypeNode extends Node {
         specifiedConcrete: boolean; // [ConcreteTypeScript]
         isConcrete: boolean; // [ConcreteTypeScript]
+        brandTypeDeclaration?: BrandTypeDeclaration; // [ConcreteTypeScript]
         _typeNodeBrand: any;
     }
 
@@ -787,6 +790,10 @@ module ts {
     export interface HeritageClause extends Node {
         token: SyntaxKind;
         types?: NodeArray<TypeReferenceNode>;
+    }
+    
+    export interface BrandTypeDeclaration extends Declaration, ModuleElement {
+        name: Identifier;
     }
 
     export interface TypeAliasDeclaration extends Declaration, ModuleElement {
@@ -1130,6 +1137,7 @@ module ts {
         SetAccessorExcludes     = Value & ~GetAccessor,
         TypeParameterExcludes   = Type & ~TypeParameter,
         TypeAliasExcludes       = Type,
+        BrandTypeExcludes       = Type, // [ConcreteTypeScript]
         ImportExcludes          = Import,  // Imports collide with all other imports with the same name
 
         ModuleMember = Variable | Function | Class | Brand | Interface | Enum | Module | TypeAlias | Import,

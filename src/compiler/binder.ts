@@ -287,6 +287,18 @@ module ts {
                 case SyntaxKind.EnumDeclaration:
                     declareSymbol(container.symbol.exports, container.symbol, node, symbolKind, symbolExcludes);
                     break;
+                // [ConcreteTypeScript]
+                // case SyntaxKind.VariableDeclaration:
+                //     var typeNode:TypeNode = (<VariableDeclaration>node).type;
+                //     if (typeNode.brandTypeDeclaration) {
+                //         console.log("HAD DECL");
+                //         declareSymbol(container.symbol.exports, container.symbol, typeNode.brandTypeDeclaration, symbolKind, symbolExcludes);
+                //     }
+                //     break;
+                case SyntaxKind.BrandTypeDeclaration:
+                    declareSymbol(container.symbol.exports, container.symbol, node, symbolKind, symbolExcludes);
+                    break;
+                // [/ConcreteTypeScript]
             }
             bindChildren(node, symbolKind, isBlockScopeContainer);
         }
@@ -458,6 +470,9 @@ module ts {
                 case SyntaxKind.InterfaceDeclaration:
                     bindDeclaration(<Declaration>node, SymbolFlags.Interface, SymbolFlags.InterfaceExcludes, /*isBlockScopeContainer*/ false);
                     break;
+                case SyntaxKind.BrandTypeDeclaration:
+                    bindDeclaration(<Declaration>node, SymbolFlags.Brand, SymbolFlags.BrandTypeExcludes, /*isBlockScopeContainer*/ false);
+                    break;
                 case SyntaxKind.TypeAliasDeclaration:
                     bindDeclaration(<Declaration>node, SymbolFlags.TypeAlias, SymbolFlags.TypeAliasExcludes, /*isBlockScopeContainer*/ false);
                     break;
@@ -490,7 +505,10 @@ module ts {
                 case SyntaxKind.SwitchStatement:
                     bindChildren(node, 0 , true);
                     break;
-
+                case SyntaxKind.TypeReference:
+                  if ((<TypeReferenceNode>node).brandTypeDeclaration) {
+                      bindDeclaration((<TypeReferenceNode>node).brandTypeDeclaration, SymbolFlags.Brand, 0, /*isBlockScopeContainer*/ false);
+                  }
                 default:
                     var saveParent = parent;
                     parent = node;

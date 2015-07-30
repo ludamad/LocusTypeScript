@@ -908,6 +908,11 @@ module ts {
             }
         }
 
+        // [ConcretTypeScript]
+        function emitBrandTypeDeclaration(node: BrandTypeDeclaration) {
+            // TODO
+        }
+
         function emitInterfaceDeclaration(node: InterfaceDeclaration) {
             if (resolver.isDeclarationVisible(node)) {
                 emitJsDocComments(node);
@@ -1360,6 +1365,8 @@ module ts {
                     return emitInterfaceDeclaration(<InterfaceDeclaration>node);
                 case SyntaxKind.ClassDeclaration:
                     return emitClassDeclaration(<ClassDeclaration>node);
+                case SyntaxKind.BrandTypeDeclaration:
+                    return emitBrandTypeDeclaration(<BrandTypeDeclaration>node);
                 case SyntaxKind.TypeAliasDeclaration:
                     return emitTypeAliasDeclaration(<TypeAliasDeclaration>node);
                 case SyntaxKind.EnumMember:

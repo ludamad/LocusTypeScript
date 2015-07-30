@@ -120,6 +120,7 @@ module ts {
         var diagnosticsModified: boolean = false;
 
         function addDiagnostic(diagnostic: Diagnostic) {
+            // throw new Error("Diagnostic in checker");
             diagnostics.push(diagnostic);
             diagnosticsModified = true;
         }
@@ -152,6 +153,7 @@ module ts {
             if (flags & SymbolFlags.SetAccessor) result |= SymbolFlags.SetAccessorExcludes;
             if (flags & SymbolFlags.TypeParameter) result |= SymbolFlags.TypeParameterExcludes;
             if (flags & SymbolFlags.TypeAlias) result |= SymbolFlags.TypeAliasExcludes;
+            if (flags & SymbolFlags.Brand) result |= SymbolFlags.BrandTypeExcludes;
             if (flags & SymbolFlags.Import) result |= SymbolFlags.ImportExcludes;
             return result;
         }
@@ -315,6 +317,11 @@ module ts {
                         break;
                     case SyntaxKind.EnumDeclaration:
                         if (result = getSymbol(getSymbolOfNode(location).exports, name, meaning & SymbolFlags.EnumMember)) {
+                            break loop;
+                        }
+                        break;
+                    case SyntaxKind.BrandTypeDeclaration:
+                        if (result = getSymbol(getSymbolOfNode(location).exports, name, meaning & SymbolFlags.Brand)) {
                             break loop;
                         }
                         break;
@@ -669,14 +676,6 @@ module ts {
         function createObjectType(kind: TypeFlags, symbol?: Symbol): ObjectType {
             var type = <ObjectType>createType(kind);
             type.symbol = symbol;
-            return type;
-        }
-
-        // [ConcreteTypeScript]
-        // Create a brand type
-        function createBrandType() {
-            var type = <BrandType>createType(TypeFlags.Brand);
-            type.monomorphicProperties = [];
             return type;
         }
 
@@ -1191,7 +1190,7 @@ module ts {
                     else if (type.flags & TypeFlags.Reference) {
                         writeTypeReference(<TypeReference>type, flags);
                     }
-                    else if (type.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Enum | TypeFlags.TypeParameter)) {
+                    else if (type.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Brand | TypeFlags.Enum | TypeFlags.TypeParameter)) {
                         buildSymbolDisplay(type.symbol, writer, enclosingDeclaration, SymbolFlags.Type);
                     }
                     else if (type.flags & TypeFlags.Tuple) {
@@ -1206,7 +1205,6 @@ module ts {
                     else if (type.flags & TypeFlags.StringLiteral) {
                         writer.writeStringLiteral((<StringLiteralType>type).text);
                     }
-
                     // [ConcreteTypeScript]
                     else if (type.flags & TypeFlags.Concrete) {
                         writer.writeOperator("!");
@@ -1622,6 +1620,7 @@ module ts {
                     case SyntaxKind.ClassDeclaration:
                     case SyntaxKind.InterfaceDeclaration:
                     case SyntaxKind.TypeAliasDeclaration:
+                    case SyntaxKind.BrandTypeDeclaration:
                     case SyntaxKind.FunctionDeclaration:
                     case SyntaxKind.EnumDeclaration:
                     case SyntaxKind.ImportDeclaration:
@@ -2063,6 +2062,22 @@ module ts {
             return links.declaredType;
         }
 
+        function getDeclaredTypeOfBrand(symbol: Symbol): InterfaceType {
+            var links = getSymbolLinks(symbol);
+            if (!links.declaredType) {
+                /* On first occurrence */
+                var type = <InterfaceType>createObjectType(TypeFlags.Brand, symbol);
+                type.baseTypes = [];
+                type.declaredProperties = [];
+                type.declaredCallSignatures = emptyArray;
+                type.declaredConstructSignatures = emptyArray;
+                type.declaredStringIndexType = getIndexTypeOfSymbol(symbol, IndexKind.String);
+                type.declaredNumberIndexType = getIndexTypeOfSymbol(symbol, IndexKind.Number);
+                links.declaredType = type;
+            }
+            return <InterfaceType>links.declaredType;
+        }
+
         function getDeclaredTypeOfEnum(symbol: Symbol): Type {
             var links = getSymbolLinks(symbol);
             if (!links.declaredType) {
@@ -2104,6 +2119,9 @@ module ts {
             }
             if (symbol.flags & SymbolFlags.TypeAlias) {
                 return getDeclaredTypeOfTypeAlias(symbol);
+            }
+            if (symbol.flags & SymbolFlags.Brand) {
+                return getDeclaredTypeOfBrand(symbol);
             }
             if (symbol.flags & SymbolFlags.Enum) {
                 return getDeclaredTypeOfEnum(symbol);
@@ -2888,6 +2906,7 @@ module ts {
                         case SyntaxKind.ClassDeclaration:
                         case SyntaxKind.InterfaceDeclaration:
                         case SyntaxKind.EnumDeclaration:
+                        case SyntaxKind.BrandTypeDeclaration:
                             return declaration;
                     }
                 }
@@ -7066,6 +7085,8 @@ module ts {
                     return createConcreteType(stringType); // [ConcreteTypeScript]
                 case SyntaxKind.NoSubstitutionTemplateLiteral:
                     return stringType;
+                case SyntaxKind.BrandKeyword:
+                    return checkIdentifier(<Identifier>node);
                 case SyntaxKind.RegularExpressionLiteral:
                     return globalRegExpType;
                 case SyntaxKind.ArrayLiteralExpression:
@@ -7742,6 +7763,7 @@ module ts {
                             ? SymbolFlags.ExportNamespace | SymbolFlags.ExportValue
                             : SymbolFlags.ExportNamespace;
                     case SyntaxKind.ClassDeclaration:
+                    case SyntaxKind.BrandTypeDeclaration:
                     case SyntaxKind.EnumDeclaration:
                         return SymbolFlags.ExportType | SymbolFlags.ExportValue;
                     case SyntaxKind.ImportDeclaration:
@@ -8052,13 +8074,22 @@ module ts {
             }
 
             if (node.initializer && !(getNodeLinks(node.initializer).flags & NodeCheckFlags.TypeChecked)) {
-                // Use default messages
-                checkTypeAssignableTo(checkAndMarkExpression(node.initializer), type, node, /*headMessage*/ undefined);
+                var isBrandTypeDeclaration = false;
+                // TODO Hackish setting of TypeChecked
+                if (node.type && node.kind == SyntaxKind.VariableDeclaration) {
+                    isBrandTypeDeclaration = !!(<VariableDeclaration>node).type.brandTypeDeclaration;
+                    getNodeLinks(node.initializer).flags |= NodeCheckFlags.TypeChecked;
+                }
+                // Brand type declarations get a free pass
+                if (!isBrandTypeDeclaration) {
+                    // Use default messages
+                    checkTypeAssignableTo(checkAndMarkExpression(node.initializer), type, node, /*headMessage*/ undefined);
 
-                // [ConcreteTypeScript]
-                var initType = checkAndMarkExpression(node.initializer); // FIXME: rechecking
-                checkCTSCoercion(node.initializer, initType, type);
-                // [/ConcreteTypeScript]
+                    // [ConcreteTypeScript]
+                    var initType = checkAndMarkExpression(node.initializer); // FIXME: rechecking
+                    checkCTSCoercion(node.initializer, initType, type);
+                    // [/ConcreteTypeScript]
+                }
             }
 
             return type;
@@ -8580,6 +8611,11 @@ module ts {
                 checkTypeForDuplicateIndexSignatures(node);
             }
         }
+        
+        function checkBrandTypeDeclaration(node: BrandTypeDeclaration) {
+            checkTypeNameIsReserved(node.name, Diagnostics.Class_name_cannot_be_0);
+            // checkSourceElement(node.type);
+        }
 
         function checkTypeAliasDeclaration(node: TypeAliasDeclaration) {
             checkTypeNameIsReserved(node.name, Diagnostics.Type_alias_name_cannot_be_0);
@@ -8997,6 +9033,8 @@ module ts {
                     return checkClassDeclaration(<ClassDeclaration>node);
                 case SyntaxKind.InterfaceDeclaration:
                     return checkInterfaceDeclaration(<InterfaceDeclaration>node);
+                case SyntaxKind.BrandTypeDeclaration:
+                    return checkBrandTypeDeclaration(<TypeAliasDeclaration>node);
                 case SyntaxKind.TypeAliasDeclaration:
                     return checkTypeAliasDeclaration(<TypeAliasDeclaration>node);
                 case SyntaxKind.EnumDeclaration:
@@ -9243,6 +9281,7 @@ module ts {
                 case SyntaxKind.TypeParameter:
                 case SyntaxKind.ClassDeclaration:
                 case SyntaxKind.InterfaceDeclaration:
+                case SyntaxKind.BrandTypeDeclaration:
                 case SyntaxKind.TypeAliasDeclaration:
                 case SyntaxKind.EnumDeclaration:
                     return true;

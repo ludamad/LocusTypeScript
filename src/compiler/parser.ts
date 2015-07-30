@@ -1298,6 +1298,19 @@ module ts {
 
         // TYPES
 
+        // [ConcreteTypeScript]
+        function parseBrandType(specifiedConcrete?: boolean, isConcrete?: boolean): TypeReferenceNode {
+              // For use in binder:
+              var declNode = <BrandTypeDeclaration>createNode(SyntaxKind.BrandTypeDeclaration);
+              nextToken();
+              // TODO consider interaction with generics
+              var node = parseTypeReference(specifiedConcrete, isConcrete);
+              node.brandTypeDeclaration = declNode; 
+              declNode.name = <Identifier>node.typeName;
+              finishNode(declNode);
+              return node;
+        }
+
         function parseTypeReference(specifiedConcrete?: boolean, isConcrete?: boolean /* [ConcreteTypeScript] */): TypeReferenceNode {
             var node = <TypeReferenceNode>createNode(SyntaxKind.TypeReference);
             node.specifiedConcrete = !!specifiedConcrete; // [ConcreteTypeScript]
@@ -1729,7 +1742,7 @@ module ts {
                     }
                     // [/ConcreteTypeScript]
 
-                    return node || parseTypeReference();
+                    return node || parseTypeReference(specifiedConcrete, isConcrete /* [ConcreteTypeScript] */);
                 case SyntaxKind.VoidKeyword:
                     return parseTokenNode<TypeNode>();
                 case SyntaxKind.TypeOfKeyword:
@@ -1740,6 +1753,8 @@ module ts {
                     return parseTupleType();
                 case SyntaxKind.OpenParenToken:
                     return parseParenthesizedType();
+                case SyntaxKind.BrandKeyword:
+                    return parseBrandType(specifiedConcrete, isConcrete);
                 default:
                     return parseTypeReference(specifiedConcrete, isConcrete /* [ConcreteTypeScript] */);
             }
@@ -1865,6 +1880,9 @@ module ts {
             if (token === SyntaxKind.NewKeyword) {
                 return parseFunctionOrConstructorType(SyntaxKind.ConstructorType);
             }
+            if (token === SyntaxKind.BrandKeyword) {
+               return parseBrandType();
+            }  
             return parseUnionTypeOrHigher();
         }
 
@@ -3538,6 +3556,15 @@ module ts {
             return finishNode(node);
         }
 
+        function parseBrandTypeDeclaration(fullStart: number, modifiers: ModifiersArray): BrandTypeDeclaration {
+            var node = <BrandTypeDeclaration>createNode(SyntaxKind.BrandTypeDeclaration, fullStart);
+            setModifiers(node, modifiers);
+            parseExpected(SyntaxKind.BrandKeyword);
+            node.name = parseIdentifier();
+            parseSemicolon();
+            return finishNode(node);
+        }
+
         function parseTypeAliasDeclaration(fullStart: number, modifiers: ModifiersArray): TypeAliasDeclaration {
             var node = <TypeAliasDeclaration>createNode(SyntaxKind.TypeAliasDeclaration, fullStart);
             setModifiers(node, modifiers);
@@ -3686,6 +3713,7 @@ module ts {
                 case SyntaxKind.EnumKeyword:
                 case SyntaxKind.ImportKeyword:
                 case SyntaxKind.TypeKeyword:
+                case SyntaxKind.BrandKeyword:
                     // Not true keywords so ensure an identifier follows
                     return lookAhead(nextTokenIsIdentifierOrKeyword);
                 case SyntaxKind.ModuleKeyword:
@@ -3749,6 +3777,8 @@ module ts {
                     return parseClassDeclaration(fullStart, modifiers);
                 case SyntaxKind.InterfaceKeyword:
                     return parseInterfaceDeclaration(fullStart, modifiers);
+                case SyntaxKind.BrandKeyword:
+                    return parseBrandTypeDeclaration(fullStart, modifiers);
                 case SyntaxKind.TypeKeyword:
                     return parseTypeAliasDeclaration(fullStart, modifiers);
                 case SyntaxKind.EnumKeyword:
