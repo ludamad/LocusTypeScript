@@ -120,7 +120,6 @@ module ts {
         var diagnosticsModified: boolean = false;
 
         function addDiagnostic(diagnostic: Diagnostic) {
-            throw new Error("Diagnostic in checker: " + diagnostic.messageText);
             diagnostics.push(diagnostic);
             diagnosticsModified = true;
         }

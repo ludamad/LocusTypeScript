@@ -533,6 +533,7 @@ module ts {
                                       propertyNode.pos = binNode.pos;
                                       propertyNode.end = binNode.end;
                                       propertyNode.parent = typeNode;
+                                      propertyNode.initializer = binNode.right;
                                       declareSymbol(brandSymbol.members, brandSymbol, propertyNode, SymbolFlags.Property, 0);
                                   }
                               }

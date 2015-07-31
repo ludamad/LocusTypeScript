@@ -12,7 +12,7 @@ function makePoint(x: number, y: number) : Point {
 var point : Point = makePoint(1,2);
 
 point.x = 2;          // Passes, correct
-point.x = "Hello";    // Passes, incorrect
 point.shouldPass = 0; // Passes, correct
+point.x = "Hello";    // Fails,  correct
 point.shouldFail = 2; // Fails,  correct
 
