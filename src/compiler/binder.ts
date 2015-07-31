@@ -503,8 +503,42 @@ module ts {
                     bindChildren(node, 0 , true);
                     break;
                 case SyntaxKind.TypeReference:
-                  if ((<TypeReferenceNode>node).brandTypeDeclaration) {
+                case SyntaxKind.BinaryExpression:
+                  if (node.kind === SyntaxKind.TypeReference && (<TypeReferenceNode>node).brandTypeDeclaration) {
                       bindDeclaration((<TypeReferenceNode>node).brandTypeDeclaration, SymbolFlags.Brand, 0, /*isBlockScopeContainer*/ false);
+                  }
+                  if (node.kind === SyntaxKind.BinaryExpression && (<BinaryExpression>node).operator === SyntaxKind.EqualsToken) {
+                      // Detect type-building assignment for brand-types. We are interested in the case when...
+                      // 1. The LHS is a BinaryExpression of <identifier>.<identifier>
+                      // 2. <variable> has an associated declaration whose TypeNode has brandTypeDeclaration.
+                      // No restrictions on RHS, but we are only interested in its statically known type.
+                      var binNode = <BinaryExpression> node;
+                      // Match for <expression>.<identifier>
+                      if (binNode.left.kind === SyntaxKind.PropertyAccessExpression) {
+                          var propAccess = <PropertyAccessExpression> binNode.left;
+                          // Match for <identifier>.<identifier>
+                          if (propAccess.expression.kind === SyntaxKind.Identifier) {
+                              // Match for <identifier>.<identifier>
+                              var propName = propAccess.name; // <identifier>
+                              var propExpr = <Identifier> propAccess.expression;
+                              var symbol = container.locals[propExpr.text];
+                              if (symbol && symbol.declarations.length > 0) {
+                                  var varDecl = <VariableDeclaration>symbol.declarations[0];
+                                  var typeNode: TypeNode = varDecl.type;
+                                  if (typeNode && typeNode.brandTypeDeclaration) {
+                                      var brandSymbol = typeNode.brandTypeDeclaration.symbol;
+                                      // Create a property declaration for the brand-type symbol list:
+                                      var propertyNode = <PropertyDeclaration> new (objectAllocator.getNodeConstructor(SyntaxKind.Property))();
+                                      propertyNode.name = propName;
+                                      propertyNode.pos = binNode.pos;
+                                      propertyNode.end = binNode.end;
+                                      propertyNode.parent = typeNode;
+                                      declareSymbol(brandSymbol.members, brandSymbol, propertyNode, SymbolFlags.Property, 0);
+                                  }
+                              }
+                              // propExpr.
+                          }
+                      }
                   }
                 default:
                     var saveParent = parent;
