@@ -38,6 +38,7 @@ var compilerSources = [
     "utilities.ts",
     "binder.ts",
     "checker.ts",
+    "checkerHelper.ts",
     "emitter.ts",
     "commandLineParser.ts",
     "tsc.ts",
@@ -55,6 +56,7 @@ var servicesSources = [
     "utilities.ts",
     "binder.ts",
     "checker.ts",
+    "checkerHelper.ts",
     "emitter.ts",
     "diagnosticInformationMap.generated.ts"
 ].map(function (f) {
@@ -695,3 +697,5 @@ task('tsc-instrumented', [loggedIOJsPath, instrumenterJsPath, tscFile], function
     });
     ex.run();
 }, { async: true });
+
+watchTask(['default']);

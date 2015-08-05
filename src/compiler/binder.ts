@@ -387,6 +387,64 @@ module ts {
 
             bindChildren(node, SymbolFlags.BlockScopedVariable, /*isBlockScopeContainer*/ false);
         }
+      
+        // [ConcreteTypeScript] Find variable declaration associated with identifier, or 'null' if not a VariableDeclaration
+        function findVariableDeclaration(location: Node, identifier: Identifier): VariableDeclaration {
+            while (true) {
+                if (!location) {
+                    // Not found, let checker handle error reporting:
+                    return null;
+                }
+                if (!location.locals || !hasProperty(location.locals, identifier.text)) {
+                    location = location.parent;
+                    continue; 
+                }
+                var symbol = location.locals[identifier.text];
+                if (symbol.declarations.length < 1) {
+                    return null; 
+                }
+                if (symbol.declarations[0].kind !== SyntaxKind.VariableDeclaration) {
+                    // Not a variable declaration:
+                    return null;
+                }
+                // Matched, return variable declaration:
+                return <VariableDeclaration>symbol.declarations[0];
+            }
+        }
+
+        // [ConcreteTypeScript]
+        function bindPropertyAssignment(propAccess: PropertyAccessExpression, value: Expression): void {
+            // Detect type-building assignment for brand-types. We are interested in the case when...
+            // 1. The LHS is a PropertyAccessExpression with form "<identifier>.<identifier>".
+            // 2. <variable> has an associated VariableDeclaration with form "var <identifier> : brand <identifier".
+            // No restrictions on RHS, but we are only interested in its statically known type.
+            // Match for PropertyAccessExpression with "<identifier>.<identifier>".
+            if (propAccess.expression.kind !== SyntaxKind.Identifier) {
+                return;
+            }
+            // Search for an associated VariableDeclaration with "var <identifier> : brand <identifier".
+            var varDecl = findVariableDeclaration(container, <Identifier> propAccess.expression);
+            if (!varDecl || !varDecl.type || !varDecl.type.brandTypeDeclaration) {
+                return;
+            }
+
+            var brandTypeDecl = varDecl.type.brandTypeDeclaration;
+            if (hasProperty(brandTypeDecl.symbol.members, propAccess.name.text)) {
+                var symbol = brandTypeDecl.symbol.members[propAccess.name.text];
+                var propertyNode = <BrandPropertyDeclaration> symbol.declarations[0];
+                propertyNode.bindingAssignments.push(value);
+            } else {
+                // Create a property declaration for the brand-type symbol list:
+                var propertyNode = <BrandPropertyDeclaration> new (objectAllocator.getNodeConstructor(SyntaxKind.BrandProperty))();
+                propertyNode.name = propAccess.name; // Right-hand <identifier>
+                propertyNode.pos = propAccess.pos;
+                propertyNode.end = propAccess.end;
+                propertyNode.parent = container;
+                propertyNode.brandTypeDeclaration = brandTypeDecl;
+                propertyNode.bindingAssignments = [value];
+                declareSymbol(brandTypeDecl.symbol.members, brandTypeDecl.symbol, propertyNode, SymbolFlags.Property, 0);
+            }
+        }
 
         function bind(node: Node) {
             node.parent = parent;
@@ -467,9 +525,6 @@ module ts {
                 case SyntaxKind.InterfaceDeclaration:
                     bindDeclaration(<Declaration>node, SymbolFlags.Interface, SymbolFlags.InterfaceExcludes, /*isBlockScopeContainer*/ false);
                     break;
-                case SyntaxKind.BrandTypeDeclaration:
-                    bindDeclaration(<Declaration>node, SymbolFlags.Brand, SymbolFlags.BrandTypeExcludes, /*isBlockScopeContainer*/ false);
-                    break;
                 case SyntaxKind.TypeAliasDeclaration:
                     bindDeclaration(<Declaration>node, SymbolFlags.TypeAlias, SymbolFlags.TypeAliasExcludes, /*isBlockScopeContainer*/ false);
                     break;
@@ -508,37 +563,11 @@ module ts {
                       bindDeclaration((<TypeReferenceNode>node).brandTypeDeclaration, SymbolFlags.Brand, 0, /*isBlockScopeContainer*/ false);
                   }
                   if (node.kind === SyntaxKind.BinaryExpression && (<BinaryExpression>node).operator === SyntaxKind.EqualsToken) {
-                      // Detect type-building assignment for brand-types. We are interested in the case when...
-                      // 1. The LHS is a BinaryExpression of <identifier>.<identifier>
-                      // 2. <variable> has an associated declaration whose TypeNode has brandTypeDeclaration.
-                      // No restrictions on RHS, but we are only interested in its statically known type.
                       var binNode = <BinaryExpression> node;
-                      // Match for <expression>.<identifier>
                       if (binNode.left.kind === SyntaxKind.PropertyAccessExpression) {
-                          var propAccess = <PropertyAccessExpression> binNode.left;
-                          // Match for <identifier>.<identifier>
-                          if (propAccess.expression.kind === SyntaxKind.Identifier) {
-                              // Match for <identifier>.<identifier>
-                              var propName = propAccess.name; // <identifier>
-                              var propExpr = <Identifier> propAccess.expression;
-                              var symbol = container.locals[propExpr.text];
-                              if (symbol && symbol.declarations.length > 0) {
-                                  var varDecl = <VariableDeclaration>symbol.declarations[0];
-                                  var typeNode: TypeNode = varDecl.type;
-                                  if (typeNode && typeNode.brandTypeDeclaration) {
-                                      var brandSymbol = typeNode.brandTypeDeclaration.symbol;
-                                      // Create a property declaration for the brand-type symbol list:
-                                      var propertyNode = <PropertyDeclaration> new (objectAllocator.getNodeConstructor(SyntaxKind.Property))();
-                                      propertyNode.name = propName;
-                                      propertyNode.pos = binNode.pos;
-                                      propertyNode.end = binNode.end;
-                                      propertyNode.parent = typeNode;
-                                      propertyNode.initializer = binNode.right;
-                                      declareSymbol(brandSymbol.members, brandSymbol, propertyNode, SymbolFlags.Property, 0);
-                                  }
-                              }
-                              // propExpr.
-                          }
+                          // We have an expression of type <identifier>.<identifier> = <expression>.
+                          // Scan to see if we should bind symbols for brand types.
+                          bindPropertyAssignment(<PropertyAccessExpression> binNode.left, binNode.right);
                       }
                   }
                 default:

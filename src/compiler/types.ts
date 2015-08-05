@@ -155,6 +155,7 @@ module ts {
         Parameter,
         // TypeMember
         Property,
+        BrandProperty,
         Method,
         Constructor,
         GetAccessor,
@@ -414,6 +415,13 @@ module ts {
         questionToken?: Node;
         type?: TypeNode;
         initializer?: Expression;
+    }
+
+    // [ConcreteTypeScript] We resolve the type of a brand property based on
+    // the assignments in its declaration site.
+    export interface BrandPropertyDeclaration extends PropertyDeclaration {
+        brandTypeDeclaration: BrandTypeDeclaration;
+        bindingAssignments: Expression[];
     }
 
     export type VariableOrParameterDeclaration = VariableDeclaration | ParameterDeclaration;

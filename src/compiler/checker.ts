@@ -2,6 +2,7 @@
 /// <reference path="core.ts"/>
 /// <reference path="scanner.ts"/>
 /// <reference path="parser.ts"/>
+/// <reference path="checkerHelper.ts"/>
 /// <reference path="binder.ts"/>
 /// <reference path="emitter.ts"/>
 /// <reference path="utilities.ts"/>
@@ -1628,6 +1629,7 @@ module ts {
                         // Exported members/ambient module elements (exception import declaration) are visible if parent is visible
                         return isDeclarationVisible(<Declaration>parent);
 
+                    case SyntaxKind.BrandProperty:
                     case SyntaxKind.Property:
                     case SyntaxKind.GetAccessor:
                     case SyntaxKind.SetAccessor:
@@ -1683,6 +1685,31 @@ module ts {
             return classType.typeParameters ? createTypeReference(<GenericType>classType, map(classType.typeParameters, _ => anyType)) : classType;
         }
 
+        // [ConcreteTypeScript]
+        function getTypeOfBrandProperty(declaration: BrandPropertyDeclaration): Type {
+            // We wish to give a type to the brand property that is a union over all declaration-scope assignments.
+            var assignments = declaration.bindingAssignments;
+            var types: Type[] = [];
+            for (var i = 0; i < assignments.length; i++) {
+                var type = checkAndMarkExpression(assignments[i]);
+                types.push(type);
+            }
+            return getUnionType(types, /*noSubtypeReduction*/ true);
+        }
+
+        // [ConcreteTypeScript]
+        function getContextualTypeOfBrandProperty(declaration: BrandPropertyDeclaration): Type {
+            // We wish to give a type to the brand property that is based on code location.
+            // The following rules apply:
+            //    If the context scope is not a subscope of the declaration scope, use the resolved type.
+            //    Otherwise, consider the list of assignments, before the current code location:
+            //      1. If the last assignment is in the context scope, use it as the type.
+            //      2. If the 
+            var type = checkAndMarkExpression(declaration.initializer);
+            var assignments = declaration.bindingAssignments;
+            return type;
+        }
+
         function getTypeOfVariableOrParameterOrPropertyDeclaration(declaration: VariableOrParameterOrPropertyDeclaration): Type {
             // A variable declared in a for..in statement is always of type any
             if (declaration.parent.kind === SyntaxKind.ForInStatement) {
@@ -1720,6 +1747,11 @@ module ts {
                 }
                 return type;
             }
+            // [ConcreteTypeScript]
+            // Handle branded types, based on code location.
+            if (declaration.kind == SyntaxKind.BrandProperty) {
+                return getTypeOfBrandProperty(<BrandPropertyDeclaration>declaration);
+            }
 
             // If it is a short-hand property assignment; Use the type of the identifier
             if (declaration.kind === SyntaxKind.ShorthandPropertyAssignment) {
@@ -1746,6 +1778,7 @@ module ts {
                     return;
                 }
                 switch (declaration.kind) {
+                    case SyntaxKind.BrandProperty:
                     case SyntaxKind.Property:
                         var diagnostic = Diagnostics.Member_0_implicitly_has_an_1_type;
                         break;
@@ -2164,7 +2197,6 @@ module ts {
             }
         }
 
-        // Brands too // [ConcreteTypeScript]
         function resolveClassOrInterfaceMembers(type: InterfaceType): void {
             var members = type.symbol.members;
             var callSignatures = type.declaredCallSignatures;
@@ -4557,7 +4589,7 @@ module ts {
             resolveLocation(node);
             return getTypeOfNode(node);
         }
-
+// 
         function getTypeOfSymbolAtLocation(symbol: Symbol, node: Node): Type {
             resolveLocation(node);
             // Get the narrowed type of symbol at given location instead of just getting 
@@ -4637,6 +4669,8 @@ module ts {
 
                 var left = <TypeOfExpression>expr.left;
                 var right = <LiteralExpression>expr.right;
+                // [ConcreteTypeScript] look into expanding logic here
+                
                 if (left.expression.kind !== SyntaxKind.Identifier ||
                     getResolvedSymbol(<Identifier>left.expression) !== symbol) {
 
@@ -4836,6 +4870,7 @@ module ts {
                     case SyntaxKind.FunctionDeclaration:
                     case SyntaxKind.FunctionExpression:
                     case SyntaxKind.ArrowFunction:
+                    case SyntaxKind.BrandProperty:
                     case SyntaxKind.Property:
                     case SyntaxKind.Method:
                     case SyntaxKind.Constructor:
@@ -5464,7 +5499,14 @@ module ts {
                         checkClassPropertyAccess(node, left, type, prop);
                     }
                 }
-
+                
+                // [ConcreteTypeScript] Enact special logic for Brand types.
+                if (node.kind == SyntaxKind.PropertyAccessExpression) {
+                    if (prop.declarations && prop.declarations[0].kind == SyntaxKind.BrandProperty) {
+                        getNarrowedTypeOfBrandProperty(<BrandPropertyDeclaration>prop.declarations[0], node);
+                    }
+                }
+    
                 //return getTypeOfSymbol(prop);
                 // [ConcreteTypeScript]
                 var ptype = getTypeOfSymbol(prop);

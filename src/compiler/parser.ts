@@ -100,6 +100,7 @@ module ts {
                     child((<FunctionLikeDeclaration>node).body);
             case SyntaxKind.TypeReference:
                 return child((<TypeReferenceNode>node).typeName) ||
+                       child((<TypeReferenceNode>node).brandTypeDeclaration) ||
                     children((<TypeReferenceNode>node).typeArguments);
             case SyntaxKind.TypeQuery:
                 return child((<TypeQueryNode>node).exprName);
@@ -1307,6 +1308,7 @@ module ts {
               var node = parseTypeReference(specifiedConcrete, isConcrete);
               node.brandTypeDeclaration = declNode; 
               declNode.name = <Identifier>node.typeName;
+              declNode.parent = node;
               finishNode(declNode);
               return node;
         }
