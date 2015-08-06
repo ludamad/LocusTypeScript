@@ -9,9 +9,10 @@ function makePoint(x: number, y: number) {
         console.log(point.shouldPass);
     }
     function willItPass() {
-        point.maybePass = 1;
+        point.maybePass = 0;
     }
     return point;
+    point.afterReturn = 0;
 }
 
 var point = makePoint(1,2);

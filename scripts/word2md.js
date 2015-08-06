@@ -1,3 +1,11 @@
+// word2md - Word to Markdown conversion tool
+//
+// word2md converts a Microsoft Word document to Markdown formatted text. The tool uses the
+// Word Automation APIs to start an instance of Word and access the contents of the document
+// being converted. The tool must be run using the cscript.exe script host and requires Word
+// to be installed on the target machine. The name of the document to convert must be specified
+// as a command line argument and the resulting Markdown is written to standard output. The
+// tool recognizes the specific Word styles used in the TypeScript Language Specification.
 var sys = (function () {
     var fileStream = new ActiveXObject("ADODB.Stream");
     fileStream.Type = 2;
