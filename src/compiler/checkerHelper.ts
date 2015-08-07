@@ -16,8 +16,7 @@ module ts {
         }
     }
 
-    export function printNode(parent:Node) {
-        var indent = 0;
+    export function printNode(parent:Node, indent = 0) {
         function print(node:Node, name:string) {
             var indentStr = '';
             for (var i = 0; i < indent; i++) {
@@ -110,100 +109,134 @@ module ts {
         printSwitch(parent);
     }
 
-    // Screw efficiency for now...
-    class NarrowNode {
-        assignments:Node[] = [];
-        branches:NarrowNode[] = [];
-        next:NarrowNode[] = [];
 
-        narrow(node: Node) : NarrowNode {
-            return this;
+    class HBlock {
+        children:HStatement[] = [];        
+        // Which scope do we exit after this block?
+        exitScope:HBlock = null;
+        push(statement:HStatement)  {
+            this.children.push(statement);
+        }
+        constructor(public parent:HStatement, public isBreakable:boolean = false) {}
+    }
+
+    // Screw efficiency for now...
+    // Helper class representing an abstract assignment node:
+    class HStatement {
+        // There is only one relevant assignment per node, done unconditionally:
+        assignment:Node = null;
+        // unconditional children:
+        children:HBlock = new HBlock(this);
+        // conditional children:
+        left:HBlock = new HBlock(this);
+        right:HBlock = new HBlock(this);
+        static Loop():HStatement {
+            var statement = new HStatement();
+            statement.right.isBreakable = statement.left.isBreakable = true;
+            return statement;
+        }
+        static Assign(expr:Node):HStatement {
+            var statement = new HStatement();
+            statement.assignment = expr;
+            return statement;
         }
     }
 
-    // Helper class represenitng an abstract assignment node:
-    class HStatement {
-        node:Node;
-        child:HStatement;
-        next:HStatement;
-        breaksScope:boolean;
+    class HStack {
+        // Keep a sentinel top-scope:
+        private scopes:HBlock[] = [new HBlock(null)];
+        get ():HBlock         {return this.scopes[this.scopes.length - 1];}
+        set(val:HBlock)       {return this.scopes[this.scopes.length - 1] = val;}
+        pop ():void           {this.scopes.pop();}
+        push(val:HBlock):void {this.scopes.push(val);}
+        doBreak() { // Or continue
+            // TODO maybe warn about unreachable assignments after break
+            for (var i = this.scopes.length - 1; i >= 0; i--) {
+                if (this.scopes[i].isBreakable) {
+                    this.get().exitScope = this.scopes[i];
+                    break;
+                }
+            }
+        }
+        pushStatement(statement:HStatement) {
+            this.get().push(statement);
+            this.push(statement.children);
+        }
+        doReturn() {
+            this.get().exitScope = this.scopes[0];
+        }
     }
-    class HAssignStatement extends HStatement {
-        assignment:Expression;
-    }
-    // Abstracts loops/ifs/ternary operator.
-    // After a scope exit, the remaining nodes are 
-    // marked with a 'HBranch' with an empty right
-    class HBranchStatement extends HStatement {
-        left:HStatement;
-        right:HStatement;
+    class HTransformer {
+        private scopes:HStack = new HStack();
+        constructor(private assignmentSet:Node[]) {}
+        transform(node:Node, left?:Node, right?:Node) {
+            forEachChild(node, (child) => {
+                if (left === child) {
+                }
+            });
+        }
+        handleAssignment(assignment:Expression) {
+            // current.assignment = assignment;
+        }
+        build(node:Node) {
+            loopForEach = (loop:HStatement, left:Node, right:Node) => {
+                forEachChild(node, (child) => {
+                    if (left === child) {
+                    }
+                });
+            };
+            forEachChild(node, (child) => {
+                switch (child.kind) {
+                    case SyntaxKind.ForStatement:
+                    case SyntaxKind.ForInStatement:
+                    case SyntaxKind.WhileStatement:
+                        var statement = HStatement.Loop();
+                        this.scopes.get().push(statement);
+                        break;
+                    default:
+                        if (this.assignmentSet.indexOf(<Expression>child) >= 0) {
+                            this.scopes.pushStatement(HStatement.Assign(child));
+                        }
+                        forEachChild(child, build);
+                        if (this.assignmentSet.indexOf(<Expression>child) >= 0) {
+                            this.scopes.pop();
+                        }
+                }
+            });
+        }
     }
 
     export function getNarrowedTypeOfBrandProperty(propDecl:BrandPropertyDeclaration, location:Node) {
-        var defBlock = findParent(propDecl.brandTypeDeclaration, SymbolFlags.HasLocals);
-        var assignments = propDecl.bindingAssignments;
-        var containerStack:Node[] = [];
-        var blockWasExit:boolean[] = [];
-        var blockWasExit:boolean[] = [];
-        var resultListStack:Type[][] = [];
-
-        function handleEarlyBlockExit(node:Node, blockTypeLow:SyntaxKind, blockTypeHigh = blockTypeLow) {
-            for (var i = containerStack.length - 1; i >= 0; i--) {
-                var container = containerStack[i];
-                blockWasExit[i] = true;
-                node = node.parent;
-                if (node.kind >= blockTypeLow && node.kind <= blockTypeHigh) {
-                    return;
-                }
-            }
-        }
-        function popContainer() {
-            containerStack.pop();
-            blockWasExit.pop();
-        }
-        function pushContainer(node:Node) {
-            containerStack.push(node);
-            blockWasExit.push(false);
-        }
-
-        function handleNode(node:Node) {
-            if (node.kind == SyntaxKind.ReturnStatement) {
-                console.log("Handling return");
-                handleEarlyBlockExit(node, SyntaxKind.FunctionDeclaration, SyntaxKind.FunctionDeclaration);
-            }
-            // TODO: break loop; syntax not handled
-            if (node.kind == SyntaxKind.ContinueStatement || node.kind == SyntaxKind.BreakStatement) {
-                console.log("Handling break|continue");
-                // Note: relies on While..ForIn being the beginning and end of a block of breakable syntax types
-                handleEarlyBlockExit(node, SyntaxKind.WhileKeyword, SyntaxKind.ForInStatement);
-            }
-            // We have found one of our binding assignment statements:
-            if (assignments.indexOf(<Expression>node) >= 0) {
-                if (blockWasExit[blockWasExit.length - 1]) {
-                    console.log("Block was exit during binding");
-                } else {
-                    console.log("Block was NOT exit during binding");
-                }
-            }
-        }
-
-        // Assignments are resolved as either definite assignments, or indefinite assignments.
-        // The moment a 'return' or 'break' is iterated over, it makes the relevant block
-        // indefinite. 
+        function backtrack(parent:Node, stopNode:Node):HStatement {
+        //     // The backtracking nodes are all guaranteed to occur
+        //     var parentStatement = new HStatement();
+        //     parentStatement.node = parent;
+        //     var assign:HAssignStatement;
+        //     
+        //     function iterChildren(node:Node) {
+        //         if (node.kind == SyntaxKind.IfStatement) {
+        //             var s = <IfStatement> node;
+        //             s.thenStatement;
+        //         }
+        //         parentStatement.children.push();
+        //     }
+        //     forEachChild(parent, (node) => {
+        //         if (node === stopNode) {
+        //             return true; // Stop iteration
+        //         } else {
+        //             iterChildren(node);
+        //         }
+        //     });
+        //     return parentStatement;
+        // }
         // 
-        // We end iteration either when we reach our 'location' Node, or are out of the
-        // block where the brand type was declared/defined.
-        function handleNodeAndChildren(node:Node) {
-            if (node.symbol.flags & SymbolFlags.IsContainer) {
-                pushContainer(node);
-            }
-            handleNode(node);
-            forEachChild(node, handleNodeAndChildren);
-            if (node.symbol.flags & SymbolFlags.IsContainer) {
-                popContainer();
-            }
-        }
-        // printNode(defBlock);
-        handleNodeAndChildren(defBlock);
+        // var result:HStatement;
+        // var container:Node = location.parent;
+        // var containerChild:Node = location;
+        // while (container) {
+        //     backtrack(container, containerChild);
+        //     container = location.parent;
+        //     containerChild = location;
+        // }
     }
 }
