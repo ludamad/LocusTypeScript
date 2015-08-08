@@ -725,10 +725,14 @@ module ts {
 
     export interface BreakOrContinueStatement extends Statement {
         label?: Identifier;
+        // Set by binder.ts
+        breakingContainer?:Node;
     }
 
     export interface ReturnStatement extends Statement {
         expression?: Expression;
+        // Set by binder.ts
+        breakingContainer?:Node;
     }
 
     export interface WithStatement extends Statement {

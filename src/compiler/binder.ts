@@ -2,6 +2,7 @@
 /// <reference path="core.ts"/>
 /// <reference path="scanner.ts"/>
 /// <reference path="parser.ts"/>
+/// <reference path="checkerHelper.ts"/>
 
 module ts {
 
@@ -557,8 +558,15 @@ module ts {
                 case SyntaxKind.SwitchStatement:
                     bindChildren(node, 0 , true);
                     break;
+                case SyntaxKind.BreakStatement:
+                case SyntaxKind.ContinueStatement:
+                case SyntaxKind.ReturnStatement:
                 case SyntaxKind.TypeReference:
                 case SyntaxKind.BinaryExpression:
+                  if (node.kind === SyntaxKind.BreakStatement || node.kind === SyntaxKind.ContinueStatement || node.kind === SyntaxKind.ReturnStatement) {
+                        (<BreakOrContinueStatement>node).breakingContainer = findBreakingScope(node);
+                  }
+
                   if (node.kind === SyntaxKind.TypeReference && (<TypeReferenceNode>node).brandTypeDeclaration) {
                       bindDeclaration((<TypeReferenceNode>node).brandTypeDeclaration, SymbolFlags.Brand, 0, /*isBlockScopeContainer*/ false);
                   }

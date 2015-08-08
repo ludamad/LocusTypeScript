@@ -110,6 +110,41 @@ module ts {
     }
 
 
+    export function findBreakingScope(node:Node):Node {
+        if (node.kind === SyntaxKind.BreakKeyword || node.kind === SyntaxKind.ContinueKeyword) {
+            var label = (<BreakOrContinueStatement>node).label;
+            loop: while (node.parent) {
+                var child = node;
+                node = node.parent;
+                switch (node.kind) {
+                case SyntaxKind.LabeledStatement:
+                    if (label.text === (<LabeledStatement>node).label.text) {
+                        return node;
+                    }
+                    break;
+                case SyntaxKind.ForInStatement:
+                case SyntaxKind.ForStatement:
+                case SyntaxKind.WhileKeyword:
+                    if (!label && child === (<IterationStatement>node).statement) {
+                        return node;
+                    }
+                    break;
+                }
+            }
+        } else {
+            // Return statement:
+            loop: while (node.parent) {
+                var child = node;
+                node = node.parent;
+                switch (node.kind) {
+                case SyntaxKind.ArrowFunction:
+                case SyntaxKind.FunctionDeclaration:
+                    return node;
+                }
+            }
+        }
+    }
+
     class HBlock {
         children:HStatement[] = [];        
         // Which scope do we exit after this block?
@@ -158,7 +193,7 @@ module ts {
                 }
             }
         }
-        pushStatement(statement:HStatement) {
+        pushAndMakeChildrenScope(statement:HStatement) {
             this.get().push(statement);
             this.push(statement.children);
         }
@@ -179,10 +214,16 @@ module ts {
             // current.assignment = assignment;
         }
         build(node:Node) {
-            loopForEach = (loop:HStatement, left:Node, right:Node) => {
+            var loopForEach = (loop:HStatement, left:Node, right:Node) => {
                 forEachChild(node, (child) => {
-                    if (left === child) {
-                    }
+                    // var scope = loop.children;
+                    // if (left === child) {
+                    //     scope = 
+                    // }
+                        this.scopes.push(loop.left);
+                        forEachChild(child, (n) => this.build(n));
+                        this.scopes.pop();
+                    // }
                 });
             };
             forEachChild(node, (child) => {
@@ -195,9 +236,9 @@ module ts {
                         break;
                     default:
                         if (this.assignmentSet.indexOf(<Expression>child) >= 0) {
-                            this.scopes.pushStatement(HStatement.Assign(child));
+                            this.scopes.pushAndMakeChildrenScope(HStatement.Assign(child));
                         }
-                        forEachChild(child, build);
+                        forEachChild(child, (n) => this.build(n));
                         if (this.assignmentSet.indexOf(<Expression>child) >= 0) {
                             this.scopes.pop();
                         }
@@ -206,37 +247,25 @@ module ts {
         }
     }
 
+    class NarrowResult {
+        constructor(public results:Expression[]) {
+        }
+        resolve(node) {
+            forEachChild(node, (child) => {
+                switch (child.kind) {
+                    case SyntaxKind.ForStatement:
+                    case SyntaxKind.ForInStatement:
+                    case SyntaxKind.WhileStatement:
+                        var statement = HStatement.Loop();
+                        break;
+                    default:
+                }
+            });
+
+        }
+    }
+
     export function getNarrowedTypeOfBrandProperty(propDecl:BrandPropertyDeclaration, location:Node) {
-        function backtrack(parent:Node, stopNode:Node):HStatement {
-        //     // The backtracking nodes are all guaranteed to occur
-        //     var parentStatement = new HStatement();
-        //     parentStatement.node = parent;
-        //     var assign:HAssignStatement;
-        //     
-        //     function iterChildren(node:Node) {
-        //         if (node.kind == SyntaxKind.IfStatement) {
-        //             var s = <IfStatement> node;
-        //             s.thenStatement;
-        //         }
-        //         parentStatement.children.push();
-        //     }
-        //     forEachChild(parent, (node) => {
-        //         if (node === stopNode) {
-        //             return true; // Stop iteration
-        //         } else {
-        //             iterChildren(node);
-        //         }
-        //     });
-        //     return parentStatement;
-        // }
-        // 
-        // var result:HStatement;
-        // var container:Node = location.parent;
-        // var containerChild:Node = location;
-        // while (container) {
-        //     backtrack(container, containerChild);
-        //     container = location.parent;
-        //     containerChild = location;
-        // }
+        
     }
 }
