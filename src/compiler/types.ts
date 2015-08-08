@@ -649,6 +649,10 @@ module ts {
     export interface PropertyAccessExpression extends MemberExpression {
         expression: LeftHandSideExpression;
         name: Identifier;
+        // [ConcreteTypeScript] Accesses to a brand type property within the 
+        // same scope, we collect a relevant list of expressions for determining 
+        // the narrowed type of the expression.
+        relevantBrandAssignments?: Expression[];
     }
 
     export interface ElementAccessExpression extends MemberExpression {
@@ -723,16 +727,21 @@ module ts {
         expression: Expression;
     }
 
-    export interface BreakOrContinueStatement extends Statement {
-        label?: Identifier;
+    // [ConcreteTypeScript]
+    export interface BlockExitStatement extends Statement {
         // Set by binder.ts
         breakingContainer?:Node;
+        // Keep a list of brand type declarations that are in defined 
+        // somewhere within the block that we are exitting.
+        brandDeclExits?: BrandTypeDeclaration[];
     }
 
-    export interface ReturnStatement extends Statement {
+    export interface BreakOrContinueStatement extends BlockExitStatement {
+        label?: Identifier;
+    }
+
+    export interface ReturnStatement extends BlockExitStatement {
         expression?: Expression;
-        // Set by binder.ts
-        breakingContainer?:Node;
     }
 
     export interface WithStatement extends Statement {

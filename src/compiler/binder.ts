@@ -274,11 +274,7 @@ module ts {
                 case SyntaxKind.FunctionExpression:
                 case SyntaxKind.ArrowFunction:
                     if (node.kind == SyntaxKind.BrandTypeDeclaration) {
-                        // Set to parent, unless we are in the global scope:
-                        var parentScope = container.parent || container;
-                        while (!parentScope.locals) {
-                            parentScope = parentScope.parent;
-                        }
+ 
                         declareSymbol(parentScope.locals, container.symbol, node, symbolKind, symbolExcludes);
                     } else {
                         declareSymbol(container.locals, undefined, node, symbolKind, symbolExcludes);

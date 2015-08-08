@@ -120,12 +120,12 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
                 });
             };
         } else {
-            addUnnum = function(obj, prop, val) {
+            addUnenum = function(obj, prop, val) {
                 obj[prop] = val;
             };
         }
         cement(this, "addUnenum", addUnenum);
-
+        cement(this, "addUnenum", addUnenum);
     })();
 
     runtime.cement(global, "$$cts$$runtime", runtime);
