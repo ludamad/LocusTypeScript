@@ -126,6 +126,23 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         }
         cement(this, "addUnenum", addUnenum);
         cement(this, "addUnenum", addUnenum);
+
+
+        function Brand() {}
+        cement(Brand
+        cement(Brand.prototype, "$$cts$$check", function(brand, obj) {
+            if (obj.$$cts$$brands) {
+            }
+            for (var i = 0; i < obj.$$cts$$brands.length; i++) {
+                obj.$$cts$$brands
+            }
+        });
+        cement(this, "brand", function(obj) {
+        
+
+        // Branding is 
+        cement(this, "Brand", Brand);
+
     })();
 
     runtime.cement(global, "$$cts$$runtime", runtime);

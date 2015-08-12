@@ -61,7 +61,7 @@ module ts {
             case SyntaxKind.ArrayLiteralExpression: return print(node, "ArrayLiteralExpression");
             case SyntaxKind.ObjectLiteralExpression: return print(node, "ObjectLiteralExpression");
             case SyntaxKind.PropertyAssignment: return print(node, "PropertyAssignment");
-            case SyntaxKind.ComputedPropertyName: return print(node, "ComputedPropertyName");
+            case SyntaxKind.ComputedPropertyName: return print(node, "ComputedPrope rtyName");
             case SyntaxKind.PropertyAccessExpression: return print(node, "PropertyAccessExpression");
             case SyntaxKind.ElementAccessExpression: return print(node, "ElementAccessExpression");
             case SyntaxKind.CallExpression: return print(node, "CallExpression");
@@ -177,10 +177,18 @@ module ts {
         }
     }
 
+    export function isNodeDescendentOf(node: Node, ancestor: Node): boolean {
+        while (node) {
+            if (node === ancestor) return true;
+            node = node.parent;
+        }
+        return false;
+    }
+
     export function findBreakingScope(node:Node):Node {
         if (node.kind === SyntaxKind.BreakKeyword || node.kind === SyntaxKind.ContinueKeyword) {
             var label = (<BreakOrContinueStatement>node).label;
-            loop: while (node.parent) {
+            while (node.parent) {
                 var child = node;
                 node = node.parent;
                 switch (node.kind) {
@@ -200,7 +208,7 @@ module ts {
             }
         } else {
             // Return statement:
-            loop: while (node.parent) {
+            while (node.parent) {
                 var child = node;
                 node = node.parent;
                 switch (node.kind) {
@@ -212,121 +220,23 @@ module ts {
         }
     }
 
-    class NarrowResult {
-        constructor(public results:Node[]) {
-        }
-        merge(other:NarrowResult):NarrowResult {
-            var merged = this.results.concat(other.results).filter((item, pos, self) => {
-                return self.indexOf(item) == pos;
-            });
-            return new NarrowResult(merged);
-        }
-    }
-
-    function isNodeDescendentOf(node: Node, ancestor: Node): boolean {
-        while (node) {
-            if (node === ancestor) return true;
-            node = node.parent;
-        }
-        return false;
-    }
-
-    // Called during checker the first time a BrandPropertyDeclaration is found.
-    class Narrower {
-        nodePostLinks:Map<NarrowResult[]> = {};
-        containerScope:Node;
-        observerLocation:Node;
-        assignmentSet:Node[];
-
-        getValue(parent:Node, prev:NarrowResult):NarrowResult {
-            if (this.assignmentSet.indexOf(parent) > -1) {
-                console.log("Wee");
-                return new NarrowResult([parent]);
-            }
-            forEachChild(parent, (node) => {
-                switch (node.kind) {
-                    case SyntaxKind.BreakStatement:
-                    case SyntaxKind.ContinueStatement:
-                    case SyntaxKind.ReturnStatement:
-                        // 'Shorten' the block returned from to only the topmost block we care about
-                        var breakingContainer = (<ReturnStatement>node).breakingContainer;
-                        if (isNodeDescendentOf(this.containerScope, breakingContainer)) {
-                            breakingContainer = this.containerScope;
-                        }
-                        var id = breakingContainer.id;
-                        this.nodePostLinks[id] = (this.nodePostLinks[id] || []);
-                        this.nodePostLinks[id].push(prev);
-                        break;
-                    case SyntaxKind.ConditionalExpression:
-                        prev = this.getValue((<ConditionalExpression>node).condition, prev);
-                        var whenTrue = this.getValue((<ConditionalExpression>node).whenTrue, prev);
-                        var whenFalse = this.getValue((<ConditionalExpression>node).whenFalse, prev);
-                        prev = whenTrue.merge(whenFalse);
-                        break;
-                    case SyntaxKind.BinaryExpression:
-                        // Consider the shortcircuting behaviour of && or ||
-                        if ((<BinaryExpression>node).operator === SyntaxKind.AmpersandAmpersandToken ||
-                            (<BinaryExpression>node).operator === SyntaxKind.BarBarToken) {
-                            // Left always happens:
-                            var left = this.getValue((<BinaryExpression>node).left, prev);
-                            var right = this.getValue((<BinaryExpression>node).right, left);
-                            prev = left.merge(right);
-                        } else {
-                            prev = this.getValue((<BinaryExpression>node).left, prev);
-                            prev = this.getValue((<BinaryExpression>node).right, prev);
-                        }
-                        break;
-                    case SyntaxKind.ForStatement:
-                        forEach((<ForStatement>node).declarations, (decl) => {
-                            prev = this.getValue(decl, prev);
-                        });
-                        prev = this.getValue((<ForStatement>node).initializer, prev);
-                        prev = this.getValue((<ForStatement>node).condition, prev);
-                        // Flow analysis: Assume we either enter for loops or dont
-                        prev = this.getValue((<ForStatement>node).statement, prev).merge(prev);
-                        break;
-                    case SyntaxKind.ForInStatement:
-                        forEach((<ForInStatement>node).declarations, (decl) => {
-                            prev = this.getValue(decl, prev);
-                        });
-                        prev = this.getValue((<ForInStatement>node).expression, prev);
-                        prev = this.getValue((<ForInStatement>node).variable, prev);
-                        // Flow analysis: Assume we either enter for loops or dont
-                        prev = this.getValue((<ForInStatement>node).statement, prev).merge(prev);
-                        break;
-                    case SyntaxKind.FunctionDeclaration:
-                        prev = this.getValue((<FunctionDeclaration>node).body, prev).merge(prev);
-                        break;
-                    case SyntaxKind.WhileStatement:
-                        prev = this.getValue((<WhileStatement>node).expression, prev);
-                        // Flow analysis: Assume we either enter for loops or dont
-                        prev = this.getValue((<WhileStatement>node).statement, prev).merge(prev);
-                        break;
-                    default:
-                        prev = this.getValue(node, prev);
-                }
-            });
-            return prev;
-        }
-    }
-
     export function getNarrowedTypeOfBrandProperty(propDecl:BrandPropertyDeclaration, location:Node) {
-        var narrower = new Narrower();
-        narrower.observerLocation = location;
-        narrower.containerScope = findParent(propDecl.brandTypeDeclaration, SymbolFlags.HasLocals);
-        narrower.assignmentSet = propDecl.bindingAssignments;
-        var result = narrower.getValue(narrower.containerScope, new NarrowResult([null]));
-        var name = <Identifier>propDecl.name;
-        console.log(`Emitting ${name.text}, ${result.results.length} results`);
-        forEach(result.results, (res) => {
-            if (res == null) {
-                console.log("NULL NULL");
-            } else {
-                printNode(res);
-            }
-        });
-        // printNode(narrower.containerScope);
-        console.log(`Done emitting ${name.text}`);
+        // var narrower = new Narrower();
+        // narrower.observerLocation = location;
+        // narrower.containerScope = findParent(propDecl.brandTypeDeclaration, SymbolFlags.HasLocals);
+        // narrower.assignmentSet = propDecl.bindingAssignments;
+        // var result = narrower.getValue(narrower.containerScope, new NarrowResult([null]));
+        // var name = <Identifier>propDecl.name;
+        // console.log(`Emitting ${name.text}, ${result.results.length} results`);
+        // forEach(result.results, (res) => {
+        //     if (res == null) {
+        //         console.log("NULL NULL");
+        //     } else {
+        //         printNode(res);
+        //     }
+        // });
+        // // printNode(narrower.containerScope);
+        // console.log(`Done emitting ${name.text}`);
     }
 
     
@@ -339,31 +249,124 @@ module ts {
             this.assignmentSets = new Array<Node[]>(nProps);
         }
         merge(other:BrandPropertyTypes):BrandPropertyTypes {
-            var merged = new BrandPropertyTypes(this.assignmentSets.length);
-            for (var i = 0; i < this.assignmentSets.length; i++) {
-                var newAssignmentSet = this.assignmentSets[i].concat(other.assignmentSets[i]);
+            var merged = new BrandPropertyTypes(Math.max(this.assignmentSets.length, other.assignmentSets.length));
+            for (var i = 0; i < merged.assignmentSets.length; i++) {
+                var newAssignmentSet = (this.assignmentSets[i]||[]).concat((other.assignmentSets[i]||[]));
                 merged.assignmentSets.push(newAssignmentSet);
             }
             return merged;
         }
+
+        get(brandPropId:number):Node[] {
+            return this.assignmentSets[brandPropId];
+        }
+
+        copyAndSet(brandPropId:number, node:Node) {
+            var copy = new BrandPropertyTypes(Math.max(this.assignmentSets.length, (brandPropId+1)));
+            for (var i = 0; i < copy.assignmentSets.length; i++) {
+                copy.assignmentSets[i] = (brandPropId == i) ? [node] : this.assignmentSets[i];
+            }
+            return copy;
+        }
+    }
+    
+    // Is this an expression of type <identifier>.<identifier> = <expression>?
+    function isPropertyAssignmentForLocalVariable(node:Node) {
+        if (node.kind === SyntaxKind.BinaryExpression && (<BinaryExpression>node).operator === SyntaxKind.EqualsToken) {
+            var binNode = <BinaryExpression> node;
+            if (binNode.left.kind === SyntaxKind.PropertyAccessExpression) {
+                return true;
+            }
+        }
+        return false;
     }
 
     class BrandTypeBinder {
+        brandTypeDecl:BrandTypeDeclaration;
         nodePostLinks:Map<BrandPropertyTypes[]> = {};
+        declareSymbol:_declareSymbol;
+        // Tie properties to an ID assigned sequentially upon first visit
+        propNameToId = {};
+        nextPropNameId = 0;
         containerScope:Node;
-        
-        getValue(parent:Node, prev:NarrowResult):NarrowResult {
-            if (this.assignmentSet.indexOf(parent) > -1) {
-                console.log("Wee");
-                return new NarrowResult([parent]);
+
+        getPropId(str:string):number {
+            return this.propNameToId[str] = this.propNameToId[str] || (this.nextPropNameId++);
+        }
+
+        castIfRelevantPropertyAccess(node:Node):PropertyAccessExpression {
+            if (node.kind !== SyntaxKind.PropertyAccessExpression) {
+                return null;
             }
-            forEachChild(parent, (node) => {
-                switch (node.kind) {
+            var propAccess = <PropertyAccessExpression>node;
+            if (propAccess.expression.kind !== SyntaxKind.Identifier) {
+                return null;
+            }
+
+            // Search for an associated VariableDeclaration with "var <identifier> : brand <identifier".
+            var varDecl = findVariableDeclarationForIdentifier(this.containerScope, <Identifier> propAccess.expression);
+            if (!varDecl || !varDecl.type || varDecl.type.brandTypeDeclaration !== this.brandTypeDecl) {
+                return null;
+            }
+            return <PropertyAccessExpression> node;
+        }
+
+        // Set types for an expression at the current location:
+        setAssignmentsIfRelevantPropertyAccess(prev:BrandPropertyTypes, node:Node): boolean{
+            var propAccess = this.castIfRelevantPropertyAccess(node);
+            if (!propAccess) return false;
+            // Store relevant assignments for type calculation:
+            if (propAccess.relevantBrandAssignments) throw new Error("ERROR use grep");
+            propAccess.relevantBrandAssignments = <Expression[]>prev.get(this.getPropId(propAccess.name.text));
+            return true;
+        }
+
+        /* TODO: Detect any sort of assignment operator applied to our brand variable */
+        scanIfBindingAssignment(prev:BrandPropertyTypes, node:Node): BrandPropertyTypes {
+            // Detect type-building assignment for brand-types. We are interested in the case when...
+            // 1. The LHS is a PropertyAccessExpression with form "<identifier>.<identifier>".
+            // 2. <variable> has an associated VariableDeclaration with form "var <identifier> : brand <identifier".
+            // No restrictions on RHS, but we are only interested in its statically known type.
+            // Match for PropertyAccessExpression with "<identifier>.<identifier>".
+            if (node.kind !== SyntaxKind.BinaryExpression || (<BinaryExpression>node).operator !== SyntaxKind.EqualsToken) {
+                return null;
+            }
+
+            var propAccess = this.castIfRelevantPropertyAccess((<BinaryExpression> node).left);
+            var value = (<BinaryExpression> node).right;
+
+            if (!hasProperty(this.brandTypeDecl.symbol.members, propAccess.name.text)) {
+                // Create a property declaration for the brand-type symbol list:
+                var propertyNode = <BrandPropertyDeclaration> new (objectAllocator.getNodeConstructor(SyntaxKind.BrandProperty))();
+                propertyNode.name = propAccess.name; // Right-hand <identifier>
+                propertyNode.pos = propAccess.pos;
+                propertyNode.end = propAccess.end;
+                propertyNode.parent = this.containerScope;
+                propertyNode.brandTypeDeclaration = this.brandTypeDecl;
+                this.declareSymbol(this.brandTypeDecl.symbol.members, this.brandTypeDecl.symbol, propertyNode, SymbolFlags.Property, 0);
+            }
+
+            return prev.copyAndSet(this.getPropId(propAccess.name.text), value);
+        }
+
+        scan(node:Node, prev:BrandPropertyTypes):BrandPropertyTypes {
+            /* If we have a binding assignment, then we can return immediately: */
+            var bindingResult = this.scanIfBindingAssignment(prev, node);
+            if (bindingResult != null) {
+                return bindingResult;
+            }
+            if (this.setAssignmentsIfRelevantPropertyAccess(prev, node)) {
+                return prev;
+            }
+
+            /* Otherwise, continue recursive iteration: */
+            forEachChild(node, (child) => {
+                switch (child.kind) {
                     case SyntaxKind.BreakStatement:
                     case SyntaxKind.ContinueStatement:
                     case SyntaxKind.ReturnStatement:
                         // 'Shorten' the block returned from to only the topmost block we care about
-                        var breakingContainer = (<ReturnStatement>node).breakingContainer;
+                        var breakingContainer = (<ReturnStatement>child).breakingContainer;
                         if (isNodeDescendentOf(this.containerScope, breakingContainer)) {
                             breakingContainer = this.containerScope;
                         }
@@ -372,69 +375,133 @@ module ts {
                         this.nodePostLinks[id].push(prev);
                         break;
                     case SyntaxKind.ConditionalExpression:
-                        prev = this.getValue((<ConditionalExpression>node).condition, prev);
-                        var whenTrue = this.getValue((<ConditionalExpression>node).whenTrue, prev);
-                        var whenFalse = this.getValue((<ConditionalExpression>node).whenFalse, prev);
+                        prev = this.scan((<ConditionalExpression>child).condition, prev);
+                        var whenTrue = this.scan((<ConditionalExpression>child).whenTrue, prev);
+                        var whenFalse = this.scan((<ConditionalExpression>child).whenFalse, prev);
+                        // Flow analysis: Merge the result of the left and the right
                         prev = whenTrue.merge(whenFalse);
                         break;
                     case SyntaxKind.BinaryExpression:
                         // Consider the shortcircuting behaviour of && or ||
-                        if ((<BinaryExpression>node).operator === SyntaxKind.AmpersandAmpersandToken ||
-                            (<BinaryExpression>node).operator === SyntaxKind.BarBarToken) {
-                            // Left always happens:
-                            var left = this.getValue((<BinaryExpression>node).left, prev);
-                            var right = this.getValue((<BinaryExpression>node).right, left);
+                        if ((<BinaryExpression>child).operator === SyntaxKind.AmpersandAmpersandToken ||
+                            (<BinaryExpression>child).operator === SyntaxKind.BarBarToken) {
+                            // Flow analysis: Merge the result of the left and of the left-then-right
+                            var left = this.scan((<BinaryExpression>child).left, prev);
+                            var right = this.scan((<BinaryExpression>child).right, left);
                             prev = left.merge(right);
                         } else {
-                            prev = this.getValue((<BinaryExpression>node).left, prev);
-                            prev = this.getValue((<BinaryExpression>node).right, prev);
+                            prev = this.scan((<BinaryExpression>child).left, prev);
+                            prev = this.scan((<BinaryExpression>child).right, prev);
                         }
                         break;
                     case SyntaxKind.ForStatement:
-                        forEach((<ForStatement>node).declarations, (decl) => {
-                            prev = this.getValue(decl, prev);
+                        forEach((<ForStatement>child).declarations, (decl) => {
+                            prev = this.scan(decl, prev);
                         });
-                        prev = this.getValue((<ForStatement>node).initializer, prev);
-                        prev = this.getValue((<ForStatement>node).condition, prev);
-                        // Flow analysis: Assume we either enter for loops or dont
-                        prev = this.getValue((<ForStatement>node).statement, prev).merge(prev);
+                        prev = this.scan((<ForStatement>child).initializer, prev);
+                        prev = this.scan((<ForStatement>child).condition, prev);
+                        // Flow analysis: Merge the result of entering the loop and of not
+                        prev = this.scan((<ForStatement>child).statement, prev).merge(prev);
                         break;
                     case SyntaxKind.ForInStatement:
-                        forEach((<ForInStatement>node).declarations, (decl) => {
-                            prev = this.getValue(decl, prev);
+                        forEach((<ForInStatement>child).declarations, (decl) => {
+                            prev = this.scan(decl, prev);
                         });
-                        prev = this.getValue((<ForInStatement>node).expression, prev);
-                        prev = this.getValue((<ForInStatement>node).variable, prev);
-                        // Flow analysis: Assume we either enter for loops or dont
-                        prev = this.getValue((<ForInStatement>node).statement, prev).merge(prev);
+                        prev = this.scan((<ForInStatement>child).expression, prev);
+                        prev = this.scan((<ForInStatement>child).variable, prev);
+                        // Flow analysis: Merge the result of entering the loop and of not
+                        prev = this.scan((<ForInStatement>child).statement, prev).merge(prev);
                         break;
                     case SyntaxKind.FunctionDeclaration:
-                        prev = this.getValue((<FunctionDeclaration>node).body, prev).merge(prev);
+                        prev = this.scan((<FunctionDeclaration>child).body, prev).merge(prev);
                         break;
                     case SyntaxKind.WhileStatement:
-                        prev = this.getValue((<WhileStatement>node).expression, prev);
-                        // Flow analysis: Assume we either enter for loops or dont
-                        prev = this.getValue((<WhileStatement>node).statement, prev).merge(prev);
+                        prev = this.scan((<WhileStatement>child).expression, prev);
+                        // Flow analysis: Merge the result of entering the loop and of not
+                        prev = this.scan((<WhileStatement>child).statement, prev).merge(prev);
                         break;
                     default:
-                        prev = this.getValue(node, prev);
+                        prev = this.scan(child, prev);
                 }
             });
             return prev;
         }
     }
 
-    export function bindBrandTypeBasedOnLocalBlock(propDecl:BrandTypeDeclaration, container:Node) {
+    function forEachBrandProperty(scope:Node, callback: (BrandPropertyDeclaration)=>void) {
+        for (var key in scope.locals) {
+            if (hasProperty(scope.locals, key)) {
+                if (scope.locals[key].flags & SymbolFlags.Property) {
+                    if (scope.locals[key].declarations && scope.locals[key].declarations[0].kind == SyntaxKind.BrandProperty) {
+                        continue;
+                    }
+                    callback(<BrandPropertyDeclaration> scope.locals[key].declarations[0]);
+                }
+            }
+        }
+    }
+
+    function hasBrandTypeDeclaration(scope:Node):boolean {
+        if (!scope.locals) {
+            return false;
+        }
+        for (var key in scope.locals) {
+            if (hasProperty(scope.locals, key)) {
+                if (scope.locals[key].flags & SymbolFlags.Brand) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // We take declareSymbol as a parameter, as this is a closure
+    // We keep its signature as a type for convenience.
+    export type _declareSymbol = (symbols: SymbolTable, parent: Symbol, node: Declaration, includes: SymbolFlags, excludes: SymbolFlags) => Symbol;
+
+    // Must be run AFTER variables within the local scope have bindings.
+    // Afterwards:
+    //  - all statically known brand property lookup nodes within the declaration block 
+    //    will have a list of relevant assignment expressions
+    //  - the BrandTypeDeclaration will have all found brand property assignments declared as symbols
+    //  - the resulting brand properties will have a list of relevant assignment expressions
+    // As well, all 
+    function bindBrandTypeBasedOnLocalBlock(brandTypeDecl:BrandTypeDeclaration, declareSymbol:_declareSymbol) {
         // Set to parent, unless we are in the global scope:
-        var parentScope = container.parent || container;
+        var parentScope = brandTypeDecl.parent;
         while (!parentScope.locals) {
             parentScope = parentScope.parent;
         }
         var brandTypeBinder = new BrandTypeBinder();
+        brandTypeBinder.brandTypeDecl = brandTypeDecl;
         brandTypeBinder.containerScope = parentScope;
+        brandTypeBinder.declareSymbol = declareSymbol;
+        var assignmentResults = brandTypeBinder.scan(parentScope, new BrandPropertyTypes(0));
+        forEachBrandProperty(brandTypeDecl, (brandPropDecl:BrandPropertyDeclaration) => {
+            var name = (<Identifier>brandPropDecl.name).text;
+            brandPropDecl.bindingAssignments = <Expression[]>assignmentResults.get(this.getPropId(name));
+        });
     }
 
-    // export function getNarrowedTypeOfBrandProperty(location:PropertyAccessExpression) {
-    //     
-    // }
+    export function bindBrandPropertiesInScopeAfterInitialBinding(scope:Node, declareSymbol:_declareSymbol) {
+        // First, see if we are wasting our time scanning this scope:
+        if (!hasBrandTypeDeclaration(scope)) {
+            return false;
+        }
+
+        // Find all relevant brand type declarations.
+        // We do not descend into subblocks, which are handled separately.
+        function resolveBrandTypeDeclarations(node:Node) {
+            forEachChild(node, (child) => {
+                // Do not descend into subblocks:
+                if (child.locals) return;
+                if (child.kind === SyntaxKind.BrandTypeDeclaration) {
+                    bindBrandTypeBasedOnLocalBlock(<BrandTypeDeclaration>child, declareSymbol);
+                } else {
+                    resolveBrandTypeDeclarations(child);
+                }
+            });
+        }
+        resolveBrandTypeDeclarations(scope);
+    }
 }

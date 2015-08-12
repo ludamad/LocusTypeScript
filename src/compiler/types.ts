@@ -421,7 +421,8 @@ module ts {
     // the assignments in its declaration site.
     export interface BrandPropertyDeclaration extends PropertyDeclaration {
         brandTypeDeclaration: BrandTypeDeclaration;
-        bindingAssignments: Expression[];
+        // Set in checkerHelper.ts
+        bindingAssignments?: Expression[];
     }
 
     export type VariableOrParameterDeclaration = VariableDeclaration | ParameterDeclaration;

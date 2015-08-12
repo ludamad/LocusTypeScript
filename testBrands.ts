@@ -15,7 +15,7 @@ function makePoint(x: number, y: number) {
     point.afterReturn = 0;
 }
 
-var point = makePoint(1,2);
+var point = <!Point>  <any> makePoint(1,2);
 
 point.x = 0;          // Passes, correct
 point.shouldPass = 0; // Passes, correct
@@ -23,3 +23,8 @@ point.x = "0";        // Fails,  correct
 point.shouldFail = 0; // Fails,  correct
 point.maybePass = 0;  // Passes, not sure
 
+var test= new Test();
+
+class Test {
+
+}

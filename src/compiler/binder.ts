@@ -274,7 +274,11 @@ module ts {
                 case SyntaxKind.FunctionExpression:
                 case SyntaxKind.ArrowFunction:
                     if (node.kind == SyntaxKind.BrandTypeDeclaration) {
- 
+                        // Set to parent, unless we are in the global scope:
+                        var parentScope = container.parent || container;
+                        while (!parentScope.locals) {
+                            parentScope = parentScope.parent;
+                        }   
                         declareSymbol(parentScope.locals, container.symbol, node, symbolKind, symbolExcludes);
                     } else {
                         declareSymbol(container.locals, undefined, node, symbolKind, symbolExcludes);
@@ -560,7 +564,7 @@ module ts {
                 case SyntaxKind.TypeReference:
                 case SyntaxKind.BinaryExpression:
                   if (node.kind === SyntaxKind.BreakStatement || node.kind === SyntaxKind.ContinueStatement || node.kind === SyntaxKind.ReturnStatement) {
-                        (<BreakOrContinueStatement>node).breakingContainer = findBreakingScope(node);
+                     (<BreakOrContinueStatement>node).breakingContainer = findBreakingScope(node);
                   }
 
                   if (node.kind === SyntaxKind.TypeReference && (<TypeReferenceNode>node).brandTypeDeclaration) {
@@ -580,6 +584,10 @@ module ts {
                     forEachChild(node, bind);
                     parent = saveParent;
             }
+
+            // [ConcreteTypeScript] Compute the contents of any brand-types in 
+            // our block based on relevant assignments.
+            bindBrandPropertiesInScopeAfterInitialBinding(node, declareSymbol);
         }
     }
 }
