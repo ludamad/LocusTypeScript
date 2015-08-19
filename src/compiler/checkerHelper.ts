@@ -239,7 +239,6 @@ module ts {
         } else {
             // Return statement:
             while (node.parent) {
-                printNode(node.parent);
                 var child = node;
                 node = node.parent;
                 switch (node.kind) {

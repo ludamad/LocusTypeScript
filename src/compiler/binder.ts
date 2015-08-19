@@ -274,7 +274,7 @@ module ts {
                 case SyntaxKind.FunctionExpression:
                 case SyntaxKind.ArrowFunction:
                     if (node.kind == SyntaxKind.BrandTypeDeclaration) {
-                        bindModuleScopedDeclaration(node, symbolKind, symbolExcludes);
+                        bindBrandTypeDeclaration(<BrandTypeDeclaration>node, symbolKind, symbolExcludes);
                     } else {
                         declareSymbol(container.locals, undefined, node, symbolKind, symbolExcludes);
                     }
@@ -364,12 +364,14 @@ module ts {
             blockScopeContainer = savedBlockScopeContainer;
         }
         
-        function bindModuleScopedDeclaration(node: Declaration, symbolKind:SymbolFlags, symbolExcludes:SymbolFlags) {
+        function bindBrandTypeDeclaration(node: BrandTypeDeclaration, symbolKind:SymbolFlags, symbolExcludes:SymbolFlags) {
             var scope:Node = container;
             while (scope.kind !== SyntaxKind.ModuleDeclaration && scope.kind !== SyntaxKind.SourceFile) {
                 // Should always terminate; all incoming nodes should be children of the SourceFile:
                 scope = scope.parent;
             }
+            // The parent of the declaration is expected to be the containing scope:
+            node.scope = scope;
             declareSymbol(scope.locals, undefined, node, symbolKind, symbolExcludes);
         }
 

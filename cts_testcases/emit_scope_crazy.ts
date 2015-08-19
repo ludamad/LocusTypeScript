@@ -27,20 +27,29 @@ function f4() : !A4 {
     }
 }
 
-function f5() : !A5 {
+function f5() {
+    var a5 : brand A5 = {};
+}
+
+// Not working, no branding, cast shouldn't be needed:
+function f6(obj : brand A6) : !A6 {
+    return <!A6> obj;
+}
+
+function f7() : !A7 {
     for (; true;) {
-        var a5 : brand A5 = {};
+        var a7 : brand A7 = {};
         break;
     }
     var foo1:!A1 = f1();
     console.log("Foo1 ", foo1);
     var foo2:!A2 = f2();
-    console.log("Foo2 ", foo1);
+    console.log("Foo2 ", foo2);
     var foo3:!A3 = f3();
-    console.log("Foo3 ", foo1);
+    console.log("Foo3 ", foo3);
     var foo4:!A4 = f4();
-    console.log("Foo4 ", foo1);
-    return a5;
+    console.log("Foo4 ", foo4);
+    return a7;
 }
 
-f5();
+f7();

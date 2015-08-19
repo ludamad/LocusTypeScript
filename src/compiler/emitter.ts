@@ -2623,10 +2623,12 @@ module ts {
             function emitBrandTypesAtBlockStart(block:Node) {
                 forEach(getBrandTypesInScope(block), (brandTypeDeclaration:BrandTypeDeclaration) => {
                     var brandName:Identifier = brandTypeDeclaration.name;
+                    writeLine();
                     write("var ");
                     writeTextOfNode(currentSourceFile, brandName);
                     write(" = new $$cts$$runtime.Brand();");
                     writeLine();
+                    emitDeclarationCement(brandTypeDeclaration);
                 });
             }
 
@@ -2645,8 +2647,18 @@ module ts {
             }
             // [ConcreteTypeScript]
             function emitBrandingsForBlockExit(exitNode:BlockExitStatement) {
-                if (exitNode.breakingContainer !== void 0) {
-                    emitBrandingsForBlockEnd(exitNode.breakingContainer);
+                // We potentially exit multiple scopes, such as with
+                // a return statement, or a 'break|continue <label>;' statement
+                var scope = exitNode.parent;
+                if (!exitNode.breakingContainer) {
+                    return;
+                }
+                while (true) {
+                    emitBrandingsForBlockEnd(scope);
+                    if (scope === exitNode.breakingContainer) {
+                        break;
+                    }
+                    scope = scope.parent;
                 }
             }
 
@@ -2921,8 +2933,9 @@ module ts {
 
             // And a general way of saying "cement this declaration"
             function emitDeclarationCement(node: Declaration) {
+                var scope = (<any>node).scope || node.parent;
                 // If it's a global or exported, we need to cement it
-                if (node.parent && node.parent.kind === SyntaxKind.SourceFile) {
+                if (scope && scope.kind === SyntaxKind.SourceFile) {
                     writeLine();
                     emitCTSRT("cementGlobal");
                     write("(" + JSON.stringify((<Identifier>node.name).text) + ",");
@@ -3172,6 +3185,11 @@ module ts {
                 else {
                     if (node.body.kind === SyntaxKind.Block) {
                         emitLinesStartingAt((<Block>node.body).statements, startIndex);
+                        var s = (<Block>node.body).statements;
+                        if (s.length === 0 || s[s.length - 1].kind !== SyntaxKind.ReturnStatement) {
+                            emitBrandingsForBlockEnd(node.body);
+                            emitBrandingsForBlockEnd(node);
+                        }
                     }
                     else {
                         writeLine();

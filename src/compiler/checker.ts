@@ -9078,7 +9078,7 @@ module ts {
                 case SyntaxKind.InterfaceDeclaration:
                     return checkInterfaceDeclaration(<InterfaceDeclaration>node);
                 case SyntaxKind.BrandTypeDeclaration:
-                    return checkBrandTypeDeclaration(<TypeAliasDeclaration>node);
+                    return checkBrandTypeDeclaration(<BrandTypeDeclaration>node);
                 case SyntaxKind.TypeAliasDeclaration:
                     return checkTypeAliasDeclaration(<TypeAliasDeclaration>node);
                 case SyntaxKind.EnumDeclaration:

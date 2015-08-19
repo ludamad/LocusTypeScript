@@ -817,6 +817,7 @@ module ts {
     
     export interface BrandTypeDeclaration extends Declaration, ModuleElement {
         name: Identifier;
+        scope: Node;
     }
 
     export interface TypeAliasDeclaration extends Declaration, ModuleElement {
