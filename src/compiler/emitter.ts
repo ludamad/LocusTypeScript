@@ -910,7 +910,7 @@ module ts {
 
         // [ConcretTypeScript]
         function emitBrandTypeDeclaration(node: BrandTypeDeclaration) {
-            // TODO
+            // Nothing to do, for now.
         }
 
         function emitInterfaceDeclaration(node: InterfaceDeclaration) {
@@ -958,6 +958,7 @@ module ts {
                 else if (!(node.flags & NodeFlags.Private)) {
                     writeTypeOfDeclaration(node, node.type, getVariableDeclarationTypeVisibilityError);
                 }
+                
             }
 
             function getVariableDeclarationTypeVisibilityError(symbolAccesibilityResult: SymbolAccessiblityResult): SymbolAccessibilityDiagnostic {
@@ -2618,15 +2619,49 @@ module ts {
                 emit(node.whenFalse);
             }
 
+            // [ConcreteTypeScript]
+            function emitBrandTypesAtBlockStart(block:Node) {
+                forEach(getBrandTypesInScope(block), (brandTypeDeclaration:BrandTypeDeclaration) => {
+                    var brandName:Identifier = brandTypeDeclaration.name;
+                    write("var ");
+                    writeTextOfNode(currentSourceFile, brandName);
+                    write(" = new $$cts$$runtime.Brand();");
+                    writeLine();
+                });
+            }
+
+            // [ConcreteTypeScript]
+            function emitBrandingsForBlockEnd(block:Node) {
+                if (!block.locals) return;
+                forEach(getBrandTypeVarDeclarations(block), (varDeclaration:VariableDeclaration) => {
+                    var brandName:Identifier = varDeclaration.type.brandTypeDeclaration.name;
+                    write("$$cts$$runtime.brand(");
+                    writeTextOfNode(currentSourceFile, brandName);
+                    write(", ");
+                    writeTextOfNode(currentSourceFile, varDeclaration.name);
+                    write(");");
+                    writeLine();
+                });
+            }
+            // [ConcreteTypeScript]
+            function emitBrandingsForBlockExit(exitNode:BlockExitStatement) {
+                if (exitNode.breakingContainer !== void 0) {
+                    emitBrandingsForBlockEnd(exitNode.breakingContainer);
+                }
+            }
+
             function emitBlock(node: Block) {
                 emitToken(SyntaxKind.OpenBraceToken, node.pos);
                 increaseIndent();
                 scopeEmitStart(node.parent);
+                emitBrandTypesAtBlockStart(node);
                 if (node.kind === SyntaxKind.ModuleBlock) {
                     Debug.assert(node.parent.kind === SyntaxKind.ModuleDeclaration);
                     emitCaptureThisForNodeIfNecessary(node.parent);
                 }
                 emitLines(node.statements);
+                writeLine();
+                emitBrandingsForBlockEnd(node);
                 decreaseIndent();
                 writeLine();
                 emitToken(SyntaxKind.CloseBraceToken, node.statements.end);
@@ -2639,10 +2674,12 @@ module ts {
                     emit(<Block>node);
                 }
                 else {
-                    increaseIndent();
-                    writeLine();
+                    write(" {");
+                    increaseIndent(); writeLine();
                     emit(node);
-                    decreaseIndent();
+                    emitBrandingsForBlockEnd(node);
+                    decreaseIndent(); writeLine();
+                    write("}");
                 }
             }
 
@@ -2754,12 +2791,16 @@ module ts {
             }
 
             function emitBreakOrContinueStatement(node: BreakOrContinueStatement) {
+                // TODO this doesn't work if an exit node is in a "for(;;break)" type of example.
+                emitBrandingsForBlockExit(node);
                 emitToken(node.kind === SyntaxKind.BreakStatement ? SyntaxKind.BreakKeyword : SyntaxKind.ContinueKeyword, node.pos);
                 emitOptional(" ", node.label);
                 write(";");
             }
 
             function emitReturnStatement(node: ReturnStatement) {
+                // TODO this doesn't work if an exit node is in a "for(;;break)" type of example.
+                emitBrandingsForBlockExit(node);
                 emitLeadingComments(node);
                 emitToken(SyntaxKind.ReturnKeyword, node.pos);
                 emitOptional(" ", node.expression);
@@ -3860,6 +3901,7 @@ module ts {
                 write("}");
                 // [/ConcreteTypeScript]
 
+                emitBrandTypesAtBlockStart(node);
                 // emit prologue directives prior to __extends
                 var startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ false);
                 if (!extendsEmitted && resolver.getNodeCheckFlags(node) & NodeCheckFlags.EmitExtends) {

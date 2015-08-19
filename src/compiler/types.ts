@@ -730,6 +730,7 @@ module ts {
 
     // [ConcreteTypeScript]
     export interface BlockExitStatement extends Statement {
+        _blockExitBrand: any;
         // Set by binder.ts
         breakingContainer?:Node;
         // Keep a list of brand type declarations that are in defined 

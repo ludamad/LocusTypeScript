@@ -274,12 +274,7 @@ module ts {
                 case SyntaxKind.FunctionExpression:
                 case SyntaxKind.ArrowFunction:
                     if (node.kind == SyntaxKind.BrandTypeDeclaration) {
-                        // Set to parent, unless we are in the global scope:
-                        var parentScope = container.parent || container;
-                        while (!parentScope.locals) {
-                            parentScope = parentScope.parent;
-                        }   
-                        declareSymbol(parentScope.locals, container.symbol, node, symbolKind, symbolExcludes);
+                        bindModuleScopedDeclaration(node, symbolKind, symbolExcludes);
                     } else {
                         declareSymbol(container.locals, undefined, node, symbolKind, symbolExcludes);
                     }
@@ -367,6 +362,15 @@ module ts {
             forEachChild(node, bind);
             parent = saveParent;
             blockScopeContainer = savedBlockScopeContainer;
+        }
+        
+        function bindModuleScopedDeclaration(node: Declaration, symbolKind:SymbolFlags, symbolExcludes:SymbolFlags) {
+            var scope:Node = container;
+            while (scope.kind !== SyntaxKind.ModuleDeclaration && scope.kind !== SyntaxKind.SourceFile) {
+                // Should always terminate; all incoming nodes should be children of the SourceFile:
+                scope = scope.parent;
+            }
+            declareSymbol(scope.locals, undefined, node, symbolKind, symbolExcludes);
         }
 
         function bindBlockScopedVariableDeclaration(node: Declaration) {
@@ -558,6 +562,7 @@ module ts {
                 case SyntaxKind.SwitchStatement:
                     bindChildren(node, 0 , true);
                     break;
+            // TODO: un-clump these unrelated case statements:
                 case SyntaxKind.BreakStatement:
                 case SyntaxKind.ContinueStatement:
                 case SyntaxKind.ReturnStatement:
@@ -568,7 +573,7 @@ module ts {
                   }
 
                   if (node.kind === SyntaxKind.TypeReference && (<TypeReferenceNode>node).brandTypeDeclaration) {
-                      bindDeclaration((<TypeReferenceNode>node).brandTypeDeclaration, SymbolFlags.Brand, 0, /*isBlockScopeContainer*/ false);
+                      bindDeclaration((<TypeReferenceNode>node).brandTypeDeclaration, SymbolFlags.Brand, SymbolFlags.BrandTypeExcludes, /*isBlockScopeContainer*/ false);
                   }
                   if (node.kind === SyntaxKind.BinaryExpression && (<BinaryExpression>node).operator === SyntaxKind.EqualsToken) {
                       var binNode = <BinaryExpression> node;
@@ -578,6 +583,7 @@ module ts {
                           bindPropertyAssignment(<PropertyAccessExpression> binNode.left, binNode.right);
                       }
                   }
+            // TODO: Refactor this fallthrough
                 default:
                     var saveParent = parent;
                     parent = node;

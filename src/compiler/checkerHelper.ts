@@ -15,8 +15,108 @@ module ts {
             }
         }
     }
-
+    
+    function printRecursor(node:Node, print) {
+    switch (node.kind) {
+        case SyntaxKind.BrandTypeDeclaration: return print(node, "BrandTypeDeclaration");
+        case SyntaxKind.Identifier: return print(node, "Identifier");
+        case SyntaxKind.Parameter: return print(node, "Parameter");
+        case SyntaxKind.GetAccessor: return print(node, "GetAccessor");
+        case SyntaxKind.SetAccessor: return print(node, "SetAccessor");
+        case SyntaxKind.ThisKeyword: return print(node, "ThisKeyword");
+        case SyntaxKind.SuperKeyword: return print(node, "SuperKeyword");
+        case SyntaxKind.NullKeyword: return print(node, "NullKeyword");
+        case SyntaxKind.TrueKeyword: return print(node, "TrueKeyword");
+        case SyntaxKind.FalseKeyword: return print(node, "FalseKeyword");
+        case SyntaxKind.NumericLiteral: return print(node, "NumericLiteral");
+        case SyntaxKind.StringLiteral: return print(node, "StringLiteral");
+        case SyntaxKind.RegularExpressionLiteral: return print(node, "RegularExpressionLiteral");
+        case SyntaxKind.NoSubstitutionTemplateLiteral: return print(node, "NoSubstitutionTemplateLiteral");
+        case SyntaxKind.TemplateHead: return print(node, "TemplateHead");
+        case SyntaxKind.TemplateMiddle: return print(node, "TemplateMiddle");
+        case SyntaxKind.TemplateTail: return print(node, "TemplateTail");
+        case SyntaxKind.TemplateExpression: return print(node, "TemplateExpression");
+        case SyntaxKind.TemplateSpan: return print(node, "TemplateSpan");
+        case SyntaxKind.QualifiedName: return print(node, "QualifiedName");
+        case SyntaxKind.ArrayLiteralExpression: return print(node, "ArrayLiteralExpression");
+        case SyntaxKind.ObjectLiteralExpression: return print(node, "ObjectLiteralExpression");
+        case SyntaxKind.PropertyAssignment: return print(node, "PropertyAssignment");
+        case SyntaxKind.ComputedPropertyName: return print(node, "ComputedPrope rtyName");
+        case SyntaxKind.PropertyAccessExpression: return print(node, "PropertyAccessExpression");
+        case SyntaxKind.ElementAccessExpression: return print(node, "ElementAccessExpression");
+        case SyntaxKind.CallExpression: return print(node, "CallExpression");
+        case SyntaxKind.NewExpression: return print(node, "NewExpression");
+        case SyntaxKind.TaggedTemplateExpression: return print(node, "TaggedTemplateExpression");
+        case SyntaxKind.TypeAssertionExpression: return print(node, "TypeAssertionExpression");
+        case SyntaxKind.ParenthesizedExpression: return print(node, "ParenthesizedExpression");
+        case SyntaxKind.FunctionDeclaration: return print(node, "FunctionDeclaration");
+        case SyntaxKind.FunctionExpression: return print(node, "FunctionExpression");
+        case SyntaxKind.ArrowFunction: return print(node, "ArrowFunction");
+        case SyntaxKind.DeleteExpression: return print(node, "DeleteExpression");
+        case SyntaxKind.TypeOfExpression: return print(node, "TypeOfExpression");
+        case SyntaxKind.VoidExpression: return print(node, "VoidExpression");
+        case SyntaxKind.PrefixUnaryExpression: return print(node, "PrefixUnaryExpression");
+        case SyntaxKind.PostfixUnaryExpression: return print(node, "PostfixUnaryExpression");
+        case SyntaxKind.BinaryExpression: return print(node, "BinaryExpression");
+        case SyntaxKind.ConditionalExpression: return print(node, "ConditionalExpression");
+        case SyntaxKind.OmittedExpression: return print(node, "OmittedExpression");
+        case SyntaxKind.Block: return print(node, "Block");
+        case SyntaxKind.TryBlock: return print(node, "TryBlock");
+        case SyntaxKind.FinallyBlock: return print(node, "FinallyBlock");
+        case SyntaxKind.ModuleBlock: return print(node, "ModuleBlock");
+        case SyntaxKind.VariableStatement: return print(node, "VariableStatement");
+        case SyntaxKind.EmptyStatement: return print(node, "EmptyStatement");
+        case SyntaxKind.ExpressionStatement: return print(node, "ExpressionStatement");
+        case SyntaxKind.IfStatement: return print(node, "IfStatement");
+        case SyntaxKind.DoStatement: return print(node, "DoStatement");
+        case SyntaxKind.WhileStatement: return print(node, "WhileStatement");
+        case SyntaxKind.ForStatement: return print(node, "ForStatement");
+        case SyntaxKind.ForInStatement: return print(node, "ForInStatement");
+        case SyntaxKind.ContinueStatement: return print(node, "ContinueStatement");
+        case SyntaxKind.BreakStatement: return print(node, "BreakStatement");
+        case SyntaxKind.ReturnStatement: return print(node, "ReturnStatement");
+        case SyntaxKind.WithStatement: return print(node, "WithStatement");
+        case SyntaxKind.SwitchStatement: return print(node, "SwitchStatement");
+        case SyntaxKind.CaseClause: return print(node, "CaseClause");
+        case SyntaxKind.DefaultClause: return print(node, "DefaultClause");
+        case SyntaxKind.LabeledStatement: return print(node, "LabeledStatement");
+        case SyntaxKind.ThrowStatement: return print(node, "ThrowStatement");
+        case SyntaxKind.TryStatement: return print(node, "TryStatement");
+        case SyntaxKind.CatchClause: return print(node, "CatchClause");
+        case SyntaxKind.DebuggerStatement: return print(node, "DebuggerStatement");
+        case SyntaxKind.VariableDeclaration: return print(node, "VariableDeclaration");
+        case SyntaxKind.ClassDeclaration: return print(node, "ClassDeclaration");
+        case SyntaxKind.InterfaceDeclaration: return print(node, "InterfaceDeclaration");
+        case SyntaxKind.EnumDeclaration: return print(node, "EnumDeclaration");
+        case SyntaxKind.ModuleDeclaration: return print(node, "ModuleDeclaration");
+        case SyntaxKind.ImportDeclaration: return print(node, "ImportDeclaration");
+        case SyntaxKind.SourceFile: return print(node, "SourceFile");
+        default: return print(node, `<${node.kind}>`);
+        }
+    }
+    
     export function printNode(parent:Node, indent = 0) {
+        function print(node:Node, name:string) {
+            var indentStr = '';
+            for (var i = 0; i < indent; i++) {
+                indentStr += '  ';
+            }
+            var addendum:any[] = [];
+            // for (var str in node) {
+            //     if (hasProperty(<any>node, str)) {
+            //         if (typeof <any>node[str] === "string") {
+            //             addendum.push(`${str}: ${node[str]}`);
+            //         }
+            //     }
+            // }
+            console.log(`${indentStr}${name} (${addendum.join(', ')})`);
+        }
+        function printSwitch(node) {
+            printRecursor(node, print)
+        }
+        printSwitch(parent);
+    }
+    export function printNodeDeep(parent:Node, indent = 0) {
         function print(node:Node, name:string) {
             var indentStr = '';
             for (var i = 0; i < indent; i++) {
@@ -35,84 +135,8 @@ module ts {
             forEachChild(node, printSwitch);
             indent--;
         }
-
-        function printSwitch(node:Node) {
-        switch (node.kind) {
-            case SyntaxKind.BrandTypeDeclaration: return print(node, "BrandTypeDeclaration");
-            case SyntaxKind.Identifier: return print(node, "Identifier");
-            case SyntaxKind.Parameter: return print(node, "Parameter");
-            case SyntaxKind.GetAccessor: return print(node, "GetAccessor");
-            case SyntaxKind.SetAccessor: return print(node, "SetAccessor");
-            case SyntaxKind.ThisKeyword: return print(node, "ThisKeyword");
-            case SyntaxKind.SuperKeyword: return print(node, "SuperKeyword");
-            case SyntaxKind.NullKeyword: return print(node, "NullKeyword");
-            case SyntaxKind.TrueKeyword: return print(node, "TrueKeyword");
-            case SyntaxKind.FalseKeyword: return print(node, "FalseKeyword");
-            case SyntaxKind.NumericLiteral: return print(node, "NumericLiteral");
-            case SyntaxKind.StringLiteral: return print(node, "StringLiteral");
-            case SyntaxKind.RegularExpressionLiteral: return print(node, "RegularExpressionLiteral");
-            case SyntaxKind.NoSubstitutionTemplateLiteral: return print(node, "NoSubstitutionTemplateLiteral");
-            case SyntaxKind.TemplateHead: return print(node, "TemplateHead");
-            case SyntaxKind.TemplateMiddle: return print(node, "TemplateMiddle");
-            case SyntaxKind.TemplateTail: return print(node, "TemplateTail");
-            case SyntaxKind.TemplateExpression: return print(node, "TemplateExpression");
-            case SyntaxKind.TemplateSpan: return print(node, "TemplateSpan");
-            case SyntaxKind.QualifiedName: return print(node, "QualifiedName");
-            case SyntaxKind.ArrayLiteralExpression: return print(node, "ArrayLiteralExpression");
-            case SyntaxKind.ObjectLiteralExpression: return print(node, "ObjectLiteralExpression");
-            case SyntaxKind.PropertyAssignment: return print(node, "PropertyAssignment");
-            case SyntaxKind.ComputedPropertyName: return print(node, "ComputedPrope rtyName");
-            case SyntaxKind.PropertyAccessExpression: return print(node, "PropertyAccessExpression");
-            case SyntaxKind.ElementAccessExpression: return print(node, "ElementAccessExpression");
-            case SyntaxKind.CallExpression: return print(node, "CallExpression");
-            case SyntaxKind.NewExpression: return print(node, "NewExpression");
-            case SyntaxKind.TaggedTemplateExpression: return print(node, "TaggedTemplateExpression");
-            case SyntaxKind.TypeAssertionExpression: return print(node, "TypeAssertionExpression");
-            case SyntaxKind.ParenthesizedExpression: return print(node, "ParenthesizedExpression");
-            case SyntaxKind.FunctionDeclaration: return print(node, "FunctionDeclaration");
-            case SyntaxKind.FunctionExpression: return print(node, "FunctionExpression");
-            case SyntaxKind.ArrowFunction: return print(node, "ArrowFunction");
-            case SyntaxKind.DeleteExpression: return print(node, "DeleteExpression");
-            case SyntaxKind.TypeOfExpression: return print(node, "TypeOfExpression");
-            case SyntaxKind.VoidExpression: return print(node, "VoidExpression");
-            case SyntaxKind.PrefixUnaryExpression: return print(node, "PrefixUnaryExpression");
-            case SyntaxKind.PostfixUnaryExpression: return print(node, "PostfixUnaryExpression");
-            case SyntaxKind.BinaryExpression: return print(node, "BinaryExpression");
-            case SyntaxKind.ConditionalExpression: return print(node, "ConditionalExpression");
-            case SyntaxKind.OmittedExpression: return print(node, "OmittedExpression");
-            case SyntaxKind.Block: return print(node, "Block");
-            case SyntaxKind.TryBlock: return print(node, "TryBlock");
-            case SyntaxKind.FinallyBlock: return print(node, "FinallyBlock");
-            case SyntaxKind.ModuleBlock: return print(node, "ModuleBlock");
-            case SyntaxKind.VariableStatement: return print(node, "VariableStatement");
-            case SyntaxKind.EmptyStatement: return print(node, "EmptyStatement");
-            case SyntaxKind.ExpressionStatement: return print(node, "ExpressionStatement");
-            case SyntaxKind.IfStatement: return print(node, "IfStatement");
-            case SyntaxKind.DoStatement: return print(node, "DoStatement");
-            case SyntaxKind.WhileStatement: return print(node, "WhileStatement");
-            case SyntaxKind.ForStatement: return print(node, "ForStatement");
-            case SyntaxKind.ForInStatement: return print(node, "ForInStatement");
-            case SyntaxKind.ContinueStatement: return print(node, "ContinueStatement");
-            case SyntaxKind.BreakStatement: return print(node, "BreakStatement");
-            case SyntaxKind.ReturnStatement: return print(node, "ReturnStatement");
-            case SyntaxKind.WithStatement: return print(node, "WithStatement");
-            case SyntaxKind.SwitchStatement: return print(node, "SwitchStatement");
-            case SyntaxKind.CaseClause: return print(node, "CaseClause");
-            case SyntaxKind.DefaultClause: return print(node, "DefaultClause");
-            case SyntaxKind.LabeledStatement: return print(node, "LabeledStatement");
-            case SyntaxKind.ThrowStatement: return print(node, "ThrowStatement");
-            case SyntaxKind.TryStatement: return print(node, "TryStatement");
-            case SyntaxKind.CatchClause: return print(node, "CatchClause");
-            case SyntaxKind.DebuggerStatement: return print(node, "DebuggerStatement");
-            case SyntaxKind.VariableDeclaration: return print(node, "VariableDeclaration");
-            case SyntaxKind.ClassDeclaration: return print(node, "ClassDeclaration");
-            case SyntaxKind.InterfaceDeclaration: return print(node, "InterfaceDeclaration");
-            case SyntaxKind.EnumDeclaration: return print(node, "EnumDeclaration");
-            case SyntaxKind.ModuleDeclaration: return print(node, "ModuleDeclaration");
-            case SyntaxKind.ImportDeclaration: return print(node, "ImportDeclaration");
-            case SyntaxKind.SourceFile: return print(node, "SourceFile");
-            default: return print(node, `<${node.kind}>`);
-            }
+        function printSwitch(node) {
+            printRecursor(node, print)
         }
         printSwitch(parent);
     }
@@ -186,7 +210,7 @@ module ts {
     }
 
     export function findBreakingScope(node:Node):Node {
-        if (node.kind === SyntaxKind.BreakKeyword || node.kind === SyntaxKind.ContinueKeyword) {
+        if (node.kind === SyntaxKind.BreakStatement || node.kind === SyntaxKind.ContinueStatement) {
             var label = (<BreakOrContinueStatement>node).label;
             while (node.parent) {
                 var child = node;
@@ -197,22 +221,30 @@ module ts {
                         return node;
                     }
                     break;
+                case SyntaxKind.SwitchStatement:
+                    if (!label) {
+                        return node;
+                    }
+                    break;
                 case SyntaxKind.ForInStatement:
                 case SyntaxKind.ForStatement:
-                case SyntaxKind.WhileKeyword:
+                case SyntaxKind.WhileStatement:
                     if (!label && child === (<IterationStatement>node).statement) {
                         return node;
                     }
                     break;
                 }
             }
+            throw new Error("Unexpected!");
         } else {
             // Return statement:
             while (node.parent) {
+                printNode(node.parent);
                 var child = node;
                 node = node.parent;
                 switch (node.kind) {
                 case SyntaxKind.ArrowFunction:
+                case SyntaxKind.FunctionExpression:
                 case SyntaxKind.FunctionDeclaration:
                     return node;
                 }
@@ -279,6 +311,45 @@ module ts {
             }
         }
         return false;
+    }
+    export function getBrandTypesInScope(block:Node):BrandTypeDeclaration[] {
+        var declarations:BrandTypeDeclaration[] = [];
+        while (!block.locals && block.parent) {
+            block = block.parent;
+        }
+        for (var symbolName in block.locals) {
+            if (hasProperty(block.locals, symbolName)) {
+                var symbol = block.locals[symbolName];
+                forEach(symbol.declarations || [], (declaration) => {
+                    if (declaration.kind == SyntaxKind.BrandTypeDeclaration) {
+                        declarations.push(<BrandTypeDeclaration>declaration);
+                    }
+                });
+            }
+        }
+        return declarations;
+    }
+
+    export function getBrandTypeVarDeclarations(block:Node):VariableDeclaration[] {
+        var declarations:VariableDeclaration[] = [];
+        while (!block.locals && block.parent) {
+            block = block.parent;
+        }
+        for (var symbolName in block.locals) {
+            if (hasProperty(block.locals, symbolName)) {
+                var symbol = block.locals[symbolName];
+                forEach(symbol.declarations || [], (declaration) => {
+                    if (declaration.kind == SyntaxKind.VariableDeclaration) {
+                        var typeNode = (<VariableDeclaration>declaration).type;
+                        if (typeNode && typeNode.brandTypeDeclaration) {
+                            declarations = (declarations || []);
+                            declarations.push(<VariableDeclaration>declaration);
+                        }
+                    }
+                });
+            }
+        }
+        return declarations;
     }
 
     class BrandTypeBinder {
@@ -350,6 +421,9 @@ module ts {
         }
 
         scan(node:Node, prev:BrandPropertyTypes):BrandPropertyTypes {
+            if (typeof node === "undefined") {
+                return prev;
+            }
             /* If we have a binding assignment, then we can return immediately: */
             var bindingResult = this.scanIfBindingAssignment(prev, node);
             if (bindingResult != null) {
@@ -424,18 +498,23 @@ module ts {
                         prev = this.scan(child, prev);
                 }
             });
+            if (typeof this.nodePostLinks[node.id] !== "undefined") {
+                this.nodePostLinks[node.id].forEach( links => {
+                    prev = prev.merge(links);
+                });
+            }
             return prev;
         }
     }
 
-    function forEachBrandProperty(scope:Node, callback: (BrandPropertyDeclaration)=>void) {
-        for (var key in scope.locals) {
-            if (hasProperty(scope.locals, key)) {
-                if (scope.locals[key].flags & SymbolFlags.Property) {
-                    if (scope.locals[key].declarations && scope.locals[key].declarations[0].kind == SyntaxKind.BrandProperty) {
+    function forEachBrandProperty(brandTypeDecl:Node, callback: (BrandPropertyDeclaration)=>void) {
+        for (var key in brandTypeDecl.locals) {
+            if (hasProperty(brandTypeDecl.locals, key)) {
+                if (brandTypeDecl.locals[key].flags & SymbolFlags.Property) {
+                    if (brandTypeDecl.locals[key].declarations && brandTypeDecl.locals[key].declarations[0].kind == SyntaxKind.BrandProperty) {
                         continue;
                     }
-                    callback(<BrandPropertyDeclaration> scope.locals[key].declarations[0]);
+                    callback(<BrandPropertyDeclaration> brandTypeDecl.locals[key].declarations[0]);
                 }
             }
         }
@@ -466,7 +545,7 @@ module ts {
     //  - the BrandTypeDeclaration will have all found brand property assignments declared as symbols
     //  - the resulting brand properties will have a list of relevant assignment expressions
     // As well, all 
-    function bindBrandTypeBasedOnLocalBlock(brandTypeDecl:BrandTypeDeclaration, declareSymbol:_declareSymbol) {
+    function bindBrandTypeBasedOnVarScope(scope:Node, brandTypeDecl:BrandTypeDeclaration, declareSymbol:_declareSymbol) {
         // Set to parent, unless we are in the global scope:
         var parentScope = brandTypeDecl.parent;
         while (!parentScope.locals) {
@@ -496,7 +575,7 @@ module ts {
                 // Do not descend into subblocks:
                 if (child.locals) return;
                 if (child.kind === SyntaxKind.BrandTypeDeclaration) {
-                    bindBrandTypeBasedOnLocalBlock(<BrandTypeDeclaration>child, declareSymbol);
+                    bindBrandTypeBasedOnVarScope(scope, <BrandTypeDeclaration>child, declareSymbol);
                 } else {
                     resolveBrandTypeDeclarations(child);
                 }
