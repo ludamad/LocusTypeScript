@@ -347,6 +347,7 @@ module ts {
         forceFalseyCoercion?: Type;   // If set, must coerce falsey values to the given type
         mangled?: boolean;            // If set, use mangled name to access (i.e., access to concrete type/call of concrete type)
         direct?: boolean;             // If set, may use direct access (i.e., is an access with correct, concrete types)
+        binding?: boolean;            // If set, this is a binding assignment
         assertFloat?: boolean;        // If set, can assert that this value is always a float instead of generic number
         assertInt?: boolean;          // If set, can assert that this value is always an int instead of generic number
         // [/ConcreteTypeScript]

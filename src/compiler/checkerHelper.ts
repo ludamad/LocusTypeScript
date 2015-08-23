@@ -17,6 +17,7 @@ module ts {
     }
     
     function printRecursor(node:Node, print) {
+        if (node == null) return console.log(node)
     switch (node.kind) {
         case SyntaxKind.BrandTypeDeclaration: return print(node, "BrandTypeDeclaration");
         case SyntaxKind.Identifier: return print(node, "Identifier");
@@ -90,6 +91,7 @@ module ts {
         case SyntaxKind.EnumDeclaration: return print(node, "EnumDeclaration");
         case SyntaxKind.ModuleDeclaration: return print(node, "ModuleDeclaration");
         case SyntaxKind.ImportDeclaration: return print(node, "ImportDeclaration");
+        case SyntaxKind.BrandProperty: return print(node, "BrandProperty");
         case SyntaxKind.SourceFile: return print(node, "SourceFile");
         default: return print(node, `<${node.kind}>`);
         }
@@ -102,13 +104,15 @@ module ts {
                 indentStr += '  ';
             }
             var addendum:any[] = [];
-            // for (var str in node) {
-            //     if (hasProperty(<any>node, str)) {
-            //         if (typeof <any>node[str] === "string") {
-            //             addendum.push(`${str}: ${node[str]}`);
-            //         }
-            //     }
-            // }
+            for (var str in node) {
+                if (hasProperty(<any>node, str)) {
+                    if (typeof <any>node[str] === "string") {
+                        addendum.push(`${str}: ${node[str]}`);
+                    } else if (node[str] != null && node[str].kind == SyntaxKind.Identifier) {
+                        addendum.push(`${str}: ${node[str].text}`);
+                    }
+                }
+            }
             console.log(`${indentStr}${name} (${addendum.join(', ')})`);
         }
         function printSwitch(node) {
@@ -144,11 +148,7 @@ module ts {
     
       // [ConcreteTypeScript] Find variable declaration associated with identifier, or 'null' if not a VariableDeclaration
       export function findVariableDeclarationForIdentifier(location: Node, identifier: Identifier): VariableDeclaration {
-          while (true) {
-              if (!location) {
-                  // Not found, let checker handle error reporting:
-                  return null;
-              }
+          while (location) {
               // If not a 'locals'-having context
               if (!location.locals || !hasProperty(location.locals, identifier.text)) {
                   location = location.parent;
@@ -158,6 +158,8 @@ module ts {
               if (symbol.declarations.length < 1) {
                   return null; 
               }
+              console.log("</SAda>")
+              printNodeDeep(symbol.declarations[0]);
               if (symbol.declarations[0].kind !== SyntaxKind.VariableDeclaration) {
                   // Not a variable declaration:
                   return null;
@@ -165,41 +167,43 @@ module ts {
               // Matched, return variable declaration:
               return <VariableDeclaration>symbol.declarations[0];
           }
+          // Not found, let checker handle error reporting:
+          return null;
       }
 
-    // [ConcreteTypeScript]
-    export function bindPropertyAssignment(propAccess: PropertyAccessExpression, value: Expression): void {
-        // Detect type-building assignment for brand-types. We are interested in the case when...
-        // 1. The LHS is a PropertyAccessExpression with form "<identifier>.<identifier>".
-        // 2. <variable> has an associated VariableDeclaration with form "var <identifier> : brand <identifier".
-        // No restrictions on RHS, but we are only interested in its statically known type.
-        // Match for PropertyAccessExpression with "<identifier>.<identifier>".
-        if (propAccess.expression.kind !== SyntaxKind.Identifier) {
-            return;
-        }
-        // Search for an associated VariableDeclaration with "var <identifier> : brand <identifier".
-        var varDecl = findVariableDeclarationForIdentifier(/*TODO: container*/ null, <Identifier> propAccess.expression);
-        if (!varDecl || !varDecl.type || !varDecl.type.brandTypeDeclaration) {
-            return;
-        }
-    
-        var brandTypeDecl = varDecl.type.brandTypeDeclaration;
-        if (hasProperty(brandTypeDecl.symbol.members, propAccess.name.text)) {
-            var symbol = brandTypeDecl.symbol.members[propAccess.name.text];
-            var propertyNode = <BrandPropertyDeclaration> symbol.declarations[0];
-            propertyNode.bindingAssignments.push(value);
-        } else {
-            // Create a property declaration for the brand-type symbol list:
-            var propertyNode = <BrandPropertyDeclaration> new (objectAllocator.getNodeConstructor(SyntaxKind.BrandProperty))();
-            propertyNode.name = propAccess.name; // Right-hand <identifier>
-            propertyNode.pos = propAccess.pos;
-            propertyNode.end = propAccess.end;
-            propertyNode.parent = /*TODO: container*/ null;
-            propertyNode.brandTypeDeclaration = brandTypeDecl;
-            propertyNode.bindingAssignments = [value];
-            // declareSymbol(brandTypeDecl.symbol.members, brandTypeDecl.symbol, propertyNode, SymbolFlags.Property, 0);
-        }
-    }
+    // // [ConcreteTypeScript]
+    // export function bindPropertyAssignment(propAccess: PropertyAccessExpression, value: Expression): void {
+    //     // Detect type-building assignment for brand-types. We are interested in the case when...
+    //     // 1. The LHS is a PropertyAccessExpression with form "<identifier>.<identifier>".
+    //     // 2. <variable> has an associated VariableDeclaration with form "var <identifier> : brand <identifier".
+    //     // No restrictions on RHS, but we are only interested in its statically known type.
+    //     // Match for PropertyAccessExpression with "<identifier>.<identifier>".
+    //     if (propAccess.expression.kind !== SyntaxKind.Identifier) {
+    //         return;
+    //     }
+    //     // Search for an associated VariableDeclaration with "var <identifier> : brand <identifier".
+    //     var varDecl = findVariableDeclarationForIdentifier(/*TODO: container*/ null, <Identifier> propAccess.expression);
+    //     if (!varDecl || !varDecl.type || !varDecl.type.brandTypeDeclaration) {
+    //         return;
+    //     }
+    // 
+    //     var brandTypeDecl = varDecl.type.brandTypeDeclaration;
+    //     if (hasProperty(brandTypeDecl.symbol.members, propAccess.name.text)) {
+    //         var symbol = brandTypeDecl.symbol.members[propAccess.name.text];
+    //         var propertyNode = <BrandPropertyDeclaration> symbol.declarations[0];
+    //     //    propertyNode.bindingAssignments.push(value);
+    //     } else {
+    //         // Create a property declaration for the brand-type symbol list:
+    //         var propertyNode = <BrandPropertyDeclaration> new (objectAllocator.getNodeConstructor(SyntaxKind.BrandProperty))();
+    //         propertyNode.name = propAccess.name; // Right-hand <identifier>
+    //         propertyNode.pos = propAccess.pos;
+    //         propertyNode.end = propAccess.end;
+    //         propertyNode.parent = /*TODO: container*/ null;
+    //         propertyNode.brandTypeDeclaration = brandTypeDecl;
+    //         // propertyNode.bindingAssignments = [value];
+    //         declareSymbol(brandTypeDecl.symbol.members, brandTypeDecl.symbol, propertyNode, SymbolFlags.Property, 0);
+    //     }
+    // }
 
     export function isNodeDescendentOf(node: Node, ancestor: Node): boolean {
         while (node) {
@@ -251,7 +255,7 @@ module ts {
         }
     }
 
-    export function getNarrowedTypeOfBrandProperty(propDecl:BrandPropertyDeclaration, location:Node) {
+    // export function getNarrowedTypeOfBrandProperty(propDecl:BrandPropertyDeclaration, location:Node) {
         // var narrower = new Narrower();
         // narrower.observerLocation = location;
         // narrower.containerScope = findParent(propDecl.brandTypeDeclaration, SymbolFlags.HasLocals);
@@ -268,7 +272,7 @@ module ts {
         // });
         // // printNode(narrower.containerScope);
         // console.log(`Done emitting ${name.text}`);
-    }
+    // }
 
     
     // As our binder passes through the function
@@ -282,8 +286,21 @@ module ts {
         merge(other:BrandPropertyTypes):BrandPropertyTypes {
             var merged = new BrandPropertyTypes(Math.max(this.assignmentSets.length, other.assignmentSets.length));
             for (var i = 0; i < merged.assignmentSets.length; i++) {
-                var newAssignmentSet = (this.assignmentSets[i]||[]).concat((other.assignmentSets[i]||[]));
-                merged.assignmentSets.push(newAssignmentSet);
+                // An array of [null] represents no assignments for the property.
+                // An array of [null, type] represents a conditional assignment to type.
+                var rawConcat = (this.assignmentSets[i] || [null]).concat(other.assignmentSets[i] || [null]);
+                console.log(rawConcat)
+                // Remove redundant nulls:
+                var newList = [], sawNull = false;
+                for (var j = 0; j < rawConcat.length; j++) {
+                    if (rawConcat[j] === null) {
+                        if (!sawNull) {newList.push(rawConcat[j])};
+                        sawNull = true;
+                    } else {
+                        newList.push(rawConcat[j]);
+                    }
+                }
+                console.log(merged.assignmentSets[i] = newList);
             }
             return merged;
         }
@@ -292,15 +309,23 @@ module ts {
             return this.assignmentSets[brandPropId];
         }
 
-        copyAndSet(brandPropId:number, node:Node) {
+        copyAndSetIfNoExistingAssignment(brandPropId:number, node:Node) {
+            if (node == null) throw new Error("node == null!");
             var copy = new BrandPropertyTypes(Math.max(this.assignmentSets.length, (brandPropId+1)));
             for (var i = 0; i < copy.assignmentSets.length; i++) {
-                copy.assignmentSets[i] = (brandPropId == i) ? [node] : this.assignmentSets[i];
+                // If the previous value had any null types, we  use our current assignment as a 'refinement'.
+                // The logic is, all sequential writes need to be consistent.
+                if (brandPropId === i) {
+                    var uncertainAssignment:boolean = !this.assignmentSets[i] || (this.assignmentSets[i].indexOf(null) > -1);
+                    copy.assignmentSets[i] = (uncertainAssignment) ? [node] : this.assignmentSets[i];
+                } else {
+                    copy.assignmentSets[i] = this.assignmentSets[i];
+                }
             }
             return copy;
         }
     }
-    
+
     // Is this an expression of type <identifier>.<identifier> = <expression>?
     function isPropertyAssignmentForLocalVariable(node:Node) {
         if (node.kind === SyntaxKind.BinaryExpression && (<BinaryExpression>node).operator === SyntaxKind.EqualsToken) {
@@ -312,10 +337,8 @@ module ts {
         return false;
     }
     export function getBrandTypesInScope(block:Node):BrandTypeDeclaration[] {
+        if (!block.locals) return [];
         var declarations:BrandTypeDeclaration[] = [];
-        while (!block.locals && block.parent) {
-            block = block.parent;
-        }
         for (var symbolName in block.locals) {
             if (hasProperty(block.locals, symbolName)) {
                 var symbol = block.locals[symbolName];
@@ -330,10 +353,8 @@ module ts {
     }
 
     export function getBrandTypeVarDeclarations(block:Node):VariableDeclaration[] {
+        if (!block.locals) return [];
         var declarations:VariableDeclaration[] = [];
-        while (!block.locals && block.parent) {
-            block = block.parent;
-        }
         for (var symbolName in block.locals) {
             if (hasProperty(block.locals, symbolName)) {
                 var symbol = block.locals[symbolName];
@@ -360,21 +381,27 @@ module ts {
         nextPropNameId = 0;
         containerScope:Node;
 
-        getPropId(str:string):number {
-            return this.propNameToId[str] = this.propNameToId[str] || (this.nextPropNameId++);
+        getPropId(str:string, dontCreate?:boolean):number {
+            if (this.propNameToId[str] != null) return this.propNameToId[str];
+            if (dontCreate) {console.log("NAME", str); console.log(this.propNameToId); throw new Error("DontCreate");}
+            var id = this.nextPropNameId++;
+            this.propNameToId[str] = id;
+            return id;
         }
 
         castIfRelevantPropertyAccess(node:Node):PropertyAccessExpression {
             if (node.kind !== SyntaxKind.PropertyAccessExpression) {
                 return null;
             }
+            console.log("STAGE1")
             var propAccess = <PropertyAccessExpression>node;
             if (propAccess.expression.kind !== SyntaxKind.Identifier) {
                 return null;
             }
 
             // Search for an associated VariableDeclaration with "var <identifier> : brand <identifier".
-            var varDecl = findVariableDeclarationForIdentifier(this.containerScope, <Identifier> propAccess.expression);
+            var varDecl = findVariableDeclarationForIdentifier(propAccess, <Identifier> propAccess.expression);
+            varDecl && varDecl.type && printNodeDeep(varDecl.type.brandTypeDeclaration);
             if (!varDecl || !varDecl.type || varDecl.type.brandTypeDeclaration !== this.brandTypeDecl) {
                 return null;
             }
@@ -392,18 +419,24 @@ module ts {
         }
 
         /* TODO: Detect any sort of assignment operator applied to our brand variable */
-        scanIfBindingAssignment(prev:BrandPropertyTypes, node:Node): BrandPropertyTypes {
+        scanIfBindingAssignment(prev:BrandPropertyTypes, node:BinaryExpression): BrandPropertyTypes {
             // Detect type-building assignment for brand-types. We are interested in the case when...
             // 1. The LHS is a PropertyAccessExpression with form "<identifier>.<identifier>".
             // 2. <variable> has an associated VariableDeclaration with form "var <identifier> : brand <identifier".
             // No restrictions on RHS, but we are only interested in its statically known type.
             // Match for PropertyAccessExpression with "<identifier>.<identifier>".
-            if (node.kind !== SyntaxKind.BinaryExpression || (<BinaryExpression>node).operator !== SyntaxKind.EqualsToken) {
+            console.log(node.operator, SyntaxKind.EqualsToken);
+            if (node.operator !== SyntaxKind.EqualsToken) {
                 return null;
             }
 
-            var propAccess = this.castIfRelevantPropertyAccess((<BinaryExpression> node).left);
+            var propAccess = this.castIfRelevantPropertyAccess(node.left);
+            if (!propAccess) {
+                return null;
+            }
             var value = (<BinaryExpression> node).right;
+            console.log("GOT PROPERAC")
+            printNode(value);
 
             if (!hasProperty(this.brandTypeDecl.symbol.members, propAccess.name.text)) {
                 // Create a property declaration for the brand-type symbol list:
@@ -415,38 +448,45 @@ module ts {
                 propertyNode.brandTypeDeclaration = this.brandTypeDecl;
                 this.declareSymbol(this.brandTypeDecl.symbol.members, this.brandTypeDecl.symbol, propertyNode, SymbolFlags.Property, 0);
             }
-
-            return prev.copyAndSet(this.getPropId(propAccess.name.text), value);
+            
+            return prev.copyAndSetIfNoExistingAssignment(this.getPropId(propAccess.name.text), value);
         }
 
         scan(node:Node, prev:BrandPropertyTypes):BrandPropertyTypes {
             if (typeof node === "undefined") {
                 return prev;
             }
-            /* If we have a binding assignment, then we can return immediately: */
-            var bindingResult = this.scanIfBindingAssignment(prev, node);
-            if (bindingResult != null) {
-                return bindingResult;
-            }
+
             if (this.setAssignmentsIfRelevantPropertyAccess(prev, node)) {
                 return prev;
             }
 
             /* Otherwise, continue recursive iteration: */
             forEachChild(node, (child) => {
+                console.log("SCANNING"); printNodeDeep(child)
                 switch (child.kind) {
                     case SyntaxKind.BreakStatement:
                     case SyntaxKind.ContinueStatement:
                     case SyntaxKind.ReturnStatement:
-                        // 'Shorten' the block returned from to only the topmost block we care about
+                        // Truncate the scope to only the topmost block we care about
                         var breakingContainer = (<ReturnStatement>child).breakingContainer;
                         if (isNodeDescendentOf(this.containerScope, breakingContainer)) {
                             breakingContainer = this.containerScope;
                         }
                         var id = breakingContainer.id;
                         this.nodePostLinks[id] = (this.nodePostLinks[id] || []);
+                        prev = this.scan(child, prev);
                         this.nodePostLinks[id].push(prev);
                         break;
+                    case SyntaxKind.SwitchStatement:
+                        prev = this.scan((<SwitchStatement>child).expression, prev);
+                        var beforeCases = prev;
+                        // Flow analysis: Merge the result of every case
+                        forEach((<SwitchStatement>child).clauses, (clause) => {
+                            prev = prev.merge(this.scan(clause, prev));
+                        });
+                        break;
+                        
                     case SyntaxKind.ConditionalExpression:
                         prev = this.scan((<ConditionalExpression>child).condition, prev);
                         var whenTrue = this.scan((<ConditionalExpression>child).whenTrue, prev);
@@ -455,6 +495,12 @@ module ts {
                         prev = whenTrue.merge(whenFalse);
                         break;
                     case SyntaxKind.BinaryExpression:
+                        /* If we have a binding assignment, then we can return immediately: */
+                        var bindingResult = this.scanIfBindingAssignment(prev, <BinaryExpression>child);
+                        console.log("BINARY BINARY")
+                        if (bindingResult != null) {
+                            prev = bindingResult;
+                        }
                         // Consider the shortcircuting behaviour of && or ||
                         if ((<BinaryExpression>child).operator === SyntaxKind.AmpersandAmpersandToken ||
                             (<BinaryExpression>child).operator === SyntaxKind.BarBarToken) {
@@ -486,7 +532,14 @@ module ts {
                         prev = this.scan((<ForInStatement>child).statement, prev).merge(prev);
                         break;
                     case SyntaxKind.FunctionDeclaration:
-                        prev = this.scan((<FunctionDeclaration>child).body, prev).merge(prev);
+                        var bodyScan = this.scan((<FunctionDeclaration>child).body, prev);
+                        prev = (this.containerScope === child) ? prev : bodyScan.merge(prev);
+                        break;
+                    case SyntaxKind.IfStatement:
+                        prev = this.scan((<IfStatement>child).expression, prev);
+                        var ifTrue = this.scan((<IfStatement>child).thenStatement, prev);
+                        var ifFalse = this.scan((<IfStatement>child).elseStatement, prev);
+                        prev = ifTrue.merge(ifFalse);
                         break;
                     case SyntaxKind.WhileStatement:
                         prev = this.scan((<WhileStatement>child).expression, prev);
@@ -507,13 +560,14 @@ module ts {
     }
 
     function forEachBrandProperty(brandTypeDecl:Node, callback: (BrandPropertyDeclaration)=>void) {
-        for (var key in brandTypeDecl.locals) {
-            if (hasProperty(brandTypeDecl.locals, key)) {
-                if (brandTypeDecl.locals[key].flags & SymbolFlags.Property) {
-                    if (brandTypeDecl.locals[key].declarations && brandTypeDecl.locals[key].declarations[0].kind == SyntaxKind.BrandProperty) {
+        for (var key in brandTypeDecl.symbol.members) {
+            if (hasProperty(brandTypeDecl.symbol.members, key)) {
+                var member = brandTypeDecl.symbol.members[key];
+                if (member.flags & SymbolFlags.Property) {
+                    if (!member.declarations || member.declarations[0].kind !== SyntaxKind.BrandProperty) {
                         continue;
                     }
-                    callback(<BrandPropertyDeclaration> brandTypeDecl.locals[key].declarations[0]);
+                    callback(<BrandPropertyDeclaration> member.declarations[0]);
                 }
             }
         }
@@ -546,40 +600,33 @@ module ts {
     // As well, all 
     function bindBrandTypeBasedOnVarScope(scope:Node, brandTypeDecl:BrandTypeDeclaration, declareSymbol:_declareSymbol) {
         // Set to parent, unless we are in the global scope:
-        var parentScope = brandTypeDecl.parent;
-        while (!parentScope.locals) {
-            parentScope = parentScope.parent;
-        }
+        // var parentScope = brandTypeDecl.parent;
+        // while (!parentScope.locals) {
+        //     parentScope = parentScope.parent;
+        // }
         var brandTypeBinder = new BrandTypeBinder();
         brandTypeBinder.brandTypeDecl = brandTypeDecl;
-        brandTypeBinder.containerScope = parentScope;
+        brandTypeBinder.containerScope = scope;
         brandTypeBinder.declareSymbol = declareSymbol;
-        var assignmentResults = brandTypeBinder.scan(parentScope, new BrandPropertyTypes(0));
+        var nProperties = 0;
+        forEachBrandProperty(brandTypeDecl, (brandPropDecl:BrandPropertyDeclaration) => {
+            nProperties++;
+        });
+        var assignmentResults = brandTypeBinder.scan(scope, new BrandPropertyTypes(nProperties));
         forEachBrandProperty(brandTypeDecl, (brandPropDecl:BrandPropertyDeclaration) => {
             var name = (<Identifier>brandPropDecl.name).text;
-            brandPropDecl.bindingAssignments = <Expression[]>assignmentResults.get(this.getPropId(name));
+            var assignments = <Expression[]>assignmentResults.get(brandTypeBinder.getPropId(name, true));
+            // console.log(brandTypeBinder.getPropId(name));
+            if (assignments == null) {console.log(assignmentResults.assignmentSets); throw new Error("WWWEEERE");}
+            brandPropDecl.bindingAssignments = assignments;
         });
     }
 
     export function bindBrandPropertiesInScopeAfterInitialBinding(scope:Node, declareSymbol:_declareSymbol) {
-        // First, see if we are wasting our time scanning this scope:
-        if (!hasBrandTypeDeclaration(scope)) {
-            return false;
-        }
-
-        // Find all relevant brand type declarations.
-        // We do not descend into subblocks, which are handled separately.
-        function resolveBrandTypeDeclarations(node:Node) {
-            forEachChild(node, (child) => {
-                // Do not descend into subblocks:
-                if (child.locals) return;
-                if (child.kind === SyntaxKind.BrandTypeDeclaration) {
-                    bindBrandTypeBasedOnVarScope(scope, <BrandTypeDeclaration>child, declareSymbol);
-                } else {
-                    resolveBrandTypeDeclarations(child);
-                }
-            });
-        }
-        resolveBrandTypeDeclarations(scope);
+        // Find all relevant brand type declarations bound to the current scope.
+        forEach(getBrandTypeVarDeclarations(scope), (declaration:VariableDeclaration) => {
+            console.log("DECLARING " + declaration.name.text);
+            bindBrandTypeBasedOnVarScope(scope, declaration.type.brandTypeDeclaration, declareSymbol);
+        });
     }
-}
+}  

@@ -439,7 +439,6 @@ module ts {
             if (hasProperty(brandTypeDecl.symbol.members, propAccess.name.text)) {
                 var symbol = brandTypeDecl.symbol.members[propAccess.name.text];
                 var propertyNode = <BrandPropertyDeclaration> symbol.declarations[0];
-                propertyNode.bindingAssignments.push(value);
             } else {
                 // Create a property declaration for the brand-type symbol list:
                 var propertyNode = <BrandPropertyDeclaration> new (objectAllocator.getNodeConstructor(SyntaxKind.BrandProperty))();
@@ -448,7 +447,6 @@ module ts {
                 propertyNode.end = propAccess.end;
                 propertyNode.parent = container;
                 propertyNode.brandTypeDeclaration = brandTypeDecl;
-                propertyNode.bindingAssignments = [value];
                 declareSymbol(brandTypeDecl.symbol.members, brandTypeDecl.symbol, propertyNode, SymbolFlags.Property, 0);
             }
         }

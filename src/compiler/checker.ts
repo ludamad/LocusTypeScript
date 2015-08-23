@@ -1684,17 +1684,25 @@ module ts {
             var classType = <InterfaceType>getDeclaredTypeOfSymbol(prototype.parent);
             return classType.typeParameters ? createTypeReference(<GenericType>classType, map(classType.typeParameters, _ => anyType)) : classType;
         }
+        
+        function getUnionOverExpressions(assignments): Type {
+            var types: Type[] = [];
+            // If we are possibly uninitialized, remove guarantees about concreteness.
+            var weakenConcreteness = (assignments.indexOf(null) > -1);
+            for (var i = 0; i < assignments.length; i++) {
+                if (assignments[i] !== null) {
+                    var type = checkAndMarkExpression(assignments[i]);
+                    if (weakenConcreteness) type = stripConcreteType(type);
+                    types.push(type);
+                }
+            }
+            return getUnionType(types);//, /*noSubtypeReduction*/ true);
+        }
 
         // [ConcreteTypeScript]
         function getTypeOfBrandProperty(declaration: BrandPropertyDeclaration): Type {
             // We wish to give a type to the brand property that is a union over all declaration-scope assignments.
-            var assignments = declaration.bindingAssignments;
-            var types: Type[] = [];
-            for (var i = 0; i < assignments.length; i++) {
-                var type = checkAndMarkExpression(assignments[i]);
-                types.push(type);
-            }
-            return getUnionType(types, /*noSubtypeReduction*/ true);
+            return getUnionOverExpressions(declaration.bindingAssignments);
         }
 
         // [ConcreteTypeScript]
@@ -5476,7 +5484,23 @@ module ts {
         function checkQualifiedName(node: QualifiedName) {
             return checkPropertyAccessExpressionOrQualifiedName(node, node.left, node.right);
         }
-
+        
+        function getNarrowedTypeOfBrandPropertyAccess(access:PropertyAccessExpression) {
+            var brandUnion:Type[] = [];
+            // Check if there is a path here 
+            if (access.relevantBrandAssignments.indexOf(null) > 0) {
+                
+            }
+            forEach(access.relevantBrandAssignments, (valueAssigned:Expression) => {
+                printNode(valueAssigned);
+                // if (valueAssigned === null) {
+                    // brandUnion.push(undefinedType);
+                // } else {
+                brandUnion.push(checkAndMarkExpression(valueAssigned));
+                // }
+            });
+            return getUnionType(brandUnion, true);
+        }
         function checkPropertyAccessExpressionOrQualifiedName(node: PropertyAccessExpression | QualifiedName, left: Expression | QualifiedName, right: Identifier) {
             var type = checkExpressionOrQualifiedName(left);
             if (type === unknownType) return type;
@@ -5510,16 +5534,19 @@ module ts {
                     }
                 }
                 
-                // [ConcreteTypeScript] Enact special logic for Brand types.
-                if (node.kind == SyntaxKind.PropertyAccessExpression) {
-                    if (prop.declarations && prop.declarations[0].kind == SyntaxKind.BrandProperty) {
-                        getNarrowedTypeOfBrandProperty(<BrandPropertyDeclaration>prop.declarations[0], node);
-                    }
-                }
-    
                 //return getTypeOfSymbol(prop);
                 // [ConcreteTypeScript]
-                var ptype = getTypeOfSymbol(prop);
+                var ptype:Type = getTypeOfSymbol(prop);
+
+                // [ConcreteTypeScript] Enact special logic for Brand types.
+                // TODO once normal get-type is working
+                // if (node.kind == SyntaxKind.PropertyAccessExpression) {
+                //     if (prop.declarations && prop.declarations[0].kind == SyntaxKind.BrandProperty) {
+                //         if (typeof (<PropertyAccessExpression>node).relevantBrandAssignments === "object") {
+                //             ptype = getNarrowedTypeOfBrandPropertyAccess(<PropertyAccessExpression>node);
+                //         }
+                //     }
+                // } 
 
                 // Must check if the member is concrete but it is being accessed on a non-concrete type
                 if ((ptype.flags & TypeFlags.Concrete) &&
