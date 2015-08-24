@@ -1685,16 +1685,15 @@ module ts {
             return classType.typeParameters ? createTypeReference(<GenericType>classType, map(classType.typeParameters, _ => anyType)) : classType;
         }
         
-        function getUnionOverExpressions(assignments): Type {
+        // [ConcreteTypeScript] 
+        // TODO: Weaken unions of concrete types
+        function getUnionOverExpressions(propAnalysis:BrandPropertyAnalysis): Type {
             var types: Type[] = [];
-            // If we are possibly uninitialized, remove guarantees about concreteness.
-            var weakenConcreteness = (assignments.indexOf(null) > -1);
-            for (var i = 0; i < assignments.length; i++) {
-                if (assignments[i] !== null) {
-                    var type = checkAndMarkExpression(assignments[i]);
-                    if (weakenConcreteness) type = stripConcreteType(type);
-                    types.push(type);
-                }
+            for (var i = 0; i < propAnalysis.assignments.length; i++) {
+                var type = checkAndMarkExpression(propAnalysis.assignments[i]);
+                // If we are possibly uninitialized, remove guarantees about concreteness.
+                if (!propAnalysis.definitelyAssigned) type = stripConcreteType(type);
+                types.push(type);
             }
             return getUnionType(types);//, /*noSubtypeReduction*/ true);
         }
@@ -5486,20 +5485,7 @@ module ts {
         }
         
         function getNarrowedTypeOfBrandPropertyAccess(access:PropertyAccessExpression) {
-            var brandUnion:Type[] = [];
-            // Check if there is a path here 
-            if (access.relevantBrandAssignments.indexOf(null) > 0) {
-                
-            }
-            forEach(access.relevantBrandAssignments, (valueAssigned:Expression) => {
-                printNode(valueAssigned);
-                // if (valueAssigned === null) {
-                    // brandUnion.push(undefinedType);
-                // } else {
-                brandUnion.push(checkAndMarkExpression(valueAssigned));
-                // }
-            });
-            return getUnionType(brandUnion, true);
+            return getUnionOverExpressions(access.brandAnalysis);
         }
         function checkPropertyAccessExpressionOrQualifiedName(node: PropertyAccessExpression | QualifiedName, left: Expression | QualifiedName, right: Identifier) {
             var type = checkExpressionOrQualifiedName(left);
@@ -5540,13 +5526,13 @@ module ts {
 
                 // [ConcreteTypeScript] Enact special logic for Brand types.
                 // TODO once normal get-type is working
-                // if (node.kind == SyntaxKind.PropertyAccessExpression) {
-                //     if (prop.declarations && prop.declarations[0].kind == SyntaxKind.BrandProperty) {
-                //         if (typeof (<PropertyAccessExpression>node).relevantBrandAssignments === "object") {
-                //             ptype = getNarrowedTypeOfBrandPropertyAccess(<PropertyAccessExpression>node);
-                //         }
-                //     }
-                // } 
+                if (node.kind == SyntaxKind.PropertyAccessExpression) {
+                    if (prop.declarations && prop.declarations[0].kind == SyntaxKind.BrandProperty) {
+                        if ((<PropertyAccessExpression>node).brandAnalysis != null) {
+                            ptype = getNarrowedTypeOfBrandPropertyAccess(<PropertyAccessExpression>node);
+                        }
+                    }
+                } 
 
                 // Must check if the member is concrete but it is being accessed on a non-concrete type
                 if ((ptype.flags & TypeFlags.Concrete) &&

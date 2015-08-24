@@ -423,7 +423,7 @@ module ts {
     export interface BrandPropertyDeclaration extends PropertyDeclaration {
         brandTypeDeclaration: BrandTypeDeclaration;
         // Set in checkerHelper.ts
-        bindingAssignments?: Expression[];
+        bindingAssignments?: BrandPropertyAnalysis;
     }
 
     export type VariableOrParameterDeclaration = VariableDeclaration | ParameterDeclaration;
@@ -654,7 +654,7 @@ module ts {
         // [ConcreteTypeScript] Accesses to a brand type property within the 
         // same scope, we collect a relevant list of expressions for determining 
         // the narrowed type of the expression.
-        relevantBrandAssignments?: Expression[];
+        brandAnalysis?: BrandPropertyAnalysis;
     }
 
     export interface ElementAccessExpression extends MemberExpression {

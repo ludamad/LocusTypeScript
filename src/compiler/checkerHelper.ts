@@ -158,8 +158,6 @@ module ts {
               if (symbol.declarations.length < 1) {
                   return null; 
               }
-              console.log("</SAda>")
-              printNodeDeep(symbol.declarations[0]);
               if (symbol.declarations[0].kind !== SyntaxKind.VariableDeclaration) {
                   // Not a variable declaration:
                   return null;
@@ -278,46 +276,53 @@ module ts {
     // As our binder passes through the function
     // we collect the relevant assignments of the brand property 
     // for once it leaves the block, and for when it 
-    class BrandPropertyTypes {
-        assignmentSets:Node[][];
+    export class BrandPropertyAnalysis {
+        constructor(public assignments:Expression[], public definitelyAssigned:boolean) {
+        }
+        merge(other:BrandPropertyAnalysis):BrandPropertyAnalysis {
+            var expressions:Expression[] = [].concat(this.assignments);
+            forEach(other.assignments, (expr) => {
+                if (expressions.indexOf(expr) === -1) expressions.push(expr);
+            });
+            var definitelyAssigned:boolean = (other.definitelyAssigned && this.definitelyAssigned);
+            return new BrandPropertyAnalysis(expressions, definitelyAssigned);
+        }
+        copyAndSetIfNoExistingAssignment(node:Expression) :BrandPropertyAnalysis {
+            if (this.definitelyAssigned) {
+                return this;
+            }
+            return new BrandPropertyAnalysis([node], true);
+        }
+    }
+
+    export class BrandPropertyTypes {
+        assignmentSets:BrandPropertyAnalysis[];
         constructor(public nProps:number) {
-            this.assignmentSets = new Array<Node[]>(nProps);
+            this.assignmentSets = new Array<BrandPropertyAnalysis>(nProps);
+            for (var i = 0; i < this.assignmentSets.length; i++) {
+                this.assignmentSets[i] = new BrandPropertyAnalysis([], false);
+            }
         }
         merge(other:BrandPropertyTypes):BrandPropertyTypes {
             var merged = new BrandPropertyTypes(Math.max(this.assignmentSets.length, other.assignmentSets.length));
             for (var i = 0; i < merged.assignmentSets.length; i++) {
-                // An array of [null] represents no assignments for the property.
-                // An array of [null, type] represents a conditional assignment to type.
-                var rawConcat = (this.assignmentSets[i] || [null]).concat(other.assignmentSets[i] || [null]);
-                console.log(rawConcat)
-                // Remove redundant nulls:
-                var newList = [], sawNull = false;
-                for (var j = 0; j < rawConcat.length; j++) {
-                    if (rawConcat[j] === null) {
-                        if (!sawNull) {newList.push(rawConcat[j])};
-                        sawNull = true;
-                    } else {
-                        newList.push(rawConcat[j]);
-                    }
-                }
-                console.log(merged.assignmentSets[i] = newList);
+                merged.assignmentSets[i] = this.assignmentSets[i].merge(other.assignmentSets[i]);
             }
             return merged;
         }
 
-        get(brandPropId:number):Node[] {
+        get(brandPropId:number):BrandPropertyAnalysis {
             return this.assignmentSets[brandPropId];
         }
 
-        copyAndSetIfNoExistingAssignment(brandPropId:number, node:Node) {
+        copyAndSetIfNoExistingAssignment(brandPropId:number, node:Expression) {
             if (node == null) throw new Error("node == null!");
             var copy = new BrandPropertyTypes(Math.max(this.assignmentSets.length, (brandPropId+1)));
             for (var i = 0; i < copy.assignmentSets.length; i++) {
                 // If the previous value had any null types, we  use our current assignment as a 'refinement'.
                 // The logic is, all sequential writes need to be consistent.
                 if (brandPropId === i) {
-                    var uncertainAssignment:boolean = !this.assignmentSets[i] || (this.assignmentSets[i].indexOf(null) > -1);
-                    copy.assignmentSets[i] = (uncertainAssignment) ? [node] : this.assignmentSets[i];
+                    copy.assignmentSets[i] = this.assignmentSets[i].copyAndSetIfNoExistingAssignment(node);
                 } else {
                     copy.assignmentSets[i] = this.assignmentSets[i];
                 }
@@ -327,7 +332,7 @@ module ts {
     }
 
     // Is this an expression of type <identifier>.<identifier> = <expression>?
-    function isPropertyAssignmentForLocalVariable(node:Node) {
+    export function isPropertyAssignmentForLocalVariable(node:Node) {
         if (node.kind === SyntaxKind.BinaryExpression && (<BinaryExpression>node).operator === SyntaxKind.EqualsToken) {
             var binNode = <BinaryExpression> node;
             if (binNode.left.kind === SyntaxKind.PropertyAccessExpression) {
@@ -413,8 +418,8 @@ module ts {
             var propAccess = this.castIfRelevantPropertyAccess(node);
             if (!propAccess) return false;
             // Store relevant assignments for type calculation:
-            if (propAccess.relevantBrandAssignments) throw new Error("ERROR use grep");
-            propAccess.relevantBrandAssignments = <Expression[]>prev.get(this.getPropId(propAccess.name.text));
+            if (propAccess.brandAnalysis) throw new Error("ERROR use grep");
+            propAccess.brandAnalysis = prev.get(this.getPropId(propAccess.name.text));
             return true;
         }
 
@@ -615,7 +620,7 @@ module ts {
         var assignmentResults = brandTypeBinder.scan(scope, new BrandPropertyTypes(nProperties));
         forEachBrandProperty(brandTypeDecl, (brandPropDecl:BrandPropertyDeclaration) => {
             var name = (<Identifier>brandPropDecl.name).text;
-            var assignments = <Expression[]>assignmentResults.get(brandTypeBinder.getPropId(name, true));
+            var assignments = assignmentResults.get(brandTypeBinder.getPropId(name, true));
             // console.log(brandTypeBinder.getPropId(name));
             if (assignments == null) {console.log(assignmentResults.assignmentSets); throw new Error("WWWEEERE");}
             brandPropDecl.bindingAssignments = assignments;

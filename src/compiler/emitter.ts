@@ -2597,9 +2597,24 @@ module ts {
                 emit(node.operand);
                 write(tokenToString(node.operator));
             }
-
+            
+            // [ConcreteTypeScript]
+            function emitConcreteAssignment(propAccess:PropertyAccessExpression, propAnalysis: BrandPropertyAnalysis) {
+                if (propAnalysis.definitelyAssigned) {
+                    propAccess.expression
+                }
+            }
 
             function emitBinaryExpression(node: BinaryExpression) {
+                // [ConcreteTypeScript] Handle binding assignment
+                if (isPropertyAssignmentForLocalVariable(node)) {
+                    var propAccess:PropertyAccessExpression = <PropertyAccessExpression>node.left;
+                    if (propAccess.brandAnalysis) {
+                        emitConcreteAssignment(propAccess, propAccess.brandAnalysis);
+                        return;
+                    }                    
+                }
+                // [/ConcreteTypeScript]
                 // [ConcreteTypeScript] Direct access (for assignments)
                 if (node.direct && compilerOptions.emitV8Intrinsics) write("%_UnsafeAssumeMono(");
                 // [/ConcreteTypeScript]
