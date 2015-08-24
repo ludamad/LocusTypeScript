@@ -19,6 +19,10 @@ function makeGodObject() {
     else {
         ;
     }
+    // notConcreteNum : number
+    if (Math.random() > .5) {
+        ;
+    }
     // strOrInterface : !string|IAnything
     // Should this degrade to string|IAnything = IAnything?
     ;
@@ -36,3 +40,4 @@ go.strOrInterface = "string";
 go.strOrNum2 = "string";
 go.strOrNum2 = 1;
 go.strOrNum2 = {}; // Error !string|IAnything = {}
+go.notConcreteNum = "string"; // Error number = !string
