@@ -1312,7 +1312,7 @@ module ts {
 
     // [ConcreteTypeScript] Concrete types
     export interface ConcreteType extends Type {
-        baseType: IntrinsicType | ObjectType;
+        baseType: IntrinsicType | ObjectType | UnionType;
     }
 
     // Type references (TypeFlags.Reference)
@@ -1336,7 +1336,7 @@ module ts {
     export interface UnionType extends Type {
         types: Type[];                    // Constituent types
         resolvedProperties: SymbolTable;  // Cache of resolved properties
-        unionOfConcrete: boolean;
+        baseType?: IntrinsicType | ObjectType | UnionType;
     }
 
     // Resolved object or union type
