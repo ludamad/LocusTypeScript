@@ -1336,7 +1336,7 @@ module ts {
     export interface UnionType extends Type {
         types: Type[];                    // Constituent types
         resolvedProperties: SymbolTable;  // Cache of resolved properties
-        baseType?: IntrinsicType | ObjectType | UnionType;
+        isRuntimeCheckable: boolean;
     }
 
     // Resolved object or union type

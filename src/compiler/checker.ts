@@ -673,41 +673,33 @@ module ts {
             type.symbol = symbol;
             return type;
         }
-
+        
         // [ConcreteTypeScript]
-        // Create a concrete union out of a possibly non-concrete union
-        function createConcreteUnionType(target: UnionType) {
-            if (!target.unionOfConcrete) {
-                return target;
+        function isRuntimeCheckable(target: Type) {
+            if (target.flags & TypeFlags.Union) {
+                return (<UnionType>target).isRuntimeCheckable;
             }
-            var newTypes = [];
-            forEach(target.types, (type) => {
-                newTypes.push(createConcreteType(type));
-            });
-            return getUnionType(newTypes);
+            // TODO: Rename RuntimeCheckable to 'AlwaysRuntimeCheckable' perhaps.
+            return !!(target.flags & TypeFlags.RuntimeCheckable);
+        }
+
+        function areAllRuntimeCheckable(target: Type[]) {
+            for (var i = 0; i < target.length; i++) {
+                if (!isRuntimeCheckable(target[i])) return false;
+            }
+            return true;
         }
 
         // [ConcreteTypeScript]
         // Wrap a type as a concrete type
         function createConcreteType(target: Type) {
             var type = target.concreteType;
-            if (!type && !(target.flags & TypeFlags.Any) && (target.flags & TypeFlags.RuntimeCheckable)) {
+            if (!type && !(target.flags & TypeFlags.Any) && isRuntimeCheckable(target)) {
                 type = target.concreteType = <ConcreteType>createType(TypeFlags.Concrete);
                 type.baseType = target;
             }
             return type;
         }
-        // 
-        // function stripConcreteUnionType(target: UnionType) {
-        //     if (target.concreteType !== target) {
-        //         return target;
-        //     }
-        //     var newTypes = [];
-        //     forEach(target.types, (type) => {
-        //         newTypes.push(stripConcreteType(type));
-        //     });
-        //     return getUnionType(newTypes);
-        // }
 
         // And force a type to its non-concrete equivalent
         function stripConcreteType(target: Type) {
@@ -3141,7 +3133,17 @@ module ts {
             if (!type) {
                 type = unionTypes[id] = <UnionType>createObjectType(TypeFlags.Union);
                 type.types = sortedTypes;
-                if (unionOfConcrete) type.flags |= TypeFlags.Concrete;
+                type.isRuntimeCheckable = unionOfConcrete || areAllRuntimeCheckable(type.types);
+
+                // [ConcreteTypeScript]
+                if (unionOfConcrete) {
+                    type.flags |= TypeFlags.Concrete;
+                    var strippedTypes = map(type.types, (concreteType) => stripConcreteType(concreteType));
+                    // HACK we assign UnionType to ConcreteType by casting through 'any'
+                    var baseType = (<any>type).baseType = getUnionType(strippedTypes);
+                    baseType.concreteType = <any>type;
+                }
+                // getUnionType();
                 // // [ConcreteTypeScript]
                 // // Part of support for concrete union types.
                 // // For convenience, when we create a union type, also take note of its
