@@ -17,8 +17,20 @@
 
 if (typeof $$cts$$runtime === "undefined") (function(global) {
     runtime = new (function() {
-        var cement;
+        var cement, getSetter;
 
+        if (Object.__lookupSetter__) {
+            // Deprecated but overall more desirable:
+            var __lookupSetter__ = Object.prototype.__lookupSetter__;
+            getSetter = function (obj, prop) {
+                return __lookupSetter__.call(obj, prop);
+            }
+        } else {
+            // Standard in ES6 but unlikely to be well optimized:
+            getSetter = function (obj, prop) {
+                return Object.setOwnPropertyDescriptor(obj, prop).set;
+            };
+        }
         if (Object.defineProperty) {
             // use Object.defineProperty to cement object members
             cement = function(obj, prop, val, enumerable) {
@@ -29,7 +41,6 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
                     value: val
                 });
             };
-    
         } else {
             // Pre-ECMAScript-5 can't cement properties!
             cement = function(obj, prop, val) {
@@ -62,6 +73,23 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         cement(String, "$$cts$$check", function(val) { return typeof val === "string"; });
         cement(Function.prototype, "$$cts$$check", function(val) { return val instanceof this || val === null || typeof val === "undefined"; });
 
+        // A union of concrete types, eg !(a | b).
+        // We consider !a | !b to be equivalent and reinterpret it as !(a | b).
+        cement(this, "UnionType", function() {
+            // Copy arguments object as an array:
+            this.types = [].slice.call(arguments);
+        });
+        cement(this.UnionType, "prototype", this.UnionType.prototype); 
+        cement(this.UnionType.prototype, "$$cts$$check", function(val) { 
+            for (var i = 0; i < this.types.length; i++) {
+                var type = this.types[i];
+                if (type.$$cts$$check(val)) {
+                    return true;
+                }
+            }
+            return false;
+        });
+
         // and a global caster, which checks and returns the value if the check succeeded or an exception otherwise
         cement(this, "cast", function(type, val) {
             if (type.$$cts$$check(val)) return val;
@@ -90,12 +118,15 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         cement(Number, "$$cts$$falsey", function(val) { if (!val) return 0; else return val; });
         cement(String, "$$cts$$falsey", function(val) { if (!val) return ""; else return val; });
         cement(Function.prototype, "$$cts$$falsey", function(val) { if (!val) return void 0; else return val; });
-
-        // a "protect" function, which adds a protector for a given type and name to an object
-        cement(this, "protect", function(type, name, obj, enumerable) {
+        
+        // the "protect" function adds a protector for a given type and name to an object
+        function protect(type, name, obj, enumerable) {
             var pname = "$$cts$$value$" + name;
             var getter = function() { return this[pname]; };
-            var setter = function(val) { this[pname] = $$cts$$runtime.cast(type, val); };
+            var setter = type.$$cts$$setter;
+            if (!setter) {
+                setter = type.$$cts$$setter = function(val) { this[pname] = $$cts$$runtime.cast(type, val); };
+            }
 
             if (Object.defineProperty) {
                 Object.defineProperty(obj, name, {
@@ -106,7 +137,8 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
                 });
 
             } else throw new Error("Cannot protect properties!");
-        });
+        }
+        cement(this, "protect", protect);
 
         // a way of adding unenumerable properties to an object
         var addUnenum;
@@ -125,8 +157,24 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             };
         }
         cement(this, "addUnenum", addUnenum);
-        cement(this, "addUnenum", addUnenum);
 
+        // the "protectAssignment" adds a protector for a given type and name to an object, if one does not
+        // already exist.
+        cement(this, "protectAssignment", function(type, name, obj, value) {
+            var existingSetter = getSetter(obj, name);
+            if (existingSetter != null && existingSetter === type.$$cts$$setter) {
+                // Just use existingSetter:
+                this[name] = obj;
+                return;
+            }
+            if (existingSetter != null) {
+                // Incompatible case:
+                throw new Error("Cannot reprotect '" + name + "'!");
+            }
+            // OK, protection needed:
+            addUnenum(obj,"$$cts$$value$" + name, value);
+            protect(type, name, obj, true);
+        });
 
         function Brand() {}
         cement(Brand, "prototype", Brand.prototype);

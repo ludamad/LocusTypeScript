@@ -10,18 +10,18 @@ function makeGodObject() {
     // num : !number
     $$cts$$runtime.protectAssignment(Number, "num", godObject, 1);;
     // strOrNum : !number|!string
-    godObject.strOrNum = Math.random() > .5 ? "string" : 1;
+    $$cts$$runtime.protectAssignment((new $$cts$$runtime.UnionType(String, Number)), "strOrNum", godObject, Math.random() > .5 ? "string" : 1);;
     // strOrNum2 : !number|!string
     if (Math.random() > .5) {
-        $$cts$$runtime.protectAssignment(String, "strOrNum2", godObject, 1);;
+        $$cts$$runtime.protectAssignment((new $$cts$$runtime.UnionType(String, Number)), "strOrNum2", godObject, 1);;
         var shouldntWork = godObject.$$cts$$value$strOrNum2; // Error !string = !number 
     }
     else {
-        $$cts$$runtime.protectAssignment(String, "strOrNum2", godObject, "wee");;
+        $$cts$$runtime.protectAssignment((new $$cts$$runtime.UnionType(String, Number)), "strOrNum2", godObject, "wee");;
     }
     // notConcreteNum : number
     if (Math.random() > .5) {
-        $$cts$$runtime.protectAssignment(Number, "notConcreteNum", godObject, 1);;
+        godObject.$$cts$$value$notConcreteNum = 1;
     }
     // strOrNum3: !number|string -> number|string
     godObject.strOrNum3 = Math.random() > .5 ? "string" : 1;
@@ -32,15 +32,15 @@ function makeGodObject() {
 }
 $$cts$$runtime.cementGlobal("makeGodObject",makeGodObject);
 var go = ($$cts$$runtime.cast(GodObject,(makeGodObject())));
+go.strOrNum2 = {}; // Runtime error
 go.$$cts$$value$num = "string"; // Error !number = !string
-go.strOrNum = "string";
-go.strOrNum = 1;
-go.strOrNum = {}; // Error !number|!string = {}
+go.$$cts$$value$strOrNum = "string";
+go.$$cts$$value$strOrNum = 1;
+go.$$cts$$value$strOrNum = ($$cts$$runtime.cast((new $$cts$$runtime.UnionType(String, Number)),({}))); // Error !number|!string = {}
 go.strOrInterface = "string";
-go.strOrInterface = "string";
-go.strOrNum2 = "string";
-go.strOrNum2 = 1;
-go.strOrNum2 = {}; // Error !number|!string = {}
+go.$$cts$$value$strOrNum2 = "string";
+go.$$cts$$value$strOrNum2 = 1;
+go.$$cts$$value$strOrNum2 = ($$cts$$runtime.cast((new $$cts$$runtime.UnionType(String, Number)),({}))); // Error !number|!string = {}
 go.strOrNum3 = "string";
 go.strOrNum3 = 1;
 go.strOrNum3 = {}; // Error number|string = {}

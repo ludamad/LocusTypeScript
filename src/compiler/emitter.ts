@@ -2424,6 +2424,15 @@ module ts {
                     write("String");
                 } else if (type.flags & TypeFlags.Number) {
                     write("Number");
+                } else if (type.flags & TypeFlags.Union) {
+                    write("(new "); emitCTSRT("UnionType");
+                    write("("); 
+                    var types:ConcreteType[] = <ConcreteType[]>(<UnionType>type).types;
+                    for (var i = 0; i < types.length; i++) {
+                        emitCTSType(types[i].baseType || types[i]);
+                        if (i !== types.length - 1) write(", ");
+                    }
+                    write("))");
                 } else if (type.flags & TypeFlags.Boolean) {
                     write("Boolean");
                 } else if (type.symbol) {

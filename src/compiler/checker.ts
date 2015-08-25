@@ -1701,8 +1701,7 @@ module ts {
             return classType.typeParameters ? createTypeReference(<GenericType>classType, map(classType.typeParameters, _ => anyType)) : classType;
         }
         
-        // [ConcreteTypeScript] 
-        // TODO: Weaken unions of concrete types
+        // [ConcreteTypeScript]  
         function getUnionOverExpressions(propAnalysis:BrandPropertyAnalysis): Type {
             var types: Type[] = [];
             for (var i = 0; i < propAnalysis.assignments.length; i++) {
@@ -1711,13 +1710,14 @@ module ts {
                 if (!propAnalysis.definitelyAssigned) type = stripConcreteType(type);
                 types.push(type);
             }
-            return propAnalysis.declaration.resolvedType = getUnionType(types);//, /*noSubtypeReduction*/ true);
+            return getUnionType(types);
         }
-
+        
         // [ConcreteTypeScript]
         function getTypeOfBrandProperty(declaration: BrandPropertyDeclaration): Type {
             // We wish to give a type to the brand property that is a union over all declaration-scope assignments.
-            return getUnionOverExpressions(declaration.bindingAssignments);
+            if (declaration.resolvedType) return declaration.resolvedType;
+            return declaration.resolvedType = getUnionOverExpressions(declaration.bindingAssignments);
         }
 
         // [ConcreteTypeScript]
@@ -3138,60 +3138,14 @@ module ts {
                 // [ConcreteTypeScript]
                 if (unionOfConcrete) {
                     type.flags |= TypeFlags.Concrete;
+                    // Make sure we have our baseType set
+                    // so that we can access it in emit code:
                     var strippedTypes = map(type.types, (concreteType) => stripConcreteType(concreteType));
-                    // HACK we assign UnionType to ConcreteType by casting through 'any'
                     var baseType = (<any>type).baseType = getUnionType(strippedTypes);
+                    // We cast our UnionType into a concrete type, 
+                    // since we have set 'baseType' on it above.
                     baseType.concreteType = <any>type;
                 }
-                // getUnionType();
-                // // [ConcreteTypeScript]
-                // // Part of support for concrete union types.
-                // // For convenience, when we create a union type, also take note of its
-                // // concrete/non-concrete version.
-                // if (unionOfConcrete) {
-                //     // The union is concrete, create the nonconcrete counterpart:
-                //     type.flags |= TypeFlags.Concrete;
-                //     var strippedTypes = [];
-                //     forEach(sortedTypes, type => {
-                //         strippedTypes.push(stripConcreteType(type));
-                //     });
-                //     var strippedId = getTypeListId(strippedTypes);
-                //     var strippedUnion = unionTypes[strippedId];
-                //     if (!strippedUnion) {
-                //         unionTypes[strippedId] = strippedUnion = <UnionType>createObjectType(TypeFlags.Union);
-                //         strippedUnion.types = strippedTypes;
-                //         strippedUnion.baseType = strippedUnion;
-                //         strippedUnion.concreteType = <ConcreteType><any>type;
-                //     }
-                //     type.baseType = strippedUnion;
-                //     // HACK: We make the typechecker shutup about UnionType not being castable to ConcreteType:
-                //     type.concreteType = <ConcreteType><any>type;
-                // } else {
-                //     // The union is nonconcrete, create the concrete counterpart:
-                //     var concretedTypes = [];
-                //     forEach(sortedTypes, type => {
-                //         concretedTypes.push(createConcreteType(type));
-                //     });
-                //     var concretedId = getTypeListId(concretedTypes);
-                //     var concretedUnion = unionTypes[concretedId];
-                //     if (!concretedUnion) {
-                //         unionTypes[concretedId] = concretedUnion = <UnionType>createObjectType(TypeFlags.Union);
-                //         concretedUnion.flags |= TypeFlags.Concrete;
-                //         concretedUnion.types = concretedTypes;
-                //         concretedUnion.baseType = type;
-                //         // HACK: We make the typechecker shutup about UnionType not being castable to ConcreteType:
-                //         concretedUnion.concreteType = <ConcreteType><any>concretedUnion;
-                //     }
-                //     var concreteType = <UnionType>createObjectType(TypeFlags.Union);
-                //     concreteType.flags |= TypeFlags.Concrete;
-                //     concreteType.types = [];
-                //     forEach(sortedTypes, type => {
-                //         concreteType.types.push(createConcreteType(type));
-                //     });
-                //     type.baseType = type;
-                //     // HACK: We make the typechecker shutup about UnionType not being castable to ConcreteType:
-                //     type.concreteType = <ConcreteType><any>concretedUnion;
-                // }
             }
             return type;
         }

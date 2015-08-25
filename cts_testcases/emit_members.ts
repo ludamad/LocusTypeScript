@@ -32,11 +32,12 @@ go.strOrNum = "string";
 go.strOrNum = 1;
 go.strOrNum = {}; // Error !number|!string = {}
 go.strOrInterface = "string";
-go.strOrInterface = <IAnything>"string";
 go.strOrNum2 = "string";
 go.strOrNum2 = 1;
+(<any>go).strOrNum2 = {}; // Runtime error
 go.strOrNum2 = {}; // Error !number|!string = {}
 go.strOrNum3 = "string";
 go.strOrNum3 = 1;
 go.strOrNum3 = {}; // Error number|string = {}
 go.notConcreteNum = "string"; // Error number = !string
+

@@ -75,11 +75,12 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
 
         // A union of concrete types, eg !(a | b).
         // We consider !a | !b to be equivalent and reinterpret it as !(a | b).
-        global.UnionType = function(types) {
-            this.types = types;
-        }
-        cg("UnionType");
-        cement(global.UnionType.prototype, "$$cts$$check", function(val) { 
+        cement(this, "UnionType", function() {
+            // Copy arguments object as an array:
+            this.types = [].slice.call(arguments);
+        });
+        cement(this.UnionType, "prototype", this.UnionType.prototype); 
+        cement(this.UnionType.prototype, "$$cts$$check", function(val) { 
             for (var i = 0; i < this.types.length; i++) {
                 var type = this.types[i];
                 if (type.$$cts$$check(val)) {
@@ -122,7 +123,10 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         function protect(type, name, obj, enumerable) {
             var pname = "$$cts$$value$" + name;
             var getter = function() { return this[pname]; };
-            var setter = type.$$cts$$setter || type.$$cts$$setter = function(val) { this[pname] = $$cts$$runtime.cast(type, val); };
+            var setter = type.$$cts$$setter;
+            if (!setter) {
+                setter = type.$$cts$$setter = function(val) { this[pname] = $$cts$$runtime.cast(type, val); };
+            }
 
             if (Object.defineProperty) {
                 Object.defineProperty(obj, name, {
@@ -154,9 +158,9 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         }
         cement(this, "addUnenum", addUnenum);
 
-        // the "protectAssign" adds a protector for a given type and name to an object, if one does not
+        // the "protectAssignment" adds a protector for a given type and name to an object, if one does not
         // already exist.
-        cement(this, "protectAssign", function(type, name, obj, value) {
+        cement(this, "protectAssignment", function(type, name, obj, value) {
             var existingSetter = getSetter(obj, name);
             if (existingSetter != null && existingSetter === type.$$cts$$setter) {
                 // Just use existingSetter:
@@ -168,7 +172,7 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
                 throw new Error("Cannot reprotect '" + name + "'!");
             }
             // OK, protection needed:
-            addUnenum(obj, pname, value);
+            addUnenum(obj,"$$cts$$value$" + name, value);
             protect(type, name, obj, true);
         });
 
