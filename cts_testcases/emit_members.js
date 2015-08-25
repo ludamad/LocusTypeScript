@@ -8,24 +8,25 @@ $$cts$$runtime.cementGlobal("GodObject",GodObject);
 function makeGodObject() {
     var godObject = {};
     // num : !number
-    ;
+    $$cts$$runtime.protectAssignment(Number, "num", godObject, 1);;
     // strOrNum : !number|!string
-    ;
+    godObject.strOrNum = Math.random() > .5 ? "string" : 1;
     // strOrNum2 : !number|!string
     if (Math.random() > .5) {
-        ;
-        var shouldWork = godObject.$$cts$$value$strOrNum2; // Error !string = !number 
+        $$cts$$runtime.protectAssignment(String, "strOrNum2", godObject, 1);;
+        var shouldntWork = godObject.$$cts$$value$strOrNum2; // Error !string = !number 
     }
     else {
-        ;
+        $$cts$$runtime.protectAssignment(String, "strOrNum2", godObject, "wee");;
     }
     // notConcreteNum : number
     if (Math.random() > .5) {
-        ;
+        $$cts$$runtime.protectAssignment(Number, "notConcreteNum", godObject, 1);;
     }
-    // strOrInterface : !string|IAnything
-    // Should this degrade to string|IAnything = IAnything?
-    ;
+    // strOrNum3: !number|string -> number|string
+    godObject.strOrNum3 = Math.random() > .5 ? "string" : 1;
+    // strOrInterface : !string|IAnything -> string|IAnything -> IAnything
+    godObject.strOrInterface = Math.random() > .5 ? "string" : {};
     $$cts$$runtime.brand(GodObject, godObject);
     return godObject;
 }
@@ -39,5 +40,8 @@ go.strOrInterface = "string";
 go.strOrInterface = "string";
 go.strOrNum2 = "string";
 go.strOrNum2 = 1;
-go.strOrNum2 = {}; // Error !string|IAnything = {}
+go.strOrNum2 = {}; // Error !number|!string = {}
+go.strOrNum3 = "string";
+go.strOrNum3 = 1;
+go.strOrNum3 = {}; // Error number|string = {}
 go.notConcreteNum = "string"; // Error number = !string

@@ -675,8 +675,24 @@ module ts {
         }
 
         // [ConcreteTypeScript]
+        // Create a concrete union out of a possibly non-concrete union
+        function createConcreteUnionType(target: UnionType) {
+            if (!target.unionOfConcrete) {
+                return target;
+            }
+            var newTypes = [];
+            forEach(target.types, (type) => {
+                newTypes.push(createConcreteType(type));
+            });
+            return getUnionType(newTypes);
+        }
+
+        // [ConcreteTypeScript]
         // Wrap a type as a concrete type
         function createConcreteType(target: Type) {
+            if (target.flags & TypeFlags.Union) {
+                
+            }
             var type = target.concreteType;
             if (!type && !(target.flags & TypeFlags.Any) && (target.flags & TypeFlags.RuntimeCheckable)) {
                 type = target.concreteType = <ConcreteType>createType(TypeFlags.Concrete);
@@ -685,10 +701,23 @@ module ts {
             return type;
         }
 
+        function stripConcreteUnionType(target: UnionType) {
+            if (!target.unionOfConcrete) {
+                return target;
+            }
+            var newTypes = [];
+            forEach(target.types, (type) => {
+                newTypes.push(stripConcreteType(type));
+            });
+            return getUnionType(newTypes);
+        }
+
         // And force a type to its non-concrete equivalent
         function stripConcreteType(target: Type) {
             if (target.flags & TypeFlags.Concrete) {
                 return (<ConcreteType>target).baseType;
+            } else if (target.flags & TypeFlags.Union) {
+                return stripConcreteUnionType(<UnionType>target);
             } else {
                 return target;
             }
@@ -1695,7 +1724,7 @@ module ts {
                 if (!propAnalysis.definitelyAssigned) type = stripConcreteType(type);
                 types.push(type);
             }
-            return getUnionType(types);//, /*noSubtypeReduction*/ true);
+            return propAnalysis.declaration.resolvedType = getUnionType(types);//, /*noSubtypeReduction*/ true);
         }
 
         // [ConcreteTypeScript]
@@ -3072,12 +3101,33 @@ module ts {
             }
         }
 
+        // [ConcreteTypeScript]
+        function stripConcretesIfNotAllConcrete(types: Type[]):boolean {
+            var allConcrete = true;
+            for (var i = 0; i < types.length; i++) {
+                if (!(types[i].flags & TypeFlags.Concrete)) {
+                    allConcrete = false;
+                    break;
+                }
+            }
+            if (!allConcrete) {
+                for (var i = 0; i < types.length; i++) {
+                    types[i] = stripConcreteType(types[i]);
+                }
+            }
+            return allConcrete;
+        }
+
         function getUnionType(types: Type[], noSubtypeReduction?: boolean): Type {
             if (types.length === 0) {
                 return emptyObjectType;
             }
+            var typesCopy = [].concat(types);
+            var unionOfConcrete = stripConcretesIfNotAllConcrete(typesCopy); // [ConcreteTypeScript]
             var sortedTypes: Type[] = [];
-            addTypesToSortedSet(sortedTypes, types);
+            addTypesToSortedSet(sortedTypes, typesCopy);
+
+            // [/ConcreteTypeScript]
             if (noSubtypeReduction) {
                 if (containsAnyType(sortedTypes)) {
                     return anyType;
@@ -3096,6 +3146,7 @@ module ts {
             if (!type) {
                 type = unionTypes[id] = <UnionType>createObjectType(TypeFlags.Union);
                 type.types = sortedTypes;
+                type.unionOfConcrete = unionOfConcrete;
             }
             return type;
         }

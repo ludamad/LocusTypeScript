@@ -10,7 +10,7 @@ function makeGodObject() : !GodObject {
     // strOrNum2 : !number|!string
     if (Math.random() > .5) {
         godObject.strOrNum2 = 1;
-        var shouldWork : string = godObject.strOrNum2; // Error !string = !number 
+        var shouldntWork : string = godObject.strOrNum2; // Error !string = !number 
     } else {
         godObject.strOrNum2 = "wee";
     }
@@ -18,8 +18,10 @@ function makeGodObject() : !GodObject {
     if (Math.random() > .5) {
         godObject.notConcreteNum = 1;
     }
-    // strOrInterface : !string|IAnything
-    // Should this degrade to string|IAnything = IAnything?
+    // strOrNum3: !number|string -> number|string
+    godObject.strOrNum3 =  Math.random() > .5 ? <string>"string" : <number>1;
+
+    // strOrInterface : !string|IAnything -> string|IAnything -> IAnything
     godObject.strOrInterface = Math.random() > .5 ? "string" : <IAnything> {};
     return godObject;
 }
@@ -33,5 +35,8 @@ go.strOrInterface = "string";
 go.strOrInterface = <IAnything>"string";
 go.strOrNum2 = "string";
 go.strOrNum2 = 1;
-go.strOrNum2 = {}; // Error !string|IAnything = {}
+go.strOrNum2 = {}; // Error !number|!string = {}
+go.strOrNum3 = "string";
+go.strOrNum3 = 1;
+go.strOrNum3 = {}; // Error number|string = {}
 go.notConcreteNum = "string"; // Error number = !string

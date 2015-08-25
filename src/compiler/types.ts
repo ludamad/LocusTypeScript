@@ -422,8 +422,10 @@ module ts {
     // the assignments in its declaration site.
     export interface BrandPropertyDeclaration extends PropertyDeclaration {
         brandTypeDeclaration: BrandTypeDeclaration;
-        // Set in checkerHelper.ts
+        // Set in checkerHelper.ts during binder.ts
         bindingAssignments?: BrandPropertyAnalysis;
+        // Set in checker.ts
+        resolvedType?:Type;
     }
 
     export type VariableOrParameterDeclaration = VariableDeclaration | ParameterDeclaration;
@@ -1334,6 +1336,7 @@ module ts {
     export interface UnionType extends Type {
         types: Type[];                    // Constituent types
         resolvedProperties: SymbolTable;  // Cache of resolved properties
+        unionOfConcrete: boolean;
     }
 
     // Resolved object or union type

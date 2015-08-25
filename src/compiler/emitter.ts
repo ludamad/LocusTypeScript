@@ -2597,12 +2597,24 @@ module ts {
                 emit(node.operand);
                 write(tokenToString(node.operator));
             }
-            
+
             // [ConcreteTypeScript]
-            function emitConcreteAssignment(propAccess:PropertyAccessExpression, propAnalysis: BrandPropertyAnalysis) {
-                if (propAnalysis.definitelyAssigned) {
-                    propAccess.expression
+            function emitConcreteAssignment(node:BinaryExpression, expression:Identifier, propAccess:PropertyAccessExpression):boolean {
+                var declaration = propAccess.brandAnalysis.declaration;
+                var resolvedToConcrete = (declaration.resolvedType.flags & TypeFlags.Concrete);
+                var assignmentValues = propAccess.brandAnalysis.assignments;
+                if (resolvedToConcrete && assignmentValues.length === 1 && assignmentValues[0] === node.right) {
+                    // Emit protection if this is a binding-relevant assignment:
+                    emitCTSRT("protectAssignment");
+                    write("(");
+                    emitCTSType((<ConcreteType>declaration.resolvedType).baseType);
+                    write(", " + JSON.stringify(propAccess.name.text) + ", ");
+                    write(expression.text + ", ");
+                    emit(node.right);
+                    write(");")
+                    return true;
                 }
+                return false;
             }
 
             function emitBinaryExpression(node: BinaryExpression) {
@@ -2610,8 +2622,9 @@ module ts {
                 if (isPropertyAssignmentForLocalVariable(node)) {
                     var propAccess:PropertyAccessExpression = <PropertyAccessExpression>node.left;
                     if (propAccess.brandAnalysis) {
-                        emitConcreteAssignment(propAccess, propAccess.brandAnalysis);
-                        return;
+                        if (emitConcreteAssignment(node, <Identifier>propAccess.expression, propAccess)) {
+                            return;
+                        }
                     }                    
                 }
                 // [/ConcreteTypeScript]
@@ -2644,6 +2657,10 @@ module ts {
                     write(" = new $$cts$$runtime.Brand();");
                     writeLine();
                     emitDeclarationCement(brandTypeDeclaration);
+                    // forEach(getBrandProperties(brandTypeDeclaration), (property:BrandPropertyDeclaration) => {
+                    //     // In the special case that we have a union of 
+                    //     var unionTypeName = property.name.text;
+                    // });
                 });
             }
 

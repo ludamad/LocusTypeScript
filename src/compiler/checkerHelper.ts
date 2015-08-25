@@ -277,7 +277,7 @@ module ts {
     // we collect the relevant assignments of the brand property 
     // for once it leaves the block, and for when it 
     export class BrandPropertyAnalysis {
-        constructor(public assignments:Expression[], public definitelyAssigned:boolean) {
+        constructor(public declaration:BrandPropertyDeclaration, public assignments:Expression[], public definitelyAssigned:boolean) {
         }
         merge(other:BrandPropertyAnalysis):BrandPropertyAnalysis {
             var expressions:Expression[] = [].concat(this.assignments);
@@ -285,26 +285,26 @@ module ts {
                 if (expressions.indexOf(expr) === -1) expressions.push(expr);
             });
             var definitelyAssigned:boolean = (other.definitelyAssigned && this.definitelyAssigned);
-            return new BrandPropertyAnalysis(expressions, definitelyAssigned);
+            return new BrandPropertyAnalysis(this.declaration, expressions, definitelyAssigned);
         }
         copyAndSetIfNoExistingAssignment(node:Expression) :BrandPropertyAnalysis {
             if (this.definitelyAssigned) {
                 return this;
             }
-            return new BrandPropertyAnalysis([node], true);
+            return new BrandPropertyAnalysis(this.declaration, [node], true);
         }
     }
 
     export class BrandPropertyTypes {
         assignmentSets:BrandPropertyAnalysis[];
-        constructor(public nProps:number) {
-            this.assignmentSets = new Array<BrandPropertyAnalysis>(nProps);
+        constructor(public declarations:BrandPropertyDeclaration[]) {
+            this.assignmentSets = new Array<BrandPropertyAnalysis>(declarations.length);
             for (var i = 0; i < this.assignmentSets.length; i++) {
-                this.assignmentSets[i] = new BrandPropertyAnalysis([], false);
+                this.assignmentSets[i] = new BrandPropertyAnalysis(declarations[i], [], false);
             }
         }
         merge(other:BrandPropertyTypes):BrandPropertyTypes {
-            var merged = new BrandPropertyTypes(Math.max(this.assignmentSets.length, other.assignmentSets.length));
+            var merged = new BrandPropertyTypes(this.declarations);
             for (var i = 0; i < merged.assignmentSets.length; i++) {
                 merged.assignmentSets[i] = this.assignmentSets[i].merge(other.assignmentSets[i]);
             }
@@ -317,7 +317,7 @@ module ts {
 
         copyAndSetIfNoExistingAssignment(brandPropId:number, node:Expression) {
             if (node == null) throw new Error("node == null!");
-            var copy = new BrandPropertyTypes(Math.max(this.assignmentSets.length, (brandPropId+1)));
+            var copy = new BrandPropertyTypes(this.declarations);
             for (var i = 0; i < copy.assignmentSets.length; i++) {
                 // If the previous value had any null types, we  use our current assignment as a 'refinement'.
                 // The logic is, all sequential writes need to be consistent.
@@ -500,10 +500,9 @@ module ts {
                         prev = whenTrue.merge(whenFalse);
                         break;
                     case SyntaxKind.BinaryExpression:
-                        /* If we have a binding assignment, then we can return immediately: */
+                        /* Check if we have a relevant binding assignment: */
                         var bindingResult = this.scanIfBindingAssignment(prev, <BinaryExpression>child);
-                        console.log("BINARY BINARY")
-                        if (bindingResult != null) {
+                        if (bindingResult !== null) {
                             prev = bindingResult;
                         }
                         // Consider the shortcircuting behaviour of && or ||
@@ -564,7 +563,8 @@ module ts {
         }
     }
 
-    function forEachBrandProperty(brandTypeDecl:Node, callback: (BrandPropertyDeclaration)=>void) {
+    export function getBrandProperties(brandTypeDecl:Node):BrandPropertyDeclaration[] {
+        var properties:BrandPropertyDeclaration[] = [];
         for (var key in brandTypeDecl.symbol.members) {
             if (hasProperty(brandTypeDecl.symbol.members, key)) {
                 var member = brandTypeDecl.symbol.members[key];
@@ -572,10 +572,11 @@ module ts {
                     if (!member.declarations || member.declarations[0].kind !== SyntaxKind.BrandProperty) {
                         continue;
                     }
-                    callback(<BrandPropertyDeclaration> member.declarations[0]);
+                    properties.push(<BrandPropertyDeclaration> member.declarations[0]);
                 }
             }
         }
+        return properties;
     }
 
     function hasBrandTypeDeclaration(scope:Node):boolean {
@@ -604,21 +605,13 @@ module ts {
     //  - the resulting brand properties will have a list of relevant assignment expressions
     // As well, all 
     function bindBrandTypeBasedOnVarScope(scope:Node, brandTypeDecl:BrandTypeDeclaration, declareSymbol:_declareSymbol) {
-        // Set to parent, unless we are in the global scope:
-        // var parentScope = brandTypeDecl.parent;
-        // while (!parentScope.locals) {
-        //     parentScope = parentScope.parent;
-        // }
         var brandTypeBinder = new BrandTypeBinder();
         brandTypeBinder.brandTypeDecl = brandTypeDecl;
         brandTypeBinder.containerScope = scope;
         brandTypeBinder.declareSymbol = declareSymbol;
-        var nProperties = 0;
-        forEachBrandProperty(brandTypeDecl, (brandPropDecl:BrandPropertyDeclaration) => {
-            nProperties++;
-        });
-        var assignmentResults = brandTypeBinder.scan(scope, new BrandPropertyTypes(nProperties));
-        forEachBrandProperty(brandTypeDecl, (brandPropDecl:BrandPropertyDeclaration) => {
+        var properties = getBrandProperties(brandTypeDecl);
+        var assignmentResults = brandTypeBinder.scan(scope, new BrandPropertyTypes(properties));
+        forEach(properties, (brandPropDecl:BrandPropertyDeclaration) => {
             var name = (<Identifier>brandPropDecl.name).text;
             var assignments = assignmentResults.get(brandTypeBinder.getPropId(name, true));
             // console.log(brandTypeBinder.getPropId(name));
