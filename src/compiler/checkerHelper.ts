@@ -277,7 +277,20 @@ module ts {
     // we collect the relevant assignments of the brand property 
     // for once it leaves the block, and for when it 
     export class BrandPropertyAnalysis {
-        constructor(public declaration:BrandPropertyDeclaration, public assignments:Expression[], public definitelyAssigned:boolean) {
+        // Given a series of sequential assignments, we take the type
+        // of the first assignment, and the proceding assignments
+        // must be subtypes. 
+        // 
+        // However, we special case assignments such as:
+        // var a = 1;
+        // if (actuallyItsAString) a = "string";
+        //
+        // The reason being that this sort of conditional assignment is idiomatic.
+        constructor(public declaration:BrandPropertyDeclaration, 
+                    public assignments:Expression[], 
+                    public definitelyAssigned:boolean,
+                    public conditionalBarrier:boolean = false
+) {
         }
         merge(other:BrandPropertyAnalysis):BrandPropertyAnalysis {
             var expressions:Expression[] = [].concat(this.assignments);
@@ -287,11 +300,18 @@ module ts {
             var definitelyAssigned:boolean = (other.definitelyAssigned && this.definitelyAssigned);
             return new BrandPropertyAnalysis(this.declaration, expressions, definitelyAssigned);
         }
-        copyAndSetIfNoExistingAssignment(node:Expression) :BrandPropertyAnalysis {
-            if (this.definitelyAssigned) {
-                return this;
+        passConditionalBarrier():BrandPropertyAnalysis {
+            return new BrandPropertyAnalysis(this.declaration, this.assignments, this.definitelyAssigned, true);
+        }
+        scanAssignment(node:Expression):BrandPropertyAnalysis {
+            var nodeAnalysis = new BrandPropertyAnalysis(this.declaration, [node], true);
+            if (!this.definitelyAssigned) {
+                return nodeAnalysis;
             }
-            return new BrandPropertyAnalysis(this.declaration, [node], true);
+            if (this.conditionalBarrier) {
+                return this.merge(nodeAnalysis);
+            }
+            return this;
         }
     }
 
@@ -315,14 +335,21 @@ module ts {
             return this.assignmentSets[brandPropId];
         }
 
-        copyAndSetIfNoExistingAssignment(brandPropId:number, node:Expression) {
+        passConditionalBarrier():BrandPropertyTypes {
+            var passed = new BrandPropertyTypes(this.declarations);
+            for (var i = 0; i < passed.assignmentSets.length; i++) {
+                passed.assignmentSets[i] = this.assignmentSets[i].passConditionalBarrier();
+            }
+            return passed;
+        }
+        scanAssignment(brandPropId:number, node:Expression) {
             if (node == null) throw new Error("node == null!");
             var copy = new BrandPropertyTypes(this.declarations);
             for (var i = 0; i < copy.assignmentSets.length; i++) {
-                // If the previous value had any null types, we  use our current assignment as a 'refinement'.
+                // If the previous value had any null types, we use our current assignment as a 'refinement'.
                 // The logic is, all sequential writes need to be consistent.
                 if (brandPropId === i) {
-                    copy.assignmentSets[i] = this.assignmentSets[i].copyAndSetIfNoExistingAssignment(node);
+                    copy.assignmentSets[i] = this.assignmentSets[i].scanAssignment(node);
                 } else {
                     copy.assignmentSets[i] = this.assignmentSets[i];
                 }
@@ -454,7 +481,7 @@ module ts {
                 this.declareSymbol(this.brandTypeDecl.symbol.members, this.brandTypeDecl.symbol, propertyNode, SymbolFlags.Property, 0);
             }
             
-            return prev.copyAndSetIfNoExistingAssignment(this.getPropId(propAccess.name.text), value);
+            return prev.scanAssignment(this.getPropId(propAccess.name.text), value);
         }
 
         scan(node:Node, prev:BrandPropertyTypes):BrandPropertyTypes {
@@ -541,8 +568,8 @@ module ts {
                         break;
                     case SyntaxKind.IfStatement:
                         prev = this.scan((<IfStatement>child).expression, prev);
-                        var ifTrue = this.scan((<IfStatement>child).thenStatement, prev);
-                        var ifFalse = this.scan((<IfStatement>child).elseStatement, prev);
+                        var ifTrue = this.scan((<IfStatement>child).thenStatement, prev.passConditionalBarrier());
+                        var ifFalse = this.scan((<IfStatement>child).elseStatement, prev.passConditionalBarrier());
                         prev = ifTrue.merge(ifFalse);
                         break;
                     case SyntaxKind.WhileStatement:

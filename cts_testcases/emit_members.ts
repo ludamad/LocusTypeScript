@@ -8,16 +8,19 @@ function makeGodObject() : !GodObject {
     // strOrNum : !number|!string
     godObject.strOrNum = Math.random() > .5 ? "string" : 1;
     // strOrNum2 : !number|!string
-    if (Math.random() > .5) {
+    if (Math.random() > -1) { // Always true
         godObject.strOrNum2 = 1;
         var shouldntWork : string = godObject.strOrNum2; // Error !string = !number 
     } else {
         godObject.strOrNum2 = "wee";
     }
+    godObject.strOrNum2 += "soup";
     // notConcreteNum : number
-    if (Math.random() > .5) {
+    if (Math.random() > -1) { // Always true
         godObject.notConcreteNum = 1;
     }
+    godObject.notConcreteNum = 1; // Should be binding assignment
+    godObject.notConcreteNum = 1; // Should not be binding assignment
     // strOrNum3: !number|string -> number|string
     godObject.strOrNum3 =  Math.random() > .5 ? <string>"string" : <number>1;
 
