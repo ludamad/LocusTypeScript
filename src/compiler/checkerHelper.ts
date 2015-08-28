@@ -304,12 +304,8 @@ module ts {
             return new BrandPropertyAnalysis(this.declaration, this.assignments, this.definitelyAssigned, true);
         }
         scanAssignment(node:Expression):BrandPropertyAnalysis {
-            var nodeAnalysis = new BrandPropertyAnalysis(this.declaration, [node], true);
-            if (!this.definitelyAssigned) {
-                return nodeAnalysis;
-            }
-            if (this.conditionalBarrier) {
-                return this.merge(nodeAnalysis);
+            if (!this.definitelyAssigned || this.conditionalBarrier) {
+                return new BrandPropertyAnalysis(this.declaration, [node], true);
             }
             return this;
         }
@@ -515,14 +511,14 @@ module ts {
                         var beforeCases = prev;
                         // Flow analysis: Merge the result of every case
                         forEach((<SwitchStatement>child).clauses, (clause) => {
-                            prev = prev.merge(this.scan(clause, prev));
+                            prev = prev.merge(this.scan(clause, prev.passConditionalBarrier()));
                         });
                         break;
                         
                     case SyntaxKind.ConditionalExpression:
                         prev = this.scan((<ConditionalExpression>child).condition, prev);
-                        var whenTrue = this.scan((<ConditionalExpression>child).whenTrue, prev);
-                        var whenFalse = this.scan((<ConditionalExpression>child).whenFalse, prev);
+                        var whenTrue = this.scan((<ConditionalExpression>child).whenTrue, prev.passConditionalBarrier());
+                        var whenFalse = this.scan((<ConditionalExpression>child).whenFalse, prev.passConditionalBarrier());
                         // Flow analysis: Merge the result of the left and the right
                         prev = whenTrue.merge(whenFalse);
                         break;
