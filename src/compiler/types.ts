@@ -123,7 +123,6 @@ module ts {
         InterfaceKeyword,
         LetKeyword,
         LikeKeyword, // [ConcreteTypeScript]
-        BrandKeyword, // [ConcreteTypeScript]
         PackageKeyword,
         PrivateKeyword,
         ProtectedKeyword,
@@ -363,6 +362,7 @@ module ts {
 
     export interface Identifier extends PrimaryExpression {
         text: string;                 // Text of identifier (with escapes converted to characters)
+        downgradeToBaseClass?: boolean; // [ConcreteTypeScript]
     }
 
     export interface QualifiedName extends Node {
@@ -821,6 +821,8 @@ module ts {
     export interface BrandTypeDeclaration extends Declaration, ModuleElement {
         name: Identifier;
         scope: Node;
+        // Set in checkerHelper.ts
+        variableDeclaration?: VariableDeclaration;
     }
 
     export interface TypeAliasDeclaration extends Declaration, ModuleElement {
@@ -1273,6 +1275,7 @@ module ts {
     }
 
     // Properties common to all types
+    
     export interface Type {
         flags: TypeFlags;  // Flags
         id: number;        // Unique ID
@@ -1294,7 +1297,7 @@ module ts {
     export interface ObjectType extends Type { }
 
     // Class and interface types (TypeFlags.Class and TypeFlags.Interface)
-    // Brand types too // [ConcreteTypeScript]
+    // Brand types too (TypeFlags.Brand) // [ConcreteTypeScript]
     export interface InterfaceType extends ObjectType {
         typeParameters: TypeParameter[];           // Type parameters (undefined if non-generic)
         baseTypes: ObjectType[];                   // Base types
@@ -1307,6 +1310,7 @@ module ts {
 
     // [ConcreteTypeScript] Brand types
     export interface BrandType extends Type {
+        //TODO: Use this field
         monomorphicProperties: Symbol[];  // Which fields are guaranteed to be in a fixed place in the object?
     }
 

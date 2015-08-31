@@ -75,7 +75,6 @@ module ts {
         "intNumber": SyntaxKind.IntNumberKeyword, // [ConcreteTypeScript]
         "let": SyntaxKind.LetKeyword,
         "like": SyntaxKind.LikeKeyword, // [ConcreteTypeScript]
-        "brand": SyntaxKind.BrandKeyword, // [ConcreteTypeScript]
         "module": SyntaxKind.ModuleKeyword,
         "new": SyntaxKind.NewKeyword,
         "null": SyntaxKind.NullKeyword,

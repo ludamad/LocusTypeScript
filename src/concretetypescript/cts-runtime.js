@@ -14,6 +14,8 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+"use strict";
+var runtime;
 
 if (typeof $$cts$$runtime === "undefined") (function(global) {
     runtime = new (function() {
@@ -73,12 +75,13 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         cement(String, "$$cts$$check", function(val) { return typeof val === "string"; });
         cement(Function.prototype, "$$cts$$check", function(val) { return val instanceof this || val === null || typeof val === "undefined"; });
 
-        // A union of concrete types, eg !(a | b).
-        // We consider !a | !b to be equivalent and reinterpret it as !(a | b).
-        cement(this, "UnionType", function() {
+        // A union of concrete types, eg !a | !b.
+        // We consider the concreteness of !(a | b) to be and reinterpret it as !a | !b.
+        function UnionType() {
             // Copy arguments object as an array:
             this.types = [].slice.call(arguments);
-        });
+        }
+        cement(this, "UnionType", UnionType);
         cement(this.UnionType, "prototype", this.UnionType.prototype); 
         cement(this.UnionType.prototype, "$$cts$$check", function(val) { 
             for (var i = 0; i < this.types.length; i++) {
@@ -88,6 +91,12 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
                 }
             }
             return false;
+        });
+
+        var Null = {};
+        cement(this, "Null", Null);
+        cement(this.Null, "$$cts$$check", function(val) { 
+            return (val === null);
         });
 
         // and a global caster, which checks and returns the value if the check succeeded or an exception otherwise
@@ -125,7 +134,9 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             var getter = function() { return this[pname]; };
             var setter = type.$$cts$$setter;
             if (!setter) {
-                setter = type.$$cts$$setter = function(val) { this[pname] = $$cts$$runtime.cast(type, val); };
+                setter = function(val) { this[pname] = $$cts$$runtime.cast(type, val); };
+                addUnenum(type, "$$cts$$setter", setter);
+                addUnenum(setter, "$$cts$$type", type);
             }
 
             if (Object.defineProperty) {
@@ -158,12 +169,27 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         }
         cement(this, "addUnenum", addUnenum);
 
+        // TODO: It will be better to canonicalize union types, instead of 'new'ing them each time and needing a deep equals op.
+        function typeEquals(type1, type2) {
+            if (type1 === type2) return true;
+            if (!(type1 instanceof UnionType)) return false;
+            if (!(type2 instanceof UnionType)) return false;
+            if (type1.types.length !== type2.types.length) return false;
+            for (var i = 0; i < type1.types.length; i++) {
+                // Theoretically we should use 'typeEquals' here, but we don't have nested unions in practice:
+                if (type1.types[i] !== type2.types[i]) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         // the "protectAssignment" adds a protector for a given type and name to an object, if one does not
         // already exist.
         cement(this, "protectAssignment", function(type, name, obj, value) {
             var existingSetter = getSetter(obj, name);
-            if (existingSetter != null && existingSetter === type.$$cts$$setter) {
-                // Just use existingSetter:
+            if (existingSetter != null && typeEquals(existingSetter.$$cts$$type, type)) {
+                // Just use existing setter:
                 this[name] = obj;
                 return;
             }

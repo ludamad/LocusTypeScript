@@ -1731,6 +1731,7 @@ module ts {
                 case SyntaxKind.AnyKeyword:
                 case SyntaxKind.StringKeyword:
                 case SyntaxKind.NumberKeyword:
+                case SyntaxKind.NullKeyword:
                 case SyntaxKind.FloatNumberKeyword: // [ConcreteTypeScript]
                 case SyntaxKind.IntNumberKeyword: // [ConcreteTypeScript]
                 case SyntaxKind.BooleanKeyword:
@@ -1755,7 +1756,7 @@ module ts {
                     return parseTupleType();
                 case SyntaxKind.OpenParenToken:
                     return parseParenthesizedType();
-                case SyntaxKind.BrandKeyword:
+                case SyntaxKind.DeclareKeyword:
                     return parseBrandType(specifiedConcrete, isConcrete);
                 default:
                     return parseTypeReference(specifiedConcrete, isConcrete /* [ConcreteTypeScript] */);
@@ -1882,7 +1883,7 @@ module ts {
             if (token === SyntaxKind.NewKeyword) {
                 return parseFunctionOrConstructorType(SyntaxKind.ConstructorType);
             }
-            if (token === SyntaxKind.BrandKeyword) {
+            if (token === SyntaxKind.DeclareKeyword) {
                return parseBrandType();
             }  
             return parseUnionTypeOrHigher();
@@ -3561,7 +3562,7 @@ module ts {
         function parseBrandTypeDeclaration(fullStart: number, modifiers: ModifiersArray): BrandTypeDeclaration {
             var node = <BrandTypeDeclaration>createNode(SyntaxKind.BrandTypeDeclaration, fullStart);
             setModifiers(node, modifiers);
-            parseExpected(SyntaxKind.BrandKeyword);
+            parseExpected(SyntaxKind.DeclareKeyword);
             node.name = parseIdentifier();
             parseSemicolon();
             return finishNode(node);
@@ -3715,7 +3716,6 @@ module ts {
                 case SyntaxKind.EnumKeyword:
                 case SyntaxKind.ImportKeyword:
                 case SyntaxKind.TypeKeyword:
-                case SyntaxKind.BrandKeyword:
                     // Not true keywords so ensure an identifier follows
                     return lookAhead(nextTokenIsIdentifierOrKeyword);
                 case SyntaxKind.ModuleKeyword:
@@ -3724,13 +3724,14 @@ module ts {
                 case SyntaxKind.ExportKeyword:
                     // Check for export assignment or modifier on source element
                     return lookAhead(nextTokenIsEqualsTokenOrDeclarationStart);
-                case SyntaxKind.DeclareKeyword:
                 case SyntaxKind.PublicKeyword:
                 case SyntaxKind.PrivateKeyword:
                 case SyntaxKind.ProtectedKeyword:
                 case SyntaxKind.StaticKeyword:
                     // Check for modifier on source element
                     return lookAhead(nextTokenIsDeclarationStart);
+                case SyntaxKind.DeclareKeyword:
+                    return lookAhead(nextTokenIsIdentifierOrKeywordOrDeclarationStart);
             }
         }
 
@@ -3757,6 +3758,10 @@ module ts {
             nextToken();
             return isDeclarationStart();
         }
+        function nextTokenIsIdentifierOrKeywordOrDeclarationStart() {
+            nextToken();
+            return isIdentifierOrKeyword() || isDeclarationStart();
+        }
 
         function parseDeclaration(): ModuleElement {
             var fullStart = getNodePos();
@@ -3779,7 +3784,7 @@ module ts {
                     return parseClassDeclaration(fullStart, modifiers);
                 case SyntaxKind.InterfaceKeyword:
                     return parseInterfaceDeclaration(fullStart, modifiers);
-                case SyntaxKind.BrandKeyword:
+                case SyntaxKind.DeclareKeyword:
                     return parseBrandTypeDeclaration(fullStart, modifiers);
                 case SyntaxKind.TypeKeyword:
                     return parseTypeAliasDeclaration(fullStart, modifiers);

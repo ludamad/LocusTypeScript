@@ -17,7 +17,6 @@ module ts {
     }
     
     function printRecursor(node:Node, print) {
-        if (node == null) return console.log(node)
     switch (node.kind) {
         case SyntaxKind.BrandTypeDeclaration: return print(node, "BrandTypeDeclaration");
         case SyntaxKind.Identifier: return print(node, "Identifier");
@@ -421,7 +420,6 @@ module ts {
             if (node.kind !== SyntaxKind.PropertyAccessExpression) {
                 return null;
             }
-            console.log("STAGE1")
             var propAccess = <PropertyAccessExpression>node;
             if (propAccess.expression.kind !== SyntaxKind.Identifier) {
                 return null;
@@ -429,7 +427,6 @@ module ts {
 
             // Search for an associated VariableDeclaration with "var <identifier> : brand <identifier".
             var varDecl = findVariableDeclarationForIdentifier(propAccess, <Identifier> propAccess.expression);
-            varDecl && varDecl.type && printNodeDeep(varDecl.type.brandTypeDeclaration);
             if (!varDecl || !varDecl.type || varDecl.type.brandTypeDeclaration !== this.brandTypeDecl) {
                 return null;
             }
@@ -453,7 +450,6 @@ module ts {
             // 2. <variable> has an associated VariableDeclaration with form "var <identifier> : brand <identifier".
             // No restrictions on RHS, but we are only interested in its statically known type.
             // Match for PropertyAccessExpression with "<identifier>.<identifier>".
-            console.log(node.operator, SyntaxKind.EqualsToken);
             if (node.operator !== SyntaxKind.EqualsToken) {
                 return null;
             }
@@ -463,8 +459,6 @@ module ts {
                 return null;
             }
             var value = (<BinaryExpression> node).right;
-            console.log("GOT PROPERAC")
-            printNode(value);
 
             if (!hasProperty(this.brandTypeDecl.symbol.members, propAccess.name.text)) {
                 // Create a property declaration for the brand-type symbol list:
@@ -491,8 +485,33 @@ module ts {
 
             /* Otherwise, continue recursive iteration: */
             forEachChild(node, (child) => {
-                console.log("SCANNING"); printNodeDeep(child)
                 switch (child.kind) {
+                    case SyntaxKind.Identifier:
+                        // Classify identifiers that resolve as the brand type, 
+                        // or ones that can potentially leak before branding,
+                        // and should be treated as the subtype.
+                        var varDecl = findVariableDeclarationForIdentifier(child.parent, <Identifier>child);
+                        if (varDecl && varDecl.type && varDecl.type.brandTypeDeclaration === this.brandTypeDecl) {
+                            var downgrade = true;
+                            if (child.parent.kind === SyntaxKind.PropertyAccessExpression ) {
+                                // || child.parent.kind === SyntaxKind.VariableDeclaration) {
+                                downgrade = false;
+                            } else {
+                                // Navigate parents:
+                                var parentScan = child;
+                                while ((parentScan = child.parent)) {
+                                    if (parentScan.kind === SyntaxKind.ReturnStatement) {
+                                        downgrade = false;
+                                        break;
+                                    }
+                                    break;
+                                }
+                            }
+                            if (downgrade) {
+                                (<Identifier>child).downgradeToBaseClass = true;
+                            }
+                        }
+                        break;
                     case SyntaxKind.BreakStatement:
                     case SyntaxKind.ContinueStatement:
                     case SyntaxKind.ReturnStatement:
@@ -503,7 +522,10 @@ module ts {
                         }
                         var id = breakingContainer.id;
                         this.nodePostLinks[id] = (this.nodePostLinks[id] || []);
-                        prev = this.scan(child, prev);
+                        // Purposefully do not do this: 
+                            // prev = this.scan(child, prev);
+                        // This would allow for assignments in the return statement.
+                        // However, branding occurs _before_ the return statement has a chance to execute.
                         this.nodePostLinks[id].push(prev);
                         break;
                     case SyntaxKind.SwitchStatement:
@@ -511,7 +533,7 @@ module ts {
                         var beforeCases = prev;
                         // Flow analysis: Merge the result of every case
                         forEach((<SwitchStatement>child).clauses, (clause) => {
-                            prev = prev.merge(this.scan(clause, prev.passConditionalBarrier()));
+                            prev = prev.merge(this.scan(clause, beforeCases.passConditionalBarrier()));
                         });
                         break;
                         
@@ -561,6 +583,14 @@ module ts {
                     case SyntaxKind.FunctionDeclaration:
                         var bodyScan = this.scan((<FunctionDeclaration>child).body, prev);
                         prev = (this.containerScope === child) ? prev : bodyScan.merge(prev);
+                        break;
+                    case SyntaxKind.TryStatement:
+                        // Scan the try block:
+                        var ifTry = this.scan((<TryStatement>child).tryBlock, prev);
+                        // Treat it as conditional, pass to 'catch' block:
+                        var ifCatch = this.scan((<TryStatement>child).catchClause, ifTry.merge(prev).passConditionalBarrier());
+                        // Scan the finally block (possibly 'undefined'):
+                        prev = this.scan((<TryStatement>child).finallyBlock, ifCatch.merge(prev));
                         break;
                     case SyntaxKind.IfStatement:
                         prev = this.scan((<IfStatement>child).expression, prev);
@@ -637,7 +667,6 @@ module ts {
         forEach(properties, (brandPropDecl:BrandPropertyDeclaration) => {
             var name = (<Identifier>brandPropDecl.name).text;
             var assignments = assignmentResults.get(brandTypeBinder.getPropId(name, true));
-            // console.log(brandTypeBinder.getPropId(name));
             if (assignments == null) {console.log(assignmentResults.assignmentSets); throw new Error("WWWEEERE");}
             brandPropDecl.bindingAssignments = assignments;
         });
@@ -646,7 +675,7 @@ module ts {
     export function bindBrandPropertiesInScopeAfterInitialBinding(scope:Node, declareSymbol:_declareSymbol) {
         // Find all relevant brand type declarations bound to the current scope.
         forEach(getBrandTypeVarDeclarations(scope), (declaration:VariableDeclaration) => {
-            console.log("DECLARING " + declaration.name.text);
+            declaration.type.brandTypeDeclaration.variableDeclaration = declaration;
             bindBrandTypeBasedOnVarScope(scope, declaration.type.brandTypeDeclaration, declareSymbol);
         });
     }

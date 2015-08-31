@@ -1781,7 +1781,7 @@ module ts {
                 return type;
             }
             // [ConcreteTypeScript]
-            // Handle branded types, based on code location.
+            // Handle branded types
             if (declaration.kind == SyntaxKind.BrandProperty) {
                 return getTypeOfBrandProperty(<BrandPropertyDeclaration>declaration);
             }
@@ -1825,7 +1825,7 @@ module ts {
                 }
                 error(declaration, diagnostic, declarationNameToString(declaration.name), typeToString(type));
             }
-        }
+         }
 
         function getTypeOfVariableOrParameterOrProperty(symbol: Symbol): Type {
             var links = getSymbolLinks(symbol);
@@ -2122,18 +2122,22 @@ module ts {
             return links.declaredType;
         }
 
+        //[ConcreteTypeScript]
         function getDeclaredTypeOfBrand(symbol: Symbol): InterfaceType {
             var links = getSymbolLinks(symbol);
             if (!links.declaredType) {
                 /* On first occurrence */
                 var type = <InterfaceType>createObjectType(TypeFlags.Brand, symbol);
+                type.declaredProperties = map(Object.keys(symbol.members), key => symbol.members[key]);
                 type.baseTypes = [];
-                type.declaredProperties = [];
                 type.declaredCallSignatures = emptyArray;
                 type.declaredConstructSignatures = emptyArray;
                 type.declaredStringIndexType = getIndexTypeOfSymbol(symbol, IndexKind.String);
                 type.declaredNumberIndexType = getIndexTypeOfSymbol(symbol, IndexKind.Number);
                 links.declaredType = type;
+                // BUG FIX
+                // Do after creating our type, to prevent infinite recursion
+                type.baseTypes.push(stripConcreteType(checkAndMarkExpression((<BrandTypeDeclaration>symbol.declarations[0]).variableDeclaration.initializer)));
             }
             return <InterfaceType>links.declaredType;
         }
@@ -3221,6 +3225,8 @@ module ts {
                     return floatNumberType;
                 case SyntaxKind.IntNumberKeyword:
                     return intNumberType;
+                case SyntaxKind.NullKeyword:
+                    return nullType;
                 // [/ConcreteTypeScript]
                 case SyntaxKind.BooleanKeyword:
                     return booleanType;
@@ -3765,7 +3771,7 @@ module ts {
                 // [ConcreteTypeScript]
                 // We enforce that classes are only related if specified as such
                 if (result && target.flags & (TypeFlags.Class | TypeFlags.Brand)) {
-                    if (source.flags & TypeFlags.Class && hasBaseType(<InterfaceType> source, <InterfaceType> target)) {
+                    if (source.flags & (TypeFlags.Class | TypeFlags.Brand) && hasBaseType(<InterfaceType> source, <InterfaceType> target)) {
                         result = Ternary.True;
                     } else {
                         result = Ternary.False;
@@ -4677,6 +4683,17 @@ module ts {
         // Get the narrowed type of a given symbol at a given location
         function getNarrowedTypeOfSymbol(symbol: Symbol, node: Node) {
             var type = getTypeOfSymbol(symbol);
+            // [ConcreteTypeScript] Brand variable declarations evaluate to their subtype
+            // until the end of scope, or inside a return statement.
+            if (node.kind == SyntaxKind.Identifier && (<Identifier>node).downgradeToBaseClass) {
+                console.log(type);
+                if (type.flags & TypeFlags.Concrete) {
+                    type = createConcreteType((<InterfaceType>stripConcreteType(type)).baseTypes[0]);
+                } else {
+                    // Should never really happen:
+                    type = (<InterfaceType>type).baseTypes[0];
+                }
+            }
             // Only narrow when symbol is variable of an object, union, or type parameter type
             if (node && symbol.flags & SymbolFlags.Variable && type.flags & (TypeFlags.ObjectType | TypeFlags.Union | TypeFlags.TypeParameter)) {
                 loop: while (node.parent) {
@@ -5533,10 +5550,14 @@ module ts {
         function checkQualifiedName(node: QualifiedName) {
             return checkPropertyAccessExpressionOrQualifiedName(node, node.left, node.right);
         }
-        
+
+        // [ConcreteTypeScript]
         function getNarrowedTypeOfBrandPropertyAccess(access:PropertyAccessExpression) {
+            // BUG FIX: Make sure resolvedType is always set.
+            getTypeOfBrandProperty(access.brandAnalysis.declaration);
             return getUnionOverExpressions(access.brandAnalysis);
         }
+
         function checkPropertyAccessExpressionOrQualifiedName(node: PropertyAccessExpression | QualifiedName, left: Expression | QualifiedName, right: Identifier) {
             var type = checkExpressionOrQualifiedName(left);
             if (type === unknownType) return type;
@@ -7194,8 +7215,6 @@ module ts {
                     return createConcreteType(stringType); // [ConcreteTypeScript]
                 case SyntaxKind.NoSubstitutionTemplateLiteral:
                     return stringType;
-                case SyntaxKind.BrandKeyword:
-                    return checkIdentifier(<Identifier>node);
                 case SyntaxKind.RegularExpressionLiteral:
                     return globalRegExpType;
                 case SyntaxKind.ArrayLiteralExpression:
