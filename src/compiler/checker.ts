@@ -4686,9 +4686,9 @@ module ts {
             // [ConcreteTypeScript] Brand variable declarations evaluate to their subtype
             // until the end of scope, or inside a return statement.
             if (node.kind == SyntaxKind.Identifier && (<Identifier>node).downgradeToBaseClass) {
-                console.log(type);
                 if (type.flags & TypeFlags.Concrete) {
-                    type = createConcreteType((<InterfaceType>stripConcreteType(type)).baseTypes[0]);
+                    type = (<InterfaceType>stripConcreteType(type)).baseTypes[0];
+                    type = createConcreteType(type) || type;
                 } else {
                     // Should never really happen:
                     type = (<InterfaceType>type).baseTypes[0];
