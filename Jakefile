@@ -38,7 +38,9 @@ var compilerSources = [
     "utilities.ts",
     "binder.ts",
     "checker.ts",
-    "checkerHelper.ts",
+    "flowAnalysis.ts",
+    "printNode.ts",
+    "brandTypeQueries.ts",
     "emitter.ts",
     "commandLineParser.ts",
     "tsc.ts",
@@ -56,7 +58,9 @@ var servicesSources = [
     "utilities.ts",
     "binder.ts",
     "checker.ts",
-    "checkerHelper.ts",
+    "flowAnalysis.ts",
+    "printNode.ts",
+    "brandTypeQueries.ts",
     "emitter.ts",
     "diagnosticInformationMap.generated.ts"
 ].map(function (f) {

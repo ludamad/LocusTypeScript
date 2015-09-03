@@ -945,6 +945,7 @@ module ts {
                     // "implements foo" is not considered a type name.
                     return isIdentifier() && !isNotHeritageClauseTypeName();
                 case ParsingContext.VariableDeclarations:
+                    return token === SyntaxKind.ThisKeyword || isIdentifier();
                 case ParsingContext.TypeParameters:
                     return isIdentifier();
                 case ParsingContext.ArgumentExpressions:
@@ -3274,6 +3275,19 @@ module ts {
         // DECLARATIONS
 
         function parseVariableDeclaration(): VariableDeclaration {
+            var node = <VariableDeclaration>createNode(SyntaxKind.VariableDeclaration);
+            // [ConcreteTypeScript] HACK: "name" === undefined signifies a 'this' type declaration.
+            if (token !== SyntaxKind.ThisKeyword) {
+                node.name = parseIdentifier();
+            } else {
+                node.name = createIdentifier(/*is identifier: */ true);
+            }
+            node.type = parseTypeAnnotation();
+            node.initializer = parseInitializer(/*inParameter*/ false);
+            return finishNode(node);
+        }
+
+        function parseVarThisDeclaration(): VariableDeclaration {
             var node = <VariableDeclaration>createNode(SyntaxKind.VariableDeclaration);
             node.name = parseIdentifier();
             node.type = parseTypeAnnotation();

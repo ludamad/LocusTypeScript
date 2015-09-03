@@ -2,7 +2,8 @@
 /// <reference path="core.ts"/>
 /// <reference path="scanner.ts"/>
 /// <reference path="parser.ts"/>
-/// <reference path="checkerHelper.ts"/>
+/// <reference path="flowAnalysis.ts"/>
+/// <reference path="brandTypeQueries.ts"/>
 
 module ts {
 
@@ -274,7 +275,7 @@ module ts {
                 case SyntaxKind.FunctionExpression:
                 case SyntaxKind.ArrowFunction:
                     if (node.kind == SyntaxKind.BrandTypeDeclaration) {
-                        bindBrandTypeDeclaration(<BrandTypeDeclaration>node, symbolKind, symbolExcludes);
+                        bindBrandTypeDeclaration(<BrandTypeDeclaration>node, symbolKind|SymbolFlags.ExportType, symbolExcludes);
                     } else {
                         declareSymbol(container.locals, undefined, node, symbolKind, symbolExcludes);
                     }
@@ -372,7 +373,11 @@ module ts {
             }
             // The parent of the declaration is expected to be the containing scope:
             node.scope = scope;
-            declareSymbol(scope.locals, undefined, node, symbolKind, symbolExcludes);
+            if (scope.symbol && scope.symbol.flags & SymbolFlags.HasExports) {
+                declareSymbol(scope.symbol.exports, undefined, node, symbolKind, symbolExcludes);
+            } else {
+                declareSymbol(scope.locals, undefined, node, symbolKind, symbolExcludes);
+            }
         }
 
         function bindBlockScopedVariableDeclaration(node: Declaration) {

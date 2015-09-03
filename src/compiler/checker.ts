@@ -2,10 +2,11 @@
 /// <reference path="core.ts"/>
 /// <reference path="scanner.ts"/>
 /// <reference path="parser.ts"/>
-/// <reference path="checkerHelper.ts"/>
 /// <reference path="binder.ts"/>
 /// <reference path="emitter.ts"/>
 /// <reference path="utilities.ts"/>
+/// <reference path="flowAnalysis.ts"/>
+/// <reference path="brandTypeQueries.ts"/>
 
 module ts {
     var nextSymbolId = 1;
@@ -1702,7 +1703,7 @@ module ts {
         }
         
         // [ConcreteTypeScript]  
-        function getUnionOverExpressions(propAnalysis:BrandPropertyAnalysis): Type {
+        function getUnionOverExpressions(propAnalysis:FlowTypeAnalysis): Type {
             var types: Type[] = [];
             for (var i = 0; i < propAnalysis.assignments.length; i++) {
                 var type = checkAndMarkExpression(propAnalysis.assignments[i]);
@@ -2137,7 +2138,13 @@ module ts {
                 links.declaredType = type;
                 // BUG FIX
                 // Do after creating our type, to prevent infinite recursion
-                type.baseTypes.push(stripConcreteType(checkAndMarkExpression((<BrandTypeDeclaration>symbol.declarations[0]).variableDeclaration.initializer)));
+                if (symbol.declarations) {
+                    var initializer = (<BrandTypeDeclaration>symbol.declarations[0]).variableDeclaration.initializer;
+                    type.baseTypes.push(stripConcreteType(checkAndMarkExpression(initializer)));
+                } else {
+                    // Before the branding has finished, this is the type of local 'this':
+                    type.baseTypes.push(emptyObjectType);
+                }
             }
             return <InterfaceType>links.declaredType;
         }
