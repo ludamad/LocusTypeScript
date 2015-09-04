@@ -1,0 +1,31 @@
+{
+    "version": "1.5.0-alpha",
+    "compilerOptions": {
+        "target": "es5",
+        "module": "commonjs",
+        "jsx": 2,
+        "declaration": false,
+        "noImplicitAny": false,
+        "removeComments": true,
+        "noLib": false,
+        "preserveConstEnums": true,
+        "suppressImplicitAnyIndexErrors": true
+    },
+    "filesGlob": [
+        "./**/*.ts",
+        "./**/*.tsx",
+        "!node_modules/**/*.ts",
+        "!node_modules/**/*.tsx"
+    ],
+    "files": [
+        "./error_tests.ts",
+        "./multifile/first.ts",
+        "./multifile/second.ts",
+        "./nullable.ts",
+        "./runtime_tests.ts",
+        "./sep.ts",
+        "./temp.ts",
+        "./test.ts",
+        "./this_test.ts"
+    ]
+}
