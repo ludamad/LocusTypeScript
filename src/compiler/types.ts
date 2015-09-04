@@ -462,7 +462,7 @@ module ts {
         questionToken?: Node;
         body?: Block | Expression;
         //[ConcreteTypeScript]
-        declaredTypeOfThis?: BrandTypeDeclaration;
+        declaredTypeOfThis?: TypeNode;
     }
 
     export interface FunctionDeclaration extends FunctionLikeDeclaration, Statement {
@@ -659,6 +659,7 @@ module ts {
         // same scope, we collect a relevant list of expressions for determining 
         // the narrowed type of the expression.
         brandAnalysis?: FlowTypeAnalysis;
+        useProtoBrand?: boolean;
     }
 
     export interface ElementAccessExpression extends MemberExpression {
@@ -672,7 +673,7 @@ module ts {
         arguments: NodeArray<Expression>;
     }
 
-    export interface NewExpression extends CallExpression, PrimaryExpression { }
+    export interface NewExpression extends CallExpression, PrimaryExpression {}
 
     export interface TaggedTemplateExpression extends MemberExpression {
         tag: LeftHandSideExpression;
@@ -850,7 +851,7 @@ module ts {
 
     export interface ModuleDeclaration extends Declaration, ModuleElement {
         name: Identifier | LiteralExpression;
-        body: ModuleBlock | ModuleDeclaration;
+         body: ModuleBlock | ModuleDeclaration;
     }
 
     export interface ModuleBlock extends Node, ModuleElement {

@@ -48,7 +48,7 @@ module ts {
         }
     }
 
-    export class BrandPropertyTypes {
+    class BrandPropertyTypes {
         assignmentSets:FlowTypeAnalysis[];
         constructor(public declarations:BrandPropertyDeclaration[]) {
             this.assignmentSets = new Array<FlowTypeAnalysis>(declarations.length);
@@ -85,6 +85,7 @@ module ts {
                 propertyNode.end = propAccess.end;
                 propertyNode.parent = binder.declarationScope;
                 propertyNode.brandTypeDeclaration = binder.brandTypeDecl;
+                printNodeDeep(propAccess);
                 binder.declareSymbol(binder.brandTypeDecl.symbol.members, binder.brandTypeDecl.symbol, propertyNode, SymbolFlags.Property, 0);
             }
             // Incorporate the assignment information:
@@ -101,7 +102,7 @@ module ts {
                 protoBrandType.scope = binder.containerScope;
                 // Set to parent of FunctionDeclaration:
                 protoBrandType.parent = binder.containerScope;
-                binder.brandTypeDecl = protoBrandType;
+                binder.brandTypeDecl.prototypeBrandDeclaration = protoBrandType;
                 binder.declareSymbol(binder.brandTypeDecl.symbol.members, binder.brandTypeDecl.symbol, protoBrandType, SymbolFlags.Brand|SymbolFlags.ExportType, SymbolFlags.BrandTypeExcludes);
             }
             return binder.getProtoPropId(propAccess.name.text);
@@ -116,18 +117,17 @@ module ts {
             // No restrictions on RHS, but we are only interested in its statically known type.
             // Match for PropertyAccessExpression with "<identifier>.<identifier>".
 
-            var propAccess, protoPropAccess; 
-            if (propAccess = binder.castBrandPropertyAccess(node.left)) {
-                var brandPropId:number = this._scanPropertyAssignment(propAccess, binder);
-            } else if (protoPropAccess = binder.castBrandPropertyAccess(node.left)) {
-                var brandPropId:number = this._scanProtoPropertyAssignment(propAccess, binder);
+            if (binder.getBrandPropertyId(node.left) !== null) {
+                var brandPropId:number = this._scanPropertyAssignment(<PropertyAccessExpression>node.left, binder);
+            } else if (binder.getBrandProtoPropertyId(node.left) !== null) {
+                var brandPropId:number = this._scanProtoPropertyAssignment(<PropertyAccessExpression>node.left, binder);
             }
             var copy = new BrandPropertyTypes(this.declarations);
             for (var i = 0; i < copy.assignmentSets.length; i++) {
                 // If the previous value had any null types, we use our current assignment as a 'refinement'.
                 // The logic is, all sequential writes need to be consistent.
                 if (brandPropId === i) {
-                    copy.assignmentSets[i] = this.assignmentSets[i].scanAssignment(node);
+                    copy.assignmentSets[i] = this.assignmentSets[i].scanAssignment(node.right);
                 } else {
                     copy.assignmentSets[i] = this.assignmentSets[i];
                 }
@@ -137,15 +137,21 @@ module ts {
             return copy;
         }
         mark(node:Node, binder:BrandTypeBinder): boolean{
-            var propAccess = binder.castBrandPropertyAccess(node) || binder.castBrandProtoPropertyAccess(node);
-            if (!propAccess) return false;
+            var propId = binder.getBrandPropertyId(node);
+            if (propId !== null) {
+                (<PropertyAccessExpression>node).brandAnalysis = this.get(binder.getPropId((<PropertyAccessExpression>node).name.text));
+                return true;
+            }
+            propId = binder.getBrandProtoPropertyId(node);
+            if (propId !== null) {
+                (<PropertyAccessExpression>node).brandAnalysis = this.get(binder.getPropId((<PropertyAccessExpression>node).name.text));
+                (<PropertyAccessExpression>node).useProtoBrand = true;
+                return true;
+            }
             // Store relevant assignments for type calculation:
-            if (propAccess.brandAnalysis) throw new Error("ERROR use grep");
-            (<any>propAccess).brandAnalysis = this.get(binder.getPropId(propAccess.name.text));
-            return true;
+            return false;
         }
     }
-
 
     class BrandTypeBinder {
         brandTypeDecl:BrandTypeDeclaration;
@@ -178,7 +184,7 @@ module ts {
             return id;
         }
 
-        castBrandPropertyAccess(node:Node):PropertyAccessExpression {
+        getBrandPropertyId(node:Node):number {
             if (node.kind !== SyntaxKind.PropertyAccessExpression) {
                 return null;
             }
@@ -194,16 +200,13 @@ module ts {
             if (!varDecl || !varDecl.type || varDecl.type.brandTypeDeclaration !== this.brandTypeDecl) {
                 return null;
             }
-            return <PropertyAccessExpression> node;
+            return this.getPropId(propAccess.name.text);
         }
 
-        castBrandProtoPropertyAccess(node:Node):PropertyAccessExpression {
-            if (node.kind !== SyntaxKind.PropertyAccessExpression) {
-                return null;
-            }
-
+        getBrandProtoPropertyId(node:Node):number {
+            if (node.kind !== SyntaxKind.PropertyAccessExpression) return null;
             var propAccess = <PropertyAccessExpression>node;
-            if (isPrototypeAccess(propAccess.expression)) {
+            if (!isPrototypeAccess(propAccess.expression)) {
                 return null;
             }
 
@@ -218,10 +221,10 @@ module ts {
 
             // Search for an associated VariableDeclaration with "var <identifier> : brand <identifier".
             var funcDecl = findFunctionDeclarationForName(propAccess, name);
-            if (!funcDecl || !funcDecl.declaredTypeOfThis || funcDecl.declaredTypeOfThis !== this.brandTypeDecl) {
+            if (!funcDecl || !funcDecl.declaredTypeOfThis || funcDecl.declaredTypeOfThis.brandTypeDeclaration !== this.brandTypeDecl) {
                 return null;
             }
-            return propAccess;
+            return this.getProtoPropId(propAccess.name.text);
         }
 
         scan(node:Node, prev:BrandPropertyTypes):BrandPropertyTypes {
@@ -229,7 +232,7 @@ module ts {
                 return prev;
             }
 
-            if (prev.setAssignmentsIfRelevantPropertyAccess(node, this)) {
+            if (prev.mark(node, this)) {
                 return prev;
             }
 

@@ -2978,13 +2978,16 @@ module ts {
             }
 
             // And a general way of saying "cement this declaration"
-            function emitDeclarationCement(node: Declaration) {
+            function emitDeclarationCement(node: Declaration, mangledName:boolean = false) {
                 var scope = (<any>node).scope || node.parent;
+                var name = (<Identifier>node.name) && (<Identifier>node.name).text;
+                if (mangledName) name = "$$cts$$value$" + name;
+
                 // If it's a global or exported, we need to cement it
                 if (scope && scope.kind === SyntaxKind.SourceFile) {
                     writeLine();
                     emitCTSRT("cementGlobal");
-                    write("(" + JSON.stringify((<Identifier>node.name).text) + ",");
+                    write("(" + JSON.stringify(name) + ",");
                     emit(node.name);
                     write(");");
                 } else if (node.flags & NodeFlags.Export) {
@@ -2996,7 +2999,7 @@ module ts {
                     emitCTSRT("cement");
                     write("(");
                     emitModuleContainerName(node);
-                    write("," + JSON.stringify((<Identifier>node.name).text) + ",");
+                    write("," + JSON.stringify(name) + ",");
                     emit(node.name);
                     if (compilerOptions.emitV8Intrinsics) {
                         write(",7"); // magic number for no-write/enum/config
@@ -3168,7 +3171,7 @@ module ts {
                     emitTrailingComments(node);
                 }
 
-                emitDeclarationCement(node); // [ConcreteTypeScript]
+                emitDeclarationCement(node, /*mangled*/ !doEmitProtectors); // [ConcreteTypeScript]
                 return ret; // [ConcreteTypeScript]
             }
 
@@ -4109,7 +4112,16 @@ module ts {
                     case SyntaxKind.FunctionDeclaration:
                     case SyntaxKind.FunctionExpression:
                     case SyntaxKind.ArrowFunction:
-                        emitFunctionDeclaration(<FunctionLikeDeclaration>node);
+                        // Might need to emit twice (with/without checks)
+                        // TODO look into cementGlobal, etc 
+                        if (!(<FunctionLikeDeclaration>node).name || (<FunctionLikeDeclaration>node).name.kind !== SyntaxKind.Identifier) {
+                            emitFunctionDeclaration(<FunctionLikeDeclaration>node);
+                        } else {
+                            var second = "$$cts$$value$" + (<Identifier>(<FunctionLikeDeclaration>node).name).text;
+                            if (!emitFunctionDeclaration(<FunctionLikeDeclaration>node, undefined, true, second)) {
+                                emitFunctionDeclaration(<FunctionLikeDeclaration>node, second, false);
+                            }
+                        }
                         return; // [ConcreteTypeScript]
                     case SyntaxKind.DeleteExpression:
                         return emitDeleteExpression(<DeleteExpression>node);

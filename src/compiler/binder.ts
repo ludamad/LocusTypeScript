@@ -78,6 +78,7 @@ module ts {
             file.locals = {};
             container = blockScopeContainer = file;
             bind(file);
+            postBind(file);
             file.symbolCount = symbolCount;
         }
 
@@ -453,6 +454,15 @@ module ts {
             }
         }
 
+        function postBind(node: Node) {
+            bindBrandPropertiesInScopeAfterInitialBinding(node, declareSymbol);
+            // [ConcreteTypeScript] Compute the contents of any brand-types in 
+            // our block based on relevant assignments.
+            forEachChild(node, (child) => {
+                postBind(child);
+            });
+        }
+
         function bind(node: Node) {
             node.parent = parent;
             switch (node.kind) {
@@ -464,7 +474,7 @@ module ts {
                     break;
                 case SyntaxKind.VariableDeclaration:
                     if ((<VariableDeclaration>node).name.text === "this") {
-                        (<FunctionLikeDeclaration>getThisContainer(node, false)).declaredTypeOfThis = (<VariableDeclaration>node).type.brandTypeDeclaration;
+                        (<FunctionLikeDeclaration>getThisContainer(node, false)).declaredTypeOfThis = (<VariableDeclaration>node).type;
                     }
                     if (node.flags & NodeFlags.BlockScoped) {
                         bindBlockScopedVariableDeclaration(<Declaration>node);
@@ -595,10 +605,6 @@ module ts {
                     forEachChild(node, bind);
                     parent = saveParent;
             }
-
-            // [ConcreteTypeScript] Compute the contents of any brand-types in 
-            // our block based on relevant assignments.
-            bindBrandPropertiesInScopeAfterInitialBinding(node, declareSymbol);
         }
     }
 }

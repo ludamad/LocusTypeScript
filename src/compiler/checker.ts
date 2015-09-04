@@ -2138,12 +2138,21 @@ module ts {
                 links.declaredType = type;
                 // BUG FIX
                 // Do after creating our type, to prevent infinite recursion
-                var initializer = (<BrandTypeDeclaration>symbol.declarations[0]).variableDeclaration.initializer;
+                var variableDeclaration = (<BrandTypeDeclaration>symbol.declarations[0]).variableDeclaration;
+                var initializer = variableDeclaration && variableDeclaration.initializer;
                 if (initializer) {
                     type.baseTypes.push(stripConcreteType(checkAndMarkExpression(initializer)));
                 } else {
                     // Before the branding has finished, this is the type of local 'this':
-                    type.baseTypes.push(checkThisExpression((<BrandTypeDeclaration>symbol.declarations[0]).variableDeclaration, true));
+                    if (!variableDeclaration) {
+                        var proto =(<BrandTypeDeclaration>symbol.declarations[0]).prototypeBrandDeclaration;
+                        // Prototype type
+                        if (proto) {
+                            // TODO prototype chaining
+                        }
+                    } else {
+                        type.baseTypes.push(checkThisExpression((<BrandTypeDeclaration>symbol.declarations[0]).variableDeclaration, true));
+                    }
                 }
             }
             return <InterfaceType>links.declaredType;
@@ -2407,7 +2416,11 @@ module ts {
                     members = symbol.exports;
                 }
                 if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method)) {
-                    callSignatures = getSignaturesOfSymbol(symbol);
+                    if ( (<FunctionLikeDeclaration>symbol.declarations[0]).declaredTypeOfThis) {
+                        constructSignatures = getSignaturesOfSymbol(symbol);
+                    } else {
+                        callSignatures = getSignaturesOfSymbol(symbol);
+                    }
                 }
                 if (symbol.flags & SymbolFlags.Class) {
                     var classType = getDeclaredTypeOfClass(symbol);
@@ -2666,9 +2679,10 @@ module ts {
                     // [/ConcreteTypeScript]
 
                 }
-                else if (declaration.type) {
-                    returnType = getTypeFromTypeNode(declaration.type);
-                }
+                // [ConcreteTypeScript]
+                else if (declaration.type || (<FunctionLikeDeclaration>declaration).declaredTypeOfThis) {
+                    returnType = getTypeFromTypeNode(declaration.type || (<FunctionLikeDeclaration>declaration).declaredTypeOfThis);
+                } // [/ConcreteTypeScript]
                 else {
                     // TypeScript 1.0 spec (April 2014):
                     // If only one accessor includes a type annotation, the other behaves as if it had the same type annotation.
@@ -2706,6 +2720,9 @@ module ts {
                     case SyntaxKind.SetAccessor:
                     case SyntaxKind.FunctionExpression:
                     case SyntaxKind.ArrowFunction:
+                        if ((<FunctionLikeDeclaration>node).declaredTypeOfThis) {
+                            
+                        }
                         // Don't include signature if node is the implementation of an overloaded function. A node is considered
                         // an implementation node if it has a body and the previous node is of the same kind and immediately
                         // precedes the implementation node (i.e. has the same parent and ends where the implementation starts).
@@ -2715,7 +2732,8 @@ module ts {
                                 break;
                             }
                         }
-                        result.push(getSignatureFromDeclaration(<SignatureDeclaration>node));
+                        var signature = <SignatureDeclaration>node;
+                        result.push(getSignatureFromDeclaration(signature));
                 }
             }
             return result;
@@ -5565,7 +5583,11 @@ module ts {
         // [ConcreteTypeScript]
         function getNarrowedTypeOfBrandPropertyAccess(access:PropertyAccessExpression) {
             // BUG FIX: Make sure resolvedType is always set.
-            getTypeOfBrandProperty(access.brandAnalysis.declaration);
+            if (access.useProtoBrand) {
+                console.log("HEADFUCK");
+            }
+            var declaration = access.brandAnalysis.declaration;
+            getTypeOfBrandProperty(declaration);
             return getUnionOverExpressions(access.brandAnalysis);
         }
 
@@ -5573,6 +5595,7 @@ module ts {
             var type = checkExpressionOrQualifiedName(left);
             if (type === unknownType) return type;
             if (type !== anyType) {
+                // [ConcreteTypeScript]
                 var apparentType = getApparentType(getWidenedType(type));
                 if (apparentType === unknownType) {
                     // handle cases when type is Type parameter with invalid constraint
@@ -5601,20 +5624,15 @@ module ts {
                         checkClassPropertyAccess(node, left, type, prop);
                     }
                 }
-                
-                //return getTypeOfSymbol(prop);
-                // [ConcreteTypeScript]
+            
                 var ptype:Type = getTypeOfSymbol(prop);
-
                 // [ConcreteTypeScript] Enact special logic for Brand types.
-                // TODO once normal get-type is working
                 if (node.kind == SyntaxKind.PropertyAccessExpression) {
-                    if (prop.declarations && prop.declarations[0].kind == SyntaxKind.BrandProperty) {
-                        if ((<PropertyAccessExpression>node).brandAnalysis != null) {
-                            ptype = getNarrowedTypeOfBrandPropertyAccess(<PropertyAccessExpression>node);
-                        }
+                    // if (prop.declarations && prop.declarations[0].kind == SyntaxKind.BrandProperty) {
+                    if ((<PropertyAccessExpression>node).brandAnalysis != null) {
+                        ptype = getNarrowedTypeOfBrandPropertyAccess(<PropertyAccessExpression>node);
                     }
-                } 
+                }
 
                 // Must check if the member is concrete but it is being accessed on a non-concrete type
                 if ((ptype.flags & TypeFlags.Concrete) &&
