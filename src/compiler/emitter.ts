@@ -1014,6 +1014,11 @@ module ts {
         }
 
         function emitVariableStatement(node: VariableStatement) {
+            // [ConcreteTypeScript]
+            if (node.declarations[0].name.text === "this") {
+                // Don't emit 'var this : decl Foo;' type-of expressions.
+                return;
+            }
             var hasDeclarationWithEmit = forEach(node.declarations, varDeclaration => resolver.isDeclarationVisible(varDeclaration));
             if (hasDeclarationWithEmit) {
                 emitJsDocComments(node);
@@ -2618,7 +2623,7 @@ module ts {
                     write("(");
                     emitCTSType((<ConcreteType>declaration.resolvedType).baseType);
                     write(", " + JSON.stringify(propAccess.name.text) + ", ");
-                    write(expression.text + ", ");
+                    write((expression.text || "this") + ", ");
                     emit(node.right);
                     write(");")
                     return true;
@@ -3010,6 +3015,11 @@ module ts {
 
             function emitVariableStatement(node: VariableStatement) {
                 emitLeadingComments(node);
+                // [ConcreteTypeScript]
+                if (node.declarations[0].name.text === "this") {
+                    // Don't emit 'var this : decl Foo;' type-of expressions.
+                    return;
+                }
                 if (!(node.flags & NodeFlags.Export)) {
                     if (isLet(node)) {
                         write("let ");
@@ -3140,7 +3150,6 @@ module ts {
                     emitPinnedOrTripleSlashComments(node);
                     return true; // [ConcreteTypeScript]
                 }
-
                 if (node.kind !== SyntaxKind.Method) {
                     // Methods will emit the comments as part of emitting method declaration
                     emitLeadingComments(node);

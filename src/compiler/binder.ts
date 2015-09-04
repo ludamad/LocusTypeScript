@@ -275,7 +275,7 @@ module ts {
                 case SyntaxKind.FunctionExpression:
                 case SyntaxKind.ArrowFunction:
                     if (node.kind == SyntaxKind.BrandTypeDeclaration) {
-                        bindBrandTypeDeclaration(<BrandTypeDeclaration>node, symbolKind|SymbolFlags.ExportType, symbolExcludes);
+                        bindBrandTypeDeclaration(<BrandTypeDeclaration>node);
                     } else {
                         declareSymbol(container.locals, undefined, node, symbolKind, symbolExcludes);
                     }
@@ -365,14 +365,11 @@ module ts {
             blockScopeContainer = savedBlockScopeContainer;
         }
         
-        function bindBrandTypeDeclaration(node: BrandTypeDeclaration, symbolKind:SymbolFlags, symbolExcludes:SymbolFlags) {
-            var scope:Node = container;
-            while (scope.kind !== SyntaxKind.ModuleDeclaration && scope.kind !== SyntaxKind.SourceFile) {
-                // Should always terminate; all incoming nodes should be children of the SourceFile:
-                scope = scope.parent;
-            }
+        function bindBrandTypeDeclaration(node: BrandTypeDeclaration) {
+            var scope = getModuleOrSourceFile(container);
             // The parent of the declaration is expected to be the containing scope:
             node.scope = scope;
+            var symbolKind = SymbolFlags.Brand | SymbolFlags.ExportType, symbolExcludes = SymbolFlags.BrandTypeExcludes;
             if (scope.symbol && scope.symbol.flags & SymbolFlags.HasExports) {
                 declareSymbol(scope.symbol.exports, undefined, node, symbolKind, symbolExcludes);
             } else {
@@ -401,17 +398,17 @@ module ts {
         }
       
         // [ConcreteTypeScript] Find variable declaration associated with identifier, or 'null' if not a VariableDeclaration
-        function findVariableDeclaration(location: Node, identifier: Identifier): VariableDeclaration {
+        function findVariableDeclaration(location: Node, name: string): VariableDeclaration {
             while (true) {
                 if (!location) {
                     // Not found, let checker handle error reporting:
                     return null;
                 }
-                if (!location.locals || !hasProperty(location.locals, identifier.text)) {
+                if (!location.locals || !hasProperty(location.locals, name)) {
                     location = location.parent;
                     continue; 
                 }
-                var symbol = location.locals[identifier.text];
+                var symbol = location.locals[name];
                 if (symbol.declarations.length < 1) {
                     return null; 
                 }
@@ -431,11 +428,11 @@ module ts {
             // 2. <variable> has an associated VariableDeclaration with form "var <identifier> : brand <identifier".
             // No restrictions on RHS, but we are only interested in its statically known type.
             // Match for PropertyAccessExpression with "<identifier>.<identifier>".
-            if (propAccess.expression.kind !== SyntaxKind.Identifier) {
+            if (propAccess.expression.kind !== SyntaxKind.Identifier && propAccess.expression.kind !== SyntaxKind.ThisKeyword ) {
                 return;
             }
             // Search for an associated VariableDeclaration with "var <identifier> : brand <identifier".
-            var varDecl = findVariableDeclaration(container, <Identifier> propAccess.expression);
+            var varDecl = findVariableDeclaration(container, (<Identifier> propAccess.expression).text || "this");
             if (!varDecl || !varDecl.type || !varDecl.type.brandTypeDeclaration) {
                 return;
             }
@@ -466,6 +463,9 @@ module ts {
                     bindDeclaration(<Declaration>node, SymbolFlags.FunctionScopedVariable, SymbolFlags.ParameterExcludes, /*isBlockScopeContainer*/ false);
                     break;
                 case SyntaxKind.VariableDeclaration:
+                    if ((<VariableDeclaration>node).name.text === "this") {
+                        (<FunctionLikeDeclaration>getThisContainer(node, false)).declaredTypeOfThis = (<VariableDeclaration>node).type.brandTypeDeclaration;
+                    }
                     if (node.flags & NodeFlags.BlockScoped) {
                         bindBlockScopedVariableDeclaration(<Declaration>node);
                     }

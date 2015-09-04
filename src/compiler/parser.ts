@@ -3578,7 +3578,10 @@ module ts {
             setModifiers(node, modifiers);
             parseExpected(SyntaxKind.DeclareKeyword);
             node.name = parseIdentifier();
-            parseSemicolon();
+            if (token === SyntaxKind.ExtendsKeyword) {
+                nextToken();
+                node.extendedType = parseType();
+            }
             return finishNode(node);
         }
 

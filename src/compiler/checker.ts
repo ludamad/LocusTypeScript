@@ -2138,12 +2138,12 @@ module ts {
                 links.declaredType = type;
                 // BUG FIX
                 // Do after creating our type, to prevent infinite recursion
-                if (symbol.declarations) {
-                    var initializer = (<BrandTypeDeclaration>symbol.declarations[0]).variableDeclaration.initializer;
+                var initializer = (<BrandTypeDeclaration>symbol.declarations[0]).variableDeclaration.initializer;
+                if (initializer) {
                     type.baseTypes.push(stripConcreteType(checkAndMarkExpression(initializer)));
                 } else {
                     // Before the branding has finished, this is the type of local 'this':
-                    type.baseTypes.push(emptyObjectType);
+                    type.baseTypes.push(checkThisExpression((<BrandTypeDeclaration>symbol.declarations[0]).variableDeclaration, true));
                 }
             }
             return <InterfaceType>links.declaredType;
@@ -4898,7 +4898,7 @@ module ts {
             }
         }
 
-        function checkThisExpression(node: Node): Type {
+        function checkThisExpression(node: Node, withoutBrand:boolean /*ConcreteTypeScript*/ = false): Type {
             // Stop at the first arrow function so that we can
             // tell whether 'this' needs to be captured.
             var container = getThisContainer(node, /* includeArrowFunctions */ true);
@@ -4935,6 +4935,10 @@ module ts {
 
             if (needToCaptureLexicalThis) {
                 captureLexicalThis(node, container);
+            }
+
+            if ((<FunctionLikeDeclaration>container).declaredTypeOfThis && !withoutBrand && !node.downgradeToBaseClass) {
+                return getTypeFromTypeNode((<FunctionLikeDeclaration>container).declaredTypeOfThis);
             }
 
             var classNode = container.parent && container.parent.kind === SyntaxKind.ClassDeclaration ? container.parent : undefined;
@@ -9759,13 +9763,6 @@ module ts {
             return symbol.flags & SymbolFlags.ValueModule && symbol.declarations.length === 1 && symbol.declarations[0].kind === SyntaxKind.SourceFile;
         }
 
-        function isNodeDescendentOf(node: Node, ancestor: Node): boolean {
-            while (node) {
-                if (node === ancestor) return true;
-                node = node.parent;
-            }
-            return false;
-        }
 
         function isUniqueLocalName(name: string, container: Node): boolean {
             for (var node = container; isNodeDescendentOf(node, container); node = node.nextContainer) {

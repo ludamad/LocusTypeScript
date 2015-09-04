@@ -349,6 +349,7 @@ module ts {
         binding?: boolean;            // If set, this is a binding assignment
         assertFloat?: boolean;        // If set, can assert that this value is always a float instead of generic number
         assertInt?: boolean;          // If set, can assert that this value is always an int instead of generic number
+        downgradeToBaseClass?: boolean;
         // [/ConcreteTypeScript]
     }
 
@@ -362,7 +363,6 @@ module ts {
 
     export interface Identifier extends PrimaryExpression {
         text: string;                 // Text of identifier (with escapes converted to characters)
-        downgradeToBaseClass?: boolean; // [ConcreteTypeScript]
     }
 
     export interface QualifiedName extends Node {
@@ -461,6 +461,8 @@ module ts {
         asteriskToken?: Node;
         questionToken?: Node;
         body?: Block | Expression;
+        //[ConcreteTypeScript]
+        declaredTypeOfThis?: BrandTypeDeclaration;
     }
 
     export interface FunctionDeclaration extends FunctionLikeDeclaration, Statement {
@@ -821,8 +823,12 @@ module ts {
     export interface BrandTypeDeclaration extends Declaration, ModuleElement {
         name: Identifier;
         scope: Node;
-        // Set in checkerHelper.ts
+        // Set in checkerHelper.ts, null if a prototype-inferred brand
         variableDeclaration?: VariableDeclaration;
+        // Defaults to the 'any' type.
+        // TODO should parallel extension relationship for brand types.
+        extendedType?: TypeNode;
+        prototypeBrandDeclaration?: BrandTypeDeclaration;
     }
 
     export interface TypeAliasDeclaration extends Declaration, ModuleElement {

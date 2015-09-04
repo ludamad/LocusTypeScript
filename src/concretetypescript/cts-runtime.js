@@ -21,6 +21,10 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
     runtime = new (function() {
         var cement, getSetter;
 
+        var __hasOwnProperty = Object.hasOwnProperty;
+        var hasProperty = function(obj, prop) {
+            return __hasOwnProperty.call(obj, prop);
+        }
         if (Object.__lookupSetter__) {
             // Deprecated but overall more desirable:
             var __lookupSetter__ = Object.prototype.__lookupSetter__;
@@ -28,15 +32,17 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
                 return __lookupSetter__.call(obj, prop);
             }
         } else {
+            var getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
             // Standard in ES6 but unlikely to be well optimized:
             getSetter = function (obj, prop) {
-                return Object.setOwnPropertyDescriptor(obj, prop).set;
+                return getOwnPropertyDescriptor(obj, prop).set;
             };
         }
         if (Object.defineProperty) {
+            var defineProperty = Object.defineProperty;
             // use Object.defineProperty to cement object members
             cement = function(obj, prop, val, enumerable) {
-                Object.defineProperty(obj, prop, {
+                defineProperty(obj, prop, {
                     configurable: false,
                     enumerable: !!enumerable,
                     writable: false,
@@ -200,6 +206,14 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             // OK, protection needed:
             addUnenum(obj,"$$cts$$value$" + name, value);
             protect(type, name, obj, true);
+        });
+
+        cement(this, "protectProtoAssignment", function(type, name, obj, value) {
+            if (!hasProperty(obj, "$$cts$$prototypeFrozen")) {
+                addUnenum(obj,"$$cts$$prototypeFrozen", true);
+                cement(obj, "prototype", obj.prototype);
+            }
+            this.protectAssignment(type, name, obj.prototype, value);
         });
 
         function Brand() {}
