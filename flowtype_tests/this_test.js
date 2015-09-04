@@ -13,9 +13,7 @@ function Test2() {
 }
 $$cts$$runtime.cementGlobal("Test2",Test2);
 function Test() {
-    $$cts$$runtime.protectAssignment(Number, "x", this, 1);;
-    this.x = "string";
-    this.y;$$cts$$runtime.brand(Foo, this);
+    $$cts$$runtime.protectAssignment(Number, "x", this, 1);;$$cts$$runtime.brand(Foo, this);
 }
 $$cts$$runtime.cementGlobal("Test",Test);
 function foop(n) {
@@ -26,8 +24,8 @@ $$cts$$runtime.cementGlobal("foop",foop);function $$cts$$value$foop(n) {
     return 1;
 }
 $$cts$$runtime.cementGlobal("$$cts$$value$foop",foop);
-//Test.prototype.test = 1;
-//Test.prototype.test = "what";
+Test.prototype.test = 1;
+Test.prototype.test = "what";
 console.log(($$cts$$runtime.cast(Number,(foop(2)))));
 var foo = ($$cts$$runtime.cast(Foo,(new Test())));
 //var test : Foo = new Test();

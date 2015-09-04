@@ -1698,6 +1698,9 @@ module ts {
             // Every class automatically contains a static property member named 'prototype', 
             // the type of which is an instantiation of the class type with type Any supplied as a type argument for each type parameter.
             // It is an error to explicitly declare a static property member with the name 'prototype'.
+            if (prototype.brandType) {
+                return getTypeOfSymbol(prototype.brandType.symbol);
+            }
             var classType = <InterfaceType>getDeclaredTypeOfSymbol(prototype.parent);
             return classType.typeParameters ? createTypeReference(<GenericType>classType, map(classType.typeParameters, _ => anyType)) : classType;
         }
@@ -2418,6 +2421,9 @@ module ts {
                 if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method)) {
                     if ( (<FunctionLikeDeclaration>symbol.declarations[0]).declaredTypeOfThis) {
                         constructSignatures = getSignaturesOfSymbol(symbol);
+                        var prototypeSymbol = createSymbol(SymbolFlags.Property | SymbolFlags.Prototype, "prototype");
+                        prototypeSymbol.brandType = (<FunctionLikeDeclaration>symbol.declarations[0]).declaredTypeOfThis.brandTypeDeclaration.prototypeBrandDeclaration;
+                        members = createSymbolTable([prototypeSymbol]);
                     } else {
                         callSignatures = getSignaturesOfSymbol(symbol);
                     }
@@ -5583,15 +5589,17 @@ module ts {
         // [ConcreteTypeScript]
         function getNarrowedTypeOfBrandPropertyAccess(access:PropertyAccessExpression) {
             // BUG FIX: Make sure resolvedType is always set.
-            if (access.useProtoBrand) {
-                console.log("HEADFUCK");
-            }
             var declaration = access.brandAnalysis.declaration;
             getTypeOfBrandProperty(declaration);
             return getUnionOverExpressions(access.brandAnalysis);
         }
 
         function checkPropertyAccessExpressionOrQualifiedName(node: PropertyAccessExpression | QualifiedName, left: Expression | QualifiedName, right: Identifier) {
+            // [ConcreteTypeScript] types for .prototype:
+            if (node.downgradeToBaseClass) {
+                var typeNode = (<PropertyAccessExpression>node).brandTypeDeclForPrototypeProperty.extendedType;
+                return typeNode ? getTypeFromTypeNode(typeNode) : emptyObjectType;
+            }
             var type = checkExpressionOrQualifiedName(left);
             if (type === unknownType) return type;
             if (type !== anyType) {
@@ -5633,7 +5641,6 @@ module ts {
                         ptype = getNarrowedTypeOfBrandPropertyAccess(<PropertyAccessExpression>node);
                     }
                 }
-
                 // Must check if the member is concrete but it is being accessed on a non-concrete type
                 if ((ptype.flags & TypeFlags.Concrete) &&
                     !(type.flags & TypeFlags.Concrete)) {

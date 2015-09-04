@@ -95,8 +95,9 @@ module ts {
         _scanProtoPropertyAssignment(propAccess:PropertyAccessExpression, binder:BrandTypeBinder) {
             var protoBrandType = binder.brandTypeDecl.prototypeBrandDeclaration;
             if (!protoBrandType) {
-                protoBrandType = <BrandTypeDeclaration> new (objectAllocator.getNodeConstructor(SyntaxKind.BrandProperty))();
-                protoBrandType.name = propAccess.name; // Right-hand <identifier>
+                // Create the prototype brand type:
+                protoBrandType = <BrandTypeDeclaration> new (objectAllocator.getNodeConstructor(SyntaxKind.BrandTypeDeclaration))();
+                protoBrandType.name = (<PropertyAccessExpression>propAccess.expression).name; // Right-hand <identifier>
                 protoBrandType.pos = propAccess.pos;
                 protoBrandType.end = propAccess.end;
                 protoBrandType.scope = binder.containerScope;
@@ -104,6 +105,18 @@ module ts {
                 protoBrandType.parent = binder.containerScope;
                 binder.brandTypeDecl.prototypeBrandDeclaration = protoBrandType;
                 binder.declareSymbol(binder.brandTypeDecl.symbol.members, binder.brandTypeDecl.symbol, protoBrandType, SymbolFlags.Brand|SymbolFlags.ExportType, SymbolFlags.BrandTypeExcludes);
+            }
+            if (!hasProperty(protoBrandType.symbol.members, propAccess.name.text)) { 
+                // Create a property declaration for the brand-type symbol list:
+                var propertyNode = <BrandPropertyDeclaration> new (objectAllocator.getNodeConstructor(SyntaxKind.BrandProperty))();
+                propertyNode.name = propAccess.name; // Right-hand <identifier>
+                propertyNode.pos = propAccess.pos;
+                propertyNode.end = propAccess.end;
+                propertyNode.parent = binder.declarationScope;
+                propertyNode.brandTypeDeclaration = binder.brandTypeDecl;
+                console.log("PROTO")
+                printNodeDeep(propAccess);
+                binder.declareSymbol(protoBrandType.symbol.members, protoBrandType.symbol, propertyNode, SymbolFlags.Property, 0);
             }
             return binder.getProtoPropId(propAccess.name.text);
         }
@@ -203,25 +216,32 @@ module ts {
             return this.getPropId(propAccess.name.text);
         }
 
-        getBrandProtoPropertyId(node:Node):number {
-            if (node.kind !== SyntaxKind.PropertyAccessExpression) return null;
-            var propAccess = <PropertyAccessExpression>node;
-            if (!isPrototypeAccess(propAccess.expression)) {
-                return null;
+        isBrandPrototypeAccess(node:Node) {
+            if (!isPrototypeAccess(node)) {
+                return false;
             }
 
-            var expression = <PropertyAccessExpression> propAccess.expression;
-            if (expression.expression.kind !== SyntaxKind.Identifier) {
-                return null;
+            var propAccess = <PropertyAccessExpression> node;
+            if (propAccess.expression.kind !== SyntaxKind.Identifier) {
+                return false;
             }
 
             // Unlike in castBrandPropertyAccess, this name should never be 'this'
             // since it stems from a FunctionDeclaration.
-            var name = (<Identifier> expression.expression).text;
+            var name = (<Identifier> propAccess.expression).text;
 
             // Search for an associated VariableDeclaration with "var <identifier> : brand <identifier".
             var funcDecl = findFunctionDeclarationForName(propAccess, name);
             if (!funcDecl || !funcDecl.declaredTypeOfThis || funcDecl.declaredTypeOfThis.brandTypeDeclaration !== this.brandTypeDecl) {
+                return false;
+            }
+            return true;
+        }
+
+        getBrandProtoPropertyId(node:Node):number {
+            if (node.kind !== SyntaxKind.PropertyAccessExpression) return null;
+            var propAccess = <PropertyAccessExpression>node;
+            if (!this.isBrandPrototypeAccess(propAccess.expression)) {
                 return null;
             }
             return this.getProtoPropId(propAccess.name.text);
@@ -239,6 +259,34 @@ module ts {
             /* Otherwise, continue recursive iteration: */
             forEachChild(node, (child) => {
                 switch (child.kind) {
+                    case SyntaxKind.PropertyAccessExpression:
+                        // Classify prototype accesses that resolve as the brand type, 
+                        // or ones that can potentially leak before branding,
+                        // and should be treated as the subtype.
+                        if (!this.isBrandPrototypeAccess(child)) {
+                            prev = this.scan(child, prev);
+                            break;
+                        }
+                        var downgrade = true;
+                        if (child.parent.kind === SyntaxKind.PropertyAccessExpression ) {
+                            downgrade = false;
+                        } else {
+                            // Navigate parents:
+                            var parentScan = child;
+                            while ((parentScan = parentScan.parent)) {
+                                if (parentScan.kind === SyntaxKind.ReturnStatement) {
+                                    downgrade = false;
+                                    break;
+                                } else if (isStatement(parentScan)) {
+                                    break;
+                                }
+                            }
+                        }
+                        if (downgrade) {
+                            child.downgradeToBaseClass = true;
+                            (<PropertyAccessExpression>child).brandTypeDeclForPrototypeProperty = this.brandTypeDecl;
+                        }
+                        break;
                     case SyntaxKind.ThisKeyword:
                     case SyntaxKind.Identifier:
                         // Classify identifiers that resolve as the brand type, 
@@ -254,12 +302,13 @@ module ts {
                             } else {
                                 // Navigate parents:
                                 var parentScan = child;
-                                while ((parentScan = child.parent)) {
+                                while ((parentScan = parentScan.parent)) {
                                     if (parentScan.kind === SyntaxKind.ReturnStatement) {
                                         downgrade = false;
                                         break;
+                                    } else if (isStatement(parentScan)) {
+                                        break;
                                     }
-                                    break;
                                 }
                             }
                             if (downgrade) {

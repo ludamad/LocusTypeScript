@@ -14,6 +14,7 @@ function makeGodObject() {
     // strOrNum2 : !number|!string
     if (Math.random() > -1) {
         $$cts$$runtime.protectAssignment((new $$cts$$runtime.UnionType(String, Number)), "strOrNum2", godObject, 1);;
+        var shouldWork = godObject.$$cts$$value$strOrNum2;
         var shouldntWork = godObject.$$cts$$value$strOrNum2; // Error !string = !number 
     }
     else {

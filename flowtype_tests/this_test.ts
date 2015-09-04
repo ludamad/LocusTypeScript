@@ -10,15 +10,14 @@ function Test() {
     var this : declare Foo;
 
     this.x = 1;
-    this.x = "string";
 }
 
 
 function foop( n : !number ) {
     return 1;
 }
-//Test.prototype.test = 1;
-//Test.prototype.test = "what";
+Test.prototype.test = 1;
+Test.prototype.test = "what";
 
 console.log(foop(2));
 var foo : !Foo = new Test();

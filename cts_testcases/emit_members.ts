@@ -2,7 +2,7 @@ interface IAnything {
 }
 
 function makeGodObject() : !GodObject {
-    var godObject : brand GodObject = {};
+    var godObject : declare GodObject = {};
     // num : !number
     godObject.num = 1;
     // strOrNum : !number|!string
@@ -10,6 +10,7 @@ function makeGodObject() : !GodObject {
     // strOrNum2 : !number|!string
     if (Math.random() > -1) { // Always true
         godObject.strOrNum2 = 1;
+        var shouldWork : number = godObject.strOrNum2; 
         var shouldntWork : string = godObject.strOrNum2; // Error !string = !number 
     } else {
         godObject.strOrNum2 = "wee";

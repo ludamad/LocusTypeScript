@@ -1,6 +1,6 @@
 var what = 2;
 function makeFoo() : !Foo {
-    var foo : brand Foo = {};
+    var foo : declare Foo = {};
     return foo;
 }
 

@@ -1,5 +1,5 @@
 function foo() {
-    var point : brand Point = {};
+    var point : declare Point = {};
 
     if (true) {
         point.something = 1;

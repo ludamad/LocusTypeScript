@@ -2320,7 +2320,6 @@ module ts {
                 if (tryEmitConstantValue(node)) {
                     return;
                 }
-
                 // [ConcreteTypeScript] Use direct access if possible
                 var v8closers = "";
                 if (compilerOptions.emitV8Intrinsics) {
