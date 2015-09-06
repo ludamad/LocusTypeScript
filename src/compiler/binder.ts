@@ -595,7 +595,7 @@ module ts {
                       if (binNode.left.kind === SyntaxKind.PropertyAccessExpression) {
                           // We have an expression of type <identifier>.<identifier> = <expression>.
                           // Scan to see if we should bind symbols for brand types.
-                          bindPropertyAssignment(<PropertyAccessExpression> binNode.left, binNode.right);
+                        //   bindPropertyAssignment(<PropertyAccessExpression> binNode.left, binNode.right);
                       }
                   }
             // TODO: Refactor this fallthrough

@@ -1147,7 +1147,7 @@ module ts {
         Variable  = FunctionScopedVariable | BlockScopedVariable,
         Value     = Variable | Property | EnumMember | Function | Class | Enum | ValueModule | Method | GetAccessor | SetAccessor,
         Type      = Class | Brand | Interface | Enum | TypeLiteral | ObjectLiteral | TypeParameter | TypeAlias,
-        Namespace = ValueModule | NamespaceModule,
+        Namespace = ValueModule | NamespaceModule | Brand,
         Module    = ValueModule | NamespaceModule,
         Accessor  = GetAccessor | SetAccessor,
         Signature = CallSignature | ConstructSignature | IndexSignature,

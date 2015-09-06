@@ -131,6 +131,9 @@ module ts {
                 ? createDiagnosticForNode(location, message, arg0, arg1, arg2)
                 : createCompilerDiagnostic(message, arg0, arg1, arg2);
             addDiagnostic(diagnostic);
+            printNodeDeep(location)
+            console.log(message);
+            console.log((<any>new Error()).stack);
         }
 
         function createSymbol(flags: SymbolFlags, name: string): Symbol {
@@ -1203,6 +1206,13 @@ module ts {
                         writeTypeReference(<TypeReference>type, flags);
                     }
                     else if (type.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Brand | TypeFlags.Enum | TypeFlags.TypeParameter)) {
+                        if (type.flags & TypeFlags.Brand) {
+                            var brandDecl = <BrandTypeDeclaration>(type.symbol.declarations[0]);
+                            if (brandDecl.parent.kind === SyntaxKind.BrandTypeDeclaration) {
+                                writer.writeSymbol((<BrandTypeDeclaration>brandDecl.parent).name.text, (<BrandTypeDeclaration>brandDecl.parent).symbol);
+                                writer.writeOperator(".");
+                            }
+                        }
                         buildSymbolDisplay(type.symbol, writer, enclosingDeclaration, SymbolFlags.Type);
                     }
                     else if (type.flags & TypeFlags.Tuple) {
@@ -1973,7 +1983,7 @@ module ts {
             if (symbol.flags & (SymbolFlags.Variable | SymbolFlags.Property)) {
                 return getTypeOfVariableOrParameterOrProperty(symbol);
             }
-            if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method | SymbolFlags.Class | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
+            if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method | SymbolFlags.Class | SymbolFlags.Brand | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
                 return getTypeOfFuncClassEnumModule(symbol);
             }
             if (symbol.flags & SymbolFlags.EnumMember) {
@@ -5589,18 +5599,20 @@ module ts {
         // [ConcreteTypeScript]
         function getNarrowedTypeOfBrandPropertyAccess(access:PropertyAccessExpression) {
             // BUG FIX: Make sure resolvedType is always set.
-            var declaration = access.brandAnalysis.declaration;
+            var declaration = access.brandAnalysis.getDeclaration();
             getTypeOfBrandProperty(declaration);
             return getUnionOverExpressions(access.brandAnalysis);
         }
 
         function checkPropertyAccessExpressionOrQualifiedName(node: PropertyAccessExpression | QualifiedName, left: Expression | QualifiedName, right: Identifier) {
             // [ConcreteTypeScript] types for .prototype:
-            if (node.downgradeToBaseClass) {
-                var typeNode = (<PropertyAccessExpression>node).brandTypeDeclForPrototypeProperty.extendedType;
-                return typeNode ? getTypeFromTypeNode(typeNode) : emptyObjectType;
+            if ((<PropertyAccessExpression>node).brandTypeDeclForPrototypeProperty) {
+                var brandDecl = (<PropertyAccessExpression>node).brandTypeDeclForPrototypeProperty.prototypeBrandDeclaration;
+                Debug.assert(!!brandDecl);
+                if (node.downgradeToBaseClass) brandDecl = brandDecl.extendedType.brandTypeDeclaration;
+                return getDeclaredTypeOfBrand(brandDecl.symbol);
             }
-            var type = checkExpressionOrQualifiedName(left);
+            var type:Type = checkExpressionOrQualifiedName(left);
             if (type === unknownType) return type;
             if (type !== anyType) {
                 // [ConcreteTypeScript]

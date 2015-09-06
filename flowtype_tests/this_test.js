@@ -7,25 +7,26 @@ var Foo2 = new $$cts$$runtime.Brand();
 $$cts$$runtime.cementGlobal("Foo2",Foo2);
 var Foo = new $$cts$$runtime.Brand();
 $$cts$$runtime.cementGlobal("Foo",Foo);
-function Test2() {
-    var _this = this;
-    $$cts$$runtime.protectAssignment(Number, "x", _this, 1);;$$cts$$runtime.brand(Foo2, _this);
+function outer() {
+    function Test2() {
+        this.x = 1;$$cts$$runtime.brand(Foo2, this);
+    }
+    Test2.prototype.test = 1;
+    function Test() {
+        this.x = 1;$$cts$$runtime.brand(Foo, this);
+    }
+    function foop(n) {
+        $$cts$$runtime.cast(Number,n);
+        return $$cts$$value$foop.apply(this, arguments);
+    }function $$cts$$value$foop(n) {
+        return 1;
+    }
+    Test.prototype.test = 1;
+    Test.prototype.test = "what";
+    console.log(($$cts$$runtime.cast(Number,(foop(2)))));
+    var foo = ($$cts$$runtime.cast(Foo,(new Test())));
+    var test;
+    //var test : Foo = new Test();
+    return ($$cts$$runtime.cast(prototype,(Test.prototype)));
 }
-$$cts$$runtime.cementGlobal("Test2",Test2);
-function Test() {
-    $$cts$$runtime.protectAssignment(Number, "x", this, 1);;$$cts$$runtime.brand(Foo, this);
-}
-$$cts$$runtime.cementGlobal("Test",Test);
-function foop(n) {
-    $$cts$$runtime.cast(Number,n);
-    return $$cts$$value$foop.apply(this, arguments);
-}
-$$cts$$runtime.cementGlobal("foop",foop);function $$cts$$value$foop(n) {
-    return 1;
-}
-$$cts$$runtime.cementGlobal("$$cts$$value$foop",foop);
-Test.prototype.test = 1;
-Test.prototype.test = "what";
-console.log(($$cts$$runtime.cast(Number,(foop(2)))));
-var foo = ($$cts$$runtime.cast(Foo,(new Test())));
-//var test : Foo = new Test();
+$$cts$$runtime.cementGlobal("outer",outer);

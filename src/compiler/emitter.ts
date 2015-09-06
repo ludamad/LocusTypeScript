@@ -2613,7 +2613,7 @@ module ts {
 
             // [ConcreteTypeScript]
             function emitConcreteAssignment(node:BinaryExpression, expression:Identifier, propAccess:PropertyAccessExpression):boolean {
-                var declaration = propAccess.brandAnalysis.declaration;
+                var declaration = propAccess.brandAnalysis.getDeclaration();
                 var resolvedToConcrete = (declaration.resolvedType.flags & TypeFlags.Concrete);
                 var assignmentValues = propAccess.brandAnalysis.assignments;
                 if (resolvedToConcrete && assignmentValues.length === 1 && assignmentValues[0] === node.right) {

@@ -23,43 +23,48 @@ module ts {
         // if (actuallyItsAString) a = "string";
         //
         // The reason being that this sort of conditional assignment is idiomatic.
-        constructor(public declaration:BrandPropertyDeclaration, 
+        constructor(private binder:BrandTypeBinder, 
+                    public index:number,
                     public assignments:Expression[], 
                     public definitelyAssigned:boolean,
                     public conditionalBarrier:boolean = false
     ) {
         }
+        getDeclaration() {
+            return this.binder.allProps[this.index];
+        }
         merge(other:FlowTypeAnalysis):FlowTypeAnalysis {
+            Debug.assert(other.index === this.index);
             var expressions:Expression[] = [].concat(this.assignments);
             forEach(other.assignments, (expr) => {
                 if (expressions.indexOf(expr) === -1) expressions.push(expr);
             });
             var definitelyAssigned:boolean = (other.definitelyAssigned && this.definitelyAssigned);
-            return new FlowTypeAnalysis(this.declaration, expressions, definitelyAssigned);
+            return new FlowTypeAnalysis(this.binder, this.index, expressions, definitelyAssigned);
         }
         passConditionalBarrier():FlowTypeAnalysis {
-            return new FlowTypeAnalysis(this.declaration, this.assignments, this.definitelyAssigned, true);
+            return new FlowTypeAnalysis(this.binder, this.index, this.assignments, this.definitelyAssigned, true);
         }
         scanAssignment(node:Expression):FlowTypeAnalysis {
             if (!this.definitelyAssigned || this.conditionalBarrier) {
-                return new FlowTypeAnalysis(this.declaration, [node], true);
+                return new FlowTypeAnalysis(this.binder, this.index, [node], true);
             }
             return this;
         }
     }
 
-    class BrandPropertyTypes {
+    export class BrandPropertyTypes {
         assignmentSets:FlowTypeAnalysis[];
-        constructor(public declarations:BrandPropertyDeclaration[]) {
-            this.assignmentSets = new Array<FlowTypeAnalysis>(declarations.length);
+        constructor(private binder:BrandTypeBinder) {
+            this.assignmentSets = new Array<FlowTypeAnalysis>(binder.allProps.length);
             for (var i = 0; i < this.assignmentSets.length; i++) {
-                this.assignmentSets[i] = new FlowTypeAnalysis(declarations[i], [], false);
+                this.assignmentSets[i] = new FlowTypeAnalysis(binder, i, [], false);
             }
         }
         merge(other:BrandPropertyTypes):BrandPropertyTypes {
-            var merged = new BrandPropertyTypes(this.declarations);
+            var merged = new BrandPropertyTypes(this.binder);
             for (var i = 0; i < merged.assignmentSets.length; i++) {
-                merged.assignmentSets[i] = this.assignmentSets[i].merge(other.assignmentSets[i]);
+                merged.assignmentSets[i] = this.assignmentSets[i].merge(other.assignmentSets[i] || merged.assignmentSets[i]);
             }
             return merged;
         }
@@ -67,9 +72,9 @@ module ts {
         get(brandPropId:number):FlowTypeAnalysis {
             return this.assignmentSets[brandPropId];
         }
-
         passConditionalBarrier():BrandPropertyTypes {
-            var passed = new BrandPropertyTypes(this.declarations);
+
+            var passed = new BrandPropertyTypes(this.binder);
             for (var i = 0; i < passed.assignmentSets.length; i++) {
                 passed.assignmentSets[i] = this.assignmentSets[i].passConditionalBarrier();
             }
@@ -85,8 +90,8 @@ module ts {
                 propertyNode.end = propAccess.end;
                 propertyNode.parent = binder.declarationScope;
                 propertyNode.brandTypeDeclaration = binder.brandTypeDecl;
-                printNodeDeep(propAccess);
                 binder.declareSymbol(binder.brandTypeDecl.symbol.members, binder.brandTypeDecl.symbol, propertyNode, SymbolFlags.Property, 0);
+                binder.fillProp(propertyNode);
             }
             // Incorporate the assignment information:
             return binder.getPropId(propAccess.name.text);
@@ -102,9 +107,9 @@ module ts {
                 protoBrandType.end = propAccess.end;
                 protoBrandType.scope = binder.containerScope;
                 // Set to parent of FunctionDeclaration:
-                protoBrandType.parent = binder.containerScope;
+                protoBrandType.parent = binder.brandTypeDecl;
                 binder.brandTypeDecl.prototypeBrandDeclaration = protoBrandType;
-                binder.declareSymbol(binder.brandTypeDecl.symbol.members, binder.brandTypeDecl.symbol, protoBrandType, SymbolFlags.Brand|SymbolFlags.ExportType, SymbolFlags.BrandTypeExcludes);
+                binder.declareSymbol(binder.brandTypeDecl.symbol.exports, binder.brandTypeDecl.symbol, protoBrandType, SymbolFlags.Brand|SymbolFlags.ExportType, SymbolFlags.BrandTypeExcludes);
             }
             if (!hasProperty(protoBrandType.symbol.members, propAccess.name.text)) { 
                 // Create a property declaration for the brand-type symbol list:
@@ -112,11 +117,10 @@ module ts {
                 propertyNode.name = propAccess.name; // Right-hand <identifier>
                 propertyNode.pos = propAccess.pos;
                 propertyNode.end = propAccess.end;
-                propertyNode.parent = binder.declarationScope;
+                propertyNode.parent = protoBrandType;
                 propertyNode.brandTypeDeclaration = binder.brandTypeDecl;
-                console.log("PROTO")
-                printNodeDeep(propAccess);
                 binder.declareSymbol(protoBrandType.symbol.members, protoBrandType.symbol, propertyNode, SymbolFlags.Property, 0);
+                binder.fillProtoProp(propertyNode);
             }
             return binder.getProtoPropId(propAccess.name.text);
         }
@@ -135,38 +139,36 @@ module ts {
             } else if (binder.getBrandProtoPropertyId(node.left) !== null) {
                 var brandPropId:number = this._scanProtoPropertyAssignment(<PropertyAccessExpression>node.left, binder);
             }
-            var copy = new BrandPropertyTypes(this.declarations);
+            var copy = new BrandPropertyTypes(this.binder);
             for (var i = 0; i < copy.assignmentSets.length; i++) {
                 // If the previous value had any null types, we use our current assignment as a 'refinement'.
                 // The logic is, all sequential writes need to be consistent.
                 if (brandPropId === i) {
-                    copy.assignmentSets[i] = this.assignmentSets[i].scanAssignment(node.right);
+                    copy.assignmentSets[i] = (this.assignmentSets[i] || copy.assignmentSets[i]).scanAssignment(node.right);
                 } else {
-                    copy.assignmentSets[i] = this.assignmentSets[i];
+                    copy.assignmentSets[i] = this.assignmentSets[i] || copy.assignmentSets[i];
                 }
             }
             var value = (<BinaryExpression> node).right;
             
             return copy;
         }
-        mark(node:Node, binder:BrandTypeBinder): boolean{
+        // Store relevant assignments for type calculation:
+        mark(node:Node, binder:BrandTypeBinder) {
             var propId = binder.getBrandPropertyId(node);
             if (propId !== null) {
                 (<PropertyAccessExpression>node).brandAnalysis = this.get(binder.getPropId((<PropertyAccessExpression>node).name.text));
-                return true;
             }
             propId = binder.getBrandProtoPropertyId(node);
             if (propId !== null) {
-                (<PropertyAccessExpression>node).brandAnalysis = this.get(binder.getPropId((<PropertyAccessExpression>node).name.text));
+                (<PropertyAccessExpression>node).brandAnalysis = this.get(binder.getProtoPropId((<PropertyAccessExpression>node).name.text));
                 (<PropertyAccessExpression>node).useProtoBrand = true;
-                return true;
+                console.log(this);
             }
-            // Store relevant assignments for type calculation:
-            return false;
         }
     }
 
-    class BrandTypeBinder {
+    export class BrandTypeBinder {
         brandTypeDecl:BrandTypeDeclaration;
         nodePostLinks:Map<BrandPropertyTypes[]> = {};
         declareSymbol:_declareSymbol;
@@ -175,25 +177,43 @@ module ts {
         // For function declarations with brands placed on 'this', collect prototype
         // information
         prototypePropNameToId = {};
+        props = [];
+        protoProps = [];
+        allProps = [];
         nextPropNameId = 0;
         // Scope over which analysis is being done:
         containerScope:Node;
         // Scope where brand type is declared
         declarationScope:Node;
 
+        fillProp(prop:BrandPropertyDeclaration) {
+            if (this.propNameToId[(<Identifier>prop.name).text] === undefined) this.getPropId((<Identifier>prop.name).text);
+            var id = this.propNameToId[(<Identifier>prop.name).text];
+            this.allProps[id] = prop;
+            this.props.push(prop);
+        }
+        
+        fillProtoProp(prop:BrandPropertyDeclaration) {
+            if (this.prototypePropNameToId[(<Identifier>prop.name).text] === undefined) this.getProtoPropId((<Identifier>prop.name).text);
+            var id = this.prototypePropNameToId[(<Identifier>prop.name).text];
+            this.allProps[id] = prop;
+            this.protoProps.push(prop);
+        }
+    
         getPropId(str:string, dontCreate?:boolean):number {
             if (this.propNameToId[str] != null) return this.propNameToId[str];
             if (dontCreate) {console.log("NAME", str); console.log(this.propNameToId); throw new Error("DontCreate");}
             var id = this.nextPropNameId++;
             this.propNameToId[str] = id;
+            this.allProps.push(null);
             return id;
         }
-
         getProtoPropId(str:string, dontCreate?:boolean):number {
             if (this.prototypePropNameToId[str] != null) return this.prototypePropNameToId[str];
             if (dontCreate) {console.log("NAME", str); console.log(this.prototypePropNameToId); throw new Error("DontCreate");}
             var id = this.nextPropNameId++;
             this.prototypePropNameToId[str] = id;
+            this.allProps.push(null);
             return id;
         }
 
@@ -252,9 +272,7 @@ module ts {
                 return prev;
             }
 
-            if (prev.mark(node, this)) {
-                return prev;
-            }
+            prev.mark(node, this);
 
             /* Otherwise, continue recursive iteration: */
             forEachChild(node, (child) => {
@@ -267,6 +285,9 @@ module ts {
                             prev = this.scan(child, prev);
                             break;
                         }
+                        console.log("REAAAAAAAA")
+                        printNodeDeep(child.parent)
+                        console.log("/REAAAAAAAA")
                         var downgrade = true;
                         if (child.parent.kind === SyntaxKind.PropertyAccessExpression ) {
                             downgrade = false;
@@ -284,8 +305,8 @@ module ts {
                         }
                         if (downgrade) {
                             child.downgradeToBaseClass = true;
-                            (<PropertyAccessExpression>child).brandTypeDeclForPrototypeProperty = this.brandTypeDecl;
                         }
+                        (<PropertyAccessExpression>child).brandTypeDeclForPrototypeProperty = this.brandTypeDecl;
                         break;
                     case SyntaxKind.ThisKeyword:
                     case SyntaxKind.Identifier:
@@ -326,8 +347,8 @@ module ts {
                         }
                         var id = breakingContainer.id;
                         this.nodePostLinks[id] = (this.nodePostLinks[id] || []);
-                        // Purposefully do not do this: 
-                            // prev = this.scan(child, prev);
+                        // TODO: Issue #1: Disable property binding inside this scan:
+                        prev = this.scan(child, prev);
                         // This would allow for assignments in the return statement.
                         // However, branding occurs _before_ the return statement has a chance to execute.
                         this.nodePostLinks[id].push(prev);
@@ -469,14 +490,26 @@ module ts {
         brandTypeBinder.containerScope = isFunctionDeclarationWithThisBrand(scope) ? getModuleOrSourceFile(scope) : scope;
         brandTypeBinder.declareSymbol = declareSymbol;
 
-        var properties = getBrandProperties(brandTypeDecl);
-        var assignmentResults = brandTypeBinder.scan(brandTypeBinder.containerScope, new BrandPropertyTypes(properties));
-        forEach(properties, (brandPropDecl:BrandPropertyDeclaration) => {
+        var assignmentResults = brandTypeBinder.scan(brandTypeBinder.containerScope, new BrandPropertyTypes(brandTypeBinder));
+        
+        // Set the binding assignments for each property:
+        forEach(brandTypeBinder.props, (brandPropDecl:BrandPropertyDeclaration) => {
             var name = (<Identifier>brandPropDecl.name).text;
-            var assignments = assignmentResults.get(brandTypeBinder.getPropId(name, true));
+            var assignments = assignmentResults.get(brandTypeBinder.getPropId(name));
             if (assignments == null) {console.log((<any>assignmentResults).assignmentSets); throw new Error("WWWEEERE");}
             brandPropDecl.bindingAssignments = assignments;
         });
+        
+        // Set the binding assignments for each prototype property:
+        if (brandTypeDecl.prototypeBrandDeclaration) {
+            
+            forEach(brandTypeBinder.protoProps, (brandPropDecl:BrandPropertyDeclaration) => {
+                var name = (<Identifier>brandPropDecl.name).text;
+                var assignments = assignmentResults.get(brandTypeBinder.getProtoPropId(name));
+                if (assignments == null) {console.log((<any>assignmentResults).assignmentSets); throw new Error("WWWEEERE");}
+                brandPropDecl.bindingAssignments = assignments;
+            });
+        }
     }
 
     export function bindBrandPropertiesInScopeAfterInitialBinding(scope:Node, declareSymbol:_declareSymbol) {

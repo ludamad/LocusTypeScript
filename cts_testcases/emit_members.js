@@ -5,7 +5,7 @@ if (typeof $$cts$$runtime === "undefined") {
 }
 var GodObject = new $$cts$$runtime.Brand();
 $$cts$$runtime.cementGlobal("GodObject",GodObject);
-function makeGodObject() {
+/**/function makeGodObject() {
     var godObject = {};
     // num : !number
     $$cts$$runtime.protectAssignment(Number, "num", godObject, 1);;
