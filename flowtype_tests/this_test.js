@@ -9,24 +9,17 @@ var Foo = new $$cts$$runtime.Brand();
 $$cts$$runtime.cementGlobal("Foo",Foo);
 function outer() {
     function Test2() {
-        this.x = 1;$$cts$$runtime.brand(Foo2, this);
+        this.x = this.y;$$cts$$runtime.brand(Foo2, this);
     }
-    Test2.prototype.test = 1;
+    Test2.prototype.y = 2;
     function Test() {
         this.x = 1;$$cts$$runtime.brand(Foo, this);
     }
-    function foop(n) {
-        $$cts$$runtime.cast(Number,n);
-        return $$cts$$value$foop.apply(this, arguments);
-    }function $$cts$$value$foop(n) {
-        return 1;
-    }
     Test.prototype.test = 1;
     Test.prototype.test = "what";
-    console.log(($$cts$$runtime.cast(Number,(foop(2)))));
     var foo = ($$cts$$runtime.cast(Foo,(new Test())));
     var test;
-    //var test : Foo = new Test();
+    var foop = Test.prototype;
     return ($$cts$$runtime.cast(prototype,(Test.prototype)));
 }
 $$cts$$runtime.cementGlobal("outer",outer);

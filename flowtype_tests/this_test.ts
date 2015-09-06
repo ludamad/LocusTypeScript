@@ -3,10 +3,9 @@ function outer() : !Foo2.prototype {
     function Test2() {
         var this : declare Foo2;
 
-        this.x = 1;
+        this.x = this.y;
     }
-    Test2.prototype.test = 1;
-
+    Test2.prototype.y = 2;
 
     function Test() {
         var this : declare Foo;
@@ -14,17 +13,12 @@ function outer() : !Foo2.prototype {
         this.x = 1;
     }
 
-
-    function foop( n : !number ) {
-        return 1;
-    }
     Test.prototype.test = 1;
     Test.prototype.test = "what";
 
-    console.log(foop(2));
     var foo : !Foo = new Test();
     var test: Foo;
-    //var test : Foo = new Test();
+    var foop : Foo.prototype = Test.prototype;
     return Test.prototype;
 }
 

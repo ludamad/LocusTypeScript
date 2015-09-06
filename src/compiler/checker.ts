@@ -2153,20 +2153,17 @@ module ts {
                 // Do after creating our type, to prevent infinite recursion
                 var variableDeclaration = (<BrandTypeDeclaration>symbol.declarations[0]).variableDeclaration;
                 var initializer = variableDeclaration && variableDeclaration.initializer;
+                var extensionType:Type = emptyObjectType;
                 if (initializer) {
-                    type.baseTypes.push(stripConcreteType(checkAndMarkExpression(initializer)));
+                    extensionType = stripConcreteType(checkAndMarkExpression(initializer));
                 } else {
                     // Before the branding has finished, this is the type of local 'this':
-                    if (!variableDeclaration) {
-                        var proto =(<BrandTypeDeclaration>symbol.declarations[0]).prototypeBrandDeclaration;
-                        // Prototype type
-                        if (proto) {
-                            // TODO prototype chaining
-                        }
-                    } else {
-                        type.baseTypes.push(checkThisExpression((<BrandTypeDeclaration>symbol.declarations[0]).variableDeclaration, true));
+                    var proto =(<BrandTypeDeclaration>symbol.declarations[0]).prototypeBrandDeclaration;
+                    if (proto) {
+                        extensionType = getDeclaredTypeOfSymbol(proto.symbol);
                     }
                 }
+                type.baseTypes.push(extensionType);
             }
             return <InterfaceType>links.declaredType;
         }
@@ -5609,8 +5606,17 @@ module ts {
             if ((<PropertyAccessExpression>node).brandTypeDeclForPrototypeProperty) {
                 var brandDecl = (<PropertyAccessExpression>node).brandTypeDeclForPrototypeProperty.prototypeBrandDeclaration;
                 Debug.assert(!!brandDecl);
-                if (node.downgradeToBaseClass) brandDecl = brandDecl.extendedType.brandTypeDeclaration;
-                return getDeclaredTypeOfBrand(brandDecl.symbol);
+                var type:Type;
+                if (node.downgradeToBaseClass) {
+                    if (brandDecl.extendedType) {
+                        type = getDeclaredTypeOfSymbol(brandDecl.extendedType.brandTypeDeclaration.symbol);
+                    } else {
+                        type = emptyObjectType;
+                    }
+                } else {
+                    type = getDeclaredTypeOfSymbol(brandDecl.symbol);
+                }
+                return type;
             }
             var type:Type = checkExpressionOrQualifiedName(left);
             if (type === unknownType) return type;
