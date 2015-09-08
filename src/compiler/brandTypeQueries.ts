@@ -32,27 +32,35 @@ module ts {
         }
         return declarations;
     }
-
-    export function getBrandTypeVarDeclarations(block:Node):VariableDeclaration[] {
+    
+    export function getDeclarations(block:Node, filter: (node:Declaration)=>boolean):Declaration[] {
         if (!block.locals) return [];
-        var declarations:VariableDeclaration[] = [];
+        var declarations:Declaration[] = [];
         for (var symbolName in block.locals) {
             if (hasProperty(block.locals, symbolName)) {
                 var symbol = block.locals[symbolName];
-                forEach(symbol.declarations || [], (declaration) => {
-                    if (declaration.kind == SyntaxKind.VariableDeclaration) {
-                        var typeNode = (<VariableDeclaration>declaration).type;
-                        if (typeNode && typeNode.brandTypeDeclaration) {
-                            declarations = (declarations || []);
-                            declarations.push(<VariableDeclaration>declaration);
-                        }
-                    }
-                });
+                declarations = declarations.concat(symbol.declarations.filter(filter));
             }
         }
         return declarations;
     }
-    
+
+
+    export function getFunctionDeclarationsWithThisBrand(block:Node):FunctionDeclaration[] {
+        return <FunctionDeclaration[]> getDeclarations(block, isFunctionDeclarationWithThisBrand);
+    }
+
+    export function getBrandTypeVarDeclarations(block:Node):VariableDeclaration[] {
+        var isBrandVarDecl = (node) => {
+            if (node.kind == SyntaxKind.VariableDeclaration) {
+                var typeNode = (<VariableDeclaration>node).type;
+                return !!(typeNode && typeNode.brandTypeDeclaration);
+            }
+            return false;
+        };
+        return <VariableDeclaration[]> getDeclarations(block, isBrandVarDecl);
+    }
+
     export function isNodeDescendentOf(node: Node, ancestor: Node): boolean {
         while (node) {
             if (node === ancestor) return true;
@@ -103,10 +111,10 @@ module ts {
         }
     }
           
-      export function getSymbol(location: Node, text: string): Symbol {
+      export function getSymbol(location: Node, text: string, flags: SymbolFlags): Symbol {
           while (location) {
               // If not a 'locals'-having context
-              if (!location.locals || !hasProperty(location.locals, text)) {
+              if (!location.locals || !hasProperty(location.locals, text) || !(location.locals[text].flags & flags)) {
                   location = location.parent;
                   continue; 
               }
@@ -124,7 +132,7 @@ module ts {
   
     // [ConcreteTypeScript] Find variable declaration associated with identifier, or 'null' if not a VariableDeclaration
     export function findVariableDeclarationForName(location: Node, text: string): VariableDeclaration {
-        var symbol = getSymbol(location, text);
+        var symbol = getSymbol(location, text, SymbolFlags.Variable);
         if (!symbol || symbol.declarations.length < 1 || symbol.declarations[0].kind !== SyntaxKind.VariableDeclaration) {
             return null;
         }
@@ -134,7 +142,7 @@ module ts {
         
       // [ConcreteTypeScript] Find function declaration associated with identifier, or 'null' if not a FunctionDeclaration
       export function findFunctionDeclarationForName(location: Node, text: string): FunctionDeclaration {
-          var symbol = getSymbol(location, text);
+          var symbol = getSymbol(location, text, SymbolFlags.Function);
           if (!symbol || symbol.declarations.length < 1 || symbol.declarations[0].kind !== SyntaxKind.FunctionDeclaration) {
               return null;
           }

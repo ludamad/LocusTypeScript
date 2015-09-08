@@ -1036,6 +1036,7 @@ module ts {
                 write(";");
                 writeLine();
             }
+            
         }
 
         function emitAccessorDeclaration(node: AccessorDeclaration) {
@@ -2612,23 +2613,26 @@ module ts {
                 emit(node.operand);
                 write(tokenToString(node.operator));
             }
-
             // [ConcreteTypeScript]
-            function emitConcreteAssignment(node:BinaryExpression, expression:Identifier, propAccess:PropertyAccessExpression):boolean {
+            function emitConcreteAssignment(node:BinaryExpression, expression:Expression, propAccess:PropertyAccessExpression):boolean {
                 var declaration = propAccess.brandAnalysis.getDeclaration();
                 var resolvedToConcrete = (declaration.resolvedType.flags & TypeFlags.Concrete);
                 var assignmentValues = propAccess.brandAnalysis.assignments;
-                printNodeDeep(node);
-                console.log(assignmentValues)
                 if (resolvedToConcrete && assignmentValues.length === 1 && assignmentValues[0] === node.right) {
-                                    printNodeDeep(node);
-                                    console.log("EMITTED")
                     // Emit protection if this is a binding-relevant assignment:
-                    emitCTSRT("protectAssignment");
-                    write("(");
-                    emitCTSType((<ConcreteType>declaration.resolvedType).baseType);
-                    write(", " + JSON.stringify(propAccess.name.text) + ", ");
-                    write((expression.text || "this") + ", ");
+                    if (propAccess.brandAnalysis.isPrototypeProperty()) {
+                        emitCTSRT("protectProtoAssignment");
+                        write("(");
+                        emitCTSType((<ConcreteType>declaration.resolvedType).baseType);
+                        write(", " + JSON.stringify(propAccess.name.text) + ", ");
+                        write(((<Identifier>(<PropertyAccessExpression>expression).expression).text) + ", ");
+                    } else {
+                        emitCTSRT("protectAssignment");
+                        write("(");
+                        emitCTSType((<ConcreteType>declaration.resolvedType).baseType);
+                        write(", " + JSON.stringify(propAccess.name.text) + ", ");
+                        write(((<Identifier>expression).text || "this") + ", ");
+                    }
                     emit(node.right);
                     write(");")
                     return true;
@@ -2641,7 +2645,7 @@ module ts {
                 if (isPropertyAssignment(node)) {
                     var propAccess:PropertyAccessExpression = <PropertyAccessExpression>node.left;
                     if (propAccess.brandAnalysis) {
-                        if (emitConcreteAssignment(node, <Identifier>propAccess.expression, propAccess)) {
+                        if (emitConcreteAssignment(node, propAccess.expression, propAccess)) {
                             return;
                         }
                     }                    
@@ -2665,7 +2669,22 @@ module ts {
                 write(" : ");
                 emit(node.whenFalse);
             }
-
+            
+            // [ConcreteTypeScript]
+            function emitBrandPrototypeAsserts(block:Node) {
+                var varDecls = getBrandTypeVarDeclarations(block);
+                forEach(varDecls, (varDecl:VariableDeclaration) => {
+                    var brandTypeDecl = varDecl.type.brandTypeDeclaration;
+                    var brandProto = brandTypeDecl.prototypeBrandDeclaration;
+                    if (brandProto) {
+                        emitCTSRT("cast(");
+                        write("$$cts$$brandTypes.");
+                        emit(brandProto.name);
+                        write(".prototype, this.prototype");
+                        
+                    }
+                });
+            }
             // [ConcreteTypeScript]
             function emitBrandTypesAtBlockStart(block:Node) {
                 var brandTypes = getBrandTypesInScope(block);
@@ -2678,12 +2697,15 @@ module ts {
                     write("$$cts$$brandTypes.");
                     writeTextOfNode(currentSourceFile, brandName);
                     write(" = new $$cts$$runtime.Brand();");
+                    if (brandTypeDeclaration.prototypeBrandDeclaration) {
+                        writeLine();
+                        write("$$cts$$brandTypes.");
+                        writeTextOfNode(currentSourceFile, brandName);
+                        write(".prototype");
+                        write(" = new $$cts$$runtime.Brand();")
+                    }
                     writeLine();
                     emitDeclarationCement(brandTypeDeclaration);
-                    // forEach(getBrandProperties(brandTypeDeclaration), (property:BrandPropertyDeclaration) => {
-                    //     // In the special case that we have a union of 
-                    //     var unionTypeName = property.name.text;
-                    // });
                 });
             }
 
@@ -2692,12 +2714,25 @@ module ts {
                 if (!block.locals) return;
                 forEach(getBrandTypeVarDeclarations(block), (varDeclaration:VariableDeclaration) => {
                     var brandName:Identifier = varDeclaration.type.brandTypeDeclaration.name;
-                    write("$$cts$$runtime.brand(");
+                    write("$$cts$$runtime.brand($$cts$$brandTypes.");
                     writeTextOfNode(currentSourceFile, brandName);
                     write(", ");
                     writeTextOfNode(currentSourceFile, varDeclaration.name);
                     write(");");
                     writeLine();
+                });
+                forEach(getFunctionDeclarationsWithThisBrand(block), (funcDecl) => {
+                    var brandDecl = funcDecl.declaredTypeOfThis.brandTypeDeclaration;
+                    var brandProto = brandDecl.prototypeBrandDeclaration;
+                    if (brandProto) {
+                        var brandName:Identifier = brandProto.name;
+                        write("$$cts$$runtime.brand($$cts$$brandTypes.");
+                        writeTextOfNode(currentSourceFile, brandName);
+                        write(", ");
+                        writeTextOfNode(currentSourceFile, funcDecl.name);
+                        write(".prototype);");
+                        writeLine();
+                    }
                 });
             }
             // [ConcreteTypeScript]
@@ -2722,6 +2757,7 @@ module ts {
                 increaseIndent();
                 scopeEmitStart(node.parent);
                 emitBrandTypesAtBlockStart(node);
+                emitBrandPrototypeAsserts(node);
                 if (node.kind === SyntaxKind.ModuleBlock) {
                     Debug.assert(node.parent.kind === SyntaxKind.ModuleDeclaration);
                     emitCaptureThisForNodeIfNecessary(node.parent);
@@ -2991,14 +3027,16 @@ module ts {
                 var scope = (<any>node).scope || node.parent;
                 var name = (<Identifier>node.name) && (<Identifier>node.name).text;
                 if (mangledName) name = "$$cts$$value$" + name;
+                var isBrand = (node.kind === SyntaxKind.BrandTypeDeclaration);
 
                 // If it's a global or exported, we need to cement it
                 if (scope && scope.kind === SyntaxKind.SourceFile) {
-                    writeLine();
-                    emitCTSRT("cementGlobal");
-                    write("(" + JSON.stringify(name) + ",");
-                    emit(node.name);
-                    write(");");
+                    if (!isBrand) {
+                        writeLine();
+                        write("(" + JSON.stringify(name) + ",");
+                        emit(node.name);
+                        write(");");
+                    }
                 } else if (node.flags & NodeFlags.Export) {
                     writeLine();
                     if (compilerOptions.emitV8Intrinsics) {
@@ -3158,6 +3196,9 @@ module ts {
             }
 
             function emitFunctionDeclaration(node: FunctionLikeDeclaration, name?: string, doEmitProtectors: boolean = true, realBodyIfProtectors?: string /* [ConcreteTypeScript] */) {
+                if (node.declaredTypeOfThis) {
+                    write("/*this-branded*/");
+                }
                 if (!node.body) {
                     emitPinnedOrTripleSlashComments(node);
                     return true; // [ConcreteTypeScript]

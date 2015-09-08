@@ -1310,6 +1310,10 @@ module ts {
               node.brandTypeDeclaration = declNode; 
               declNode.name = <Identifier>node.typeName;
               declNode.parent = node;
+              if (token === SyntaxKind.ExtendsKeyword) {
+                  nextToken();
+                  declNode.extendedType = parseType();
+              }
               finishNode(declNode);
               return node;
         }

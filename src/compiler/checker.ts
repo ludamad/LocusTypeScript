@@ -2140,9 +2140,10 @@ module ts {
             var links = getSymbolLinks(symbol);
             if (!links.declaredType) {
                 /* On first occurrence */
+                var brandTypeDecl = (<BrandTypeDeclaration>symbol.declarations[0]);
                 var type = <InterfaceType>createObjectType(TypeFlags.Brand, symbol);
                 type.declaredProperties = map(Object.keys(symbol.members), key => symbol.members[key]);
-                type.baseTypes = [];
+                var baseTypes:Type[] = type.baseTypes = [];
                 type.declaredCallSignatures = emptyArray;
                 type.declaredConstructSignatures = emptyArray;
                 type.declaredStringIndexType = getIndexTypeOfSymbol(symbol, IndexKind.String);
@@ -2150,19 +2151,21 @@ module ts {
                 links.declaredType = type;
                 // BUG FIX
                 // Do after creating our type, to prevent infinite recursion
-                var variableDeclaration = (<BrandTypeDeclaration>symbol.declarations[0]).variableDeclaration;
-                var initializer = variableDeclaration && variableDeclaration.initializer;
-                var extensionType:Type = emptyObjectType;
+                var initializer = brandTypeDecl.variableDeclaration && brandTypeDecl.variableDeclaration.initializer;
                 if (initializer) {
-                    extensionType = stripConcreteType(checkAndMarkExpression(initializer));
+                    baseTypes.push(checkAndMarkExpression(initializer));
                 } else {
                     // Before the branding has finished, this is the type of local 'this':
-                    var proto =(<BrandTypeDeclaration>symbol.declarations[0]).prototypeBrandDeclaration;
-                    if (proto) {
-                        extensionType = getDeclaredTypeOfSymbol(proto.symbol);
+                    if (brandTypeDecl.extendedType) {
+                        baseTypes.push(stripConcreteType(getTypeFromTypeNode(brandTypeDecl.extendedType)));
+                    } 
+                    if (brandTypeDecl.prototypeBrandDeclaration) {
+                        baseTypes.push(stripConcreteType( getDeclaredTypeOfSymbol(brandTypeDecl.prototypeBrandDeclaration.symbol)));
                     }
                 }
-                type.baseTypes.push(extensionType);
+                if (baseTypes.length === 0) {
+                    baseTypes.push(emptyObjectType);
+                }
             }
             return <InterfaceType>links.declaredType;
         }
@@ -8255,12 +8258,26 @@ module ts {
             }
 
             if (node.initializer && !(getNodeLinks(node.initializer).flags & NodeCheckFlags.TypeChecked)) {
-                var isBrandTypeDeclaration = false;
+                var brandTypeDecl:BrandTypeDeclaration = null;
                 if (node.type && node.kind == SyntaxKind.VariableDeclaration) {
-                    isBrandTypeDeclaration = !!(<VariableDeclaration>node).type.brandTypeDeclaration;
+                    brandTypeDecl = (<VariableDeclaration>node).type.brandTypeDeclaration;
                 }
                 // Brand type declarations get a free pass
-                if (!isBrandTypeDeclaration) {
+                if (brandTypeDecl) {
+                    if (brandTypeDecl.extendedType) {
+                        // Use default messages
+                        var extendedType:Type = getTypeFromTypeNode(brandTypeDecl.extendedType);
+                        if (!(extendedType.flags & TypeFlags.Concrete)) {
+                            extendedType = createConcreteType(extendedType);
+                        }
+                        checkTypeAssignableTo(checkAndMarkExpression(node.initializer), extendedType, node, /*headMessage*/ undefined);
+
+                        // [ConcreteTypeScript]
+                        var initType = checkAndMarkExpression(node.initializer); // FIXME: rechecking
+                        checkCTSCoercion(node.initializer, initType, type);
+                        // [/ConcreteTypeScript]
+                    }
+                } else {
                     // Use default messages
                     checkTypeAssignableTo(checkAndMarkExpression(node.initializer), type, node, /*headMessage*/ undefined);
 

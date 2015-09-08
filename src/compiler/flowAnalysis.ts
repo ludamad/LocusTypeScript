@@ -33,6 +33,9 @@ module ts {
         getDeclaration() {
             return this.binder.allProps[this.index];
         }
+        isPrototypeProperty() {
+            return this.binder.propIdIsPrototype[this.index];
+        }
         merge(other:FlowTypeAnalysis):FlowTypeAnalysis {
             Debug.assert(other.index === this.index);
             var expressions:Expression[] = [].concat(this.assignments);
@@ -53,6 +56,9 @@ module ts {
         }
     }
 
+    export const enum MergeKind {
+        ALL, NORMAL_PROPS, PROTO_PROPS
+    }
     export class BrandPropertyTypes {
         assignmentSets:FlowTypeAnalysis[];
         constructor(private binder:BrandTypeBinder) {
@@ -61,19 +67,30 @@ module ts {
                 this.assignmentSets[i] = new FlowTypeAnalysis(binder, i, [], false);
             }
         }
-        merge(other:BrandPropertyTypes):BrandPropertyTypes {
+        merge(other:BrandPropertyTypes, kind:MergeKind = MergeKind.ALL):BrandPropertyTypes {
             var merged = new BrandPropertyTypes(this.binder);
-            for (var i = 0; i < merged.assignmentSets.length; i++) {
-                merged.assignmentSets[i] = this.assignmentSets[i].merge(other.assignmentSets[i] || merged.assignmentSets[i]);
+            var criteria = (i) => true;
+            if (kind === MergeKind.NORMAL_PROPS) {
+                criteria = (i) => !this.binder.propIdIsPrototype[i];
+            } else if (kind === MergeKind.PROTO_PROPS) {
+                criteria = (i) => this.binder.propIdIsPrototype[i];;
             }
-            return merged;
+            for (var i = 0; i < merged.assignmentSets.length; i++) {
+                if (criteria(i)) {
+                    // Merge:
+                    merged.assignmentSets[i] = (this.assignmentSets[i] || merged.assignmentSets[i]).merge(other.assignmentSets[i] || merged.assignmentSets[i]);
+                } else {
+                    // Dont merge:
+                    merged.assignmentSets[i] = this.assignmentSets[i] || merged.assignmentSets[i];
+                }
+            }
+            return merged;            
         }
 
         get(brandPropId:number):FlowTypeAnalysis {
             return this.assignmentSets[brandPropId];
         }
         passConditionalBarrier():BrandPropertyTypes {
-
             var passed = new BrandPropertyTypes(this.binder);
             for (var i = 0; i < passed.assignmentSets.length; i++) {
                 passed.assignmentSets[i] = this.assignmentSets[i].passConditionalBarrier();
@@ -109,6 +126,7 @@ module ts {
                 // Set to parent of FunctionDeclaration:
                 protoBrandType.parent = binder.brandTypeDecl;
                 binder.brandTypeDecl.prototypeBrandDeclaration = protoBrandType;
+                console.log("GOT BRAND FOR " + binder.brandTypeDecl.name.text)
                 binder.declareSymbol(binder.brandTypeDecl.symbol.exports, binder.brandTypeDecl.symbol, protoBrandType, SymbolFlags.Brand|SymbolFlags.ExportType, SymbolFlags.BrandTypeExcludes);
             }
             if (!hasProperty(protoBrandType.symbol.members, propAccess.name.text)) { 
@@ -176,6 +194,7 @@ module ts {
         // For function declarations with brands placed on 'this', collect prototype
         // information
         prototypePropNameToId = {};
+        propIdIsPrototype = {};
         props = [];
         protoProps = [];
         allProps = [];
@@ -205,6 +224,7 @@ module ts {
             var id = this.nextPropNameId++;
             this.propNameToId[str] = id;
             this.allProps.push(null);
+            this.propIdIsPrototype[id] = false;
             return id;
         }
         getProtoPropId(str:string, dontCreate?:boolean):number {
@@ -212,6 +232,7 @@ module ts {
             if (dontCreate) {console.log("NAME", str); console.log(this.prototypePropNameToId); throw new Error("DontCreate");}
             var id = this.nextPropNameId++;
             this.prototypePropNameToId[str] = id;
+            this.propIdIsPrototype[id] = true;
             this.allProps.push(null);
             return id;
         }
@@ -403,7 +424,19 @@ module ts {
                     case SyntaxKind.FunctionDeclaration:
                         // Special case so we don't consider our declaration scope as conditionally occuring:
                         var bodyScan = this.scan((<FunctionDeclaration>child).body, prev);
-                        prev = (this.declarationScope === child) ? bodyScan : bodyScan.merge(prev);
+                        // TODO: Figure out this shizz
+                        //     // prev = bodyScan;
+                        // if (this.declarationScope === child && this.containerScope === child) {
+                        //     prev = bodyScan;
+                        // } else if (this.declarationScope === child) {
+                        //     prev = bodyScan.merge(prev, MergeKind.PROTO_PROPS);
+                        // } else if (this.containerScope === child) {
+                        //     prev = bodyScan.merge(prev, MergeKind.NORMAL_PROPS);
+                        // } else {
+                        //     prev = bodyScan.merge(prev);
+                        // }
+                        
+                            prev = bodyScan;
                         break;
                     case SyntaxKind.TryStatement:
                         // Scan the try block:
@@ -498,7 +531,6 @@ module ts {
         
         // Set the binding assignments for each prototype property:
         if (brandTypeDecl.prototypeBrandDeclaration) {
-            
             forEach(brandTypeBinder.protoProps, (brandPropDecl:BrandPropertyDeclaration) => {
                 var name = (<Identifier>brandPropDecl.name).text;
                 var assignments = assignmentResults.get(brandTypeBinder.getProtoPropId(name));

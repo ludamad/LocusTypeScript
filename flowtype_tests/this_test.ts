@@ -1,24 +1,20 @@
-
-function outer() : !Foo2.prototype {
-    function Test2() {
-        var this : declare Foo2;
-
+var Foo = function() {
+    function Foo() {
+        var this : declare Foo;
         this.x = this.y;
     }
-    Test2.prototype.y = 2;
+    Foo.prototype.y = 1;
+    return Foo;
+}
 
-    function Test() {
-        var this : declare Foo;
-
-        this.x = 1;
+var Bar = function() {
+    function Bar() {
+        var this : declare Bar_ extends Foo;
+        this.total = this.x + this.y + this.z;
     }
-
-    Test.prototype.test = 1;
-    Test.prototype.test = "what";
-
-    var foo : !Foo = new Test();
-    var test: Foo;
-    var foop : Foo.prototype = Test.prototype;
-    return Test.prototype;
+    // Do we error if this assignment does not exist?
+    Bar.prototype = Foo.prototype;
+    Bar.prototype.z = 1;
+    return Bar;
 }
 
