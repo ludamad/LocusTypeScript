@@ -8,7 +8,7 @@
 
 module ts {
     // Is this an expression of type <identifier>.<identifier> = <expression>?
-    export function isPropertyAssignmentForLocalVariable(node:Node) {
+    export function isPropertyAssignment(node:Node) {
         if (node.kind === SyntaxKind.BinaryExpression && (<BinaryExpression>node).operator === SyntaxKind.EqualsToken) {
             var binNode = <BinaryExpression> node;
             if (binNode.left.kind === SyntaxKind.PropertyAccessExpression) {

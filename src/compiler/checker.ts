@@ -131,9 +131,8 @@ module ts {
                 ? createDiagnosticForNode(location, message, arg0, arg1, arg2)
                 : createCompilerDiagnostic(message, arg0, arg1, arg2);
             addDiagnostic(diagnostic);
-            printNodeDeep(location)
-            console.log(message);
-            console.log((<any>new Error()).stack);
+            // console.log(message);
+            // console.log((<any>new Error()).stack);
         }
 
         function createSymbol(flags: SymbolFlags, name: string): Symbol {

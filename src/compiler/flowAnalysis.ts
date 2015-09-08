@@ -163,7 +163,6 @@ module ts {
             if (propId !== null) {
                 (<PropertyAccessExpression>node).brandAnalysis = this.get(binder.getProtoPropId((<PropertyAccessExpression>node).name.text));
                 (<PropertyAccessExpression>node).useProtoBrand = true;
-                console.log(this);
             }
         }
     }
@@ -285,9 +284,6 @@ module ts {
                             prev = this.scan(child, prev);
                             break;
                         }
-                        console.log("REAAAAAAAA")
-                        printNodeDeep(child.parent)
-                        console.log("/REAAAAAAAA")
                         var downgrade = true;
                         if (child.parent.kind === SyntaxKind.PropertyAccessExpression ) {
                             downgrade = false;

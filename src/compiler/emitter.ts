@@ -2428,6 +2428,8 @@ module ts {
                     write("String");
                 } else if (type.flags & TypeFlags.Number) {
                     write("Number");
+                } else if (type.flags & TypeFlags.Brand) {
+                    write("$$cts$$brandTypes." + type.symbol.name);
                 } else if (type.flags & TypeFlags.Union) {
                     write("(new "); emitCTSRT("UnionType");
                     write("("); 
@@ -2616,7 +2618,11 @@ module ts {
                 var declaration = propAccess.brandAnalysis.getDeclaration();
                 var resolvedToConcrete = (declaration.resolvedType.flags & TypeFlags.Concrete);
                 var assignmentValues = propAccess.brandAnalysis.assignments;
+                printNodeDeep(node);
+                console.log(assignmentValues)
                 if (resolvedToConcrete && assignmentValues.length === 1 && assignmentValues[0] === node.right) {
+                                    printNodeDeep(node);
+                                    console.log("EMITTED")
                     // Emit protection if this is a binding-relevant assignment:
                     emitCTSRT("protectAssignment");
                     write("(");
@@ -2632,7 +2638,7 @@ module ts {
 
             function emitBinaryExpression(node: BinaryExpression) {
                 // [ConcreteTypeScript] Handle binding assignment
-                if (isPropertyAssignmentForLocalVariable(node)) {
+                if (isPropertyAssignment(node)) {
                     var propAccess:PropertyAccessExpression = <PropertyAccessExpression>node.left;
                     if (propAccess.brandAnalysis) {
                         if (emitConcreteAssignment(node, <Identifier>propAccess.expression, propAccess)) {
@@ -2662,10 +2668,14 @@ module ts {
 
             // [ConcreteTypeScript]
             function emitBrandTypesAtBlockStart(block:Node) {
-                forEach(getBrandTypesInScope(block), (brandTypeDeclaration:BrandTypeDeclaration) => {
+                var brandTypes = getBrandTypesInScope(block);
+                if (brandTypes.length > 0) {
+                    write("var $$cts$$brandTypes = {};"); writeLine();
+                }
+                forEach(brandTypes, (brandTypeDeclaration:BrandTypeDeclaration) => {
                     var brandName:Identifier = brandTypeDeclaration.name;
                     writeLine();
-                    write("var ");
+                    write("$$cts$$brandTypes.");
                     writeTextOfNode(currentSourceFile, brandName);
                     write(" = new $$cts$$runtime.Brand();");
                     writeLine();

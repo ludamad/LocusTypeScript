@@ -2,10 +2,10 @@ if (typeof $$cts$$runtime === "undefined") {
     if (typeof require !== "undefined") require("./cts-runtime.js");
     else if (typeof document !== "undefined") { document.writeLine("<script src=\"cts-runtime.js\"></script>"); }
     else throw new Error("Could not load ConcreteTypeScript runtime!");
-}
-var Foo2 = new $$cts$$runtime.Brand();
+}var $$cts$$brandTypes = {};
+$$cts$$brandTypes.Foo2 = new $$cts$$runtime.Brand();
 $$cts$$runtime.cementGlobal("Foo2",Foo2);
-var Foo = new $$cts$$runtime.Brand();
+$$cts$$brandTypes.Foo = new $$cts$$runtime.Brand();
 $$cts$$runtime.cementGlobal("Foo",Foo);
 function outer() {
     function Test2() {
@@ -17,9 +17,9 @@ function outer() {
     }
     Test.prototype.test = 1;
     Test.prototype.test = "what";
-    var foo = ($$cts$$runtime.cast(Foo,(new Test())));
+    var foo = ($$cts$$runtime.cast($$cts$$brandTypes.Foo,(new Test())));
     var test;
     var foop = Test.prototype;
-    return ($$cts$$runtime.cast(prototype,(Test.prototype)));
+    return ($$cts$$runtime.cast($$cts$$brandTypes.prototype,(Test.prototype)));
 }
 $$cts$$runtime.cementGlobal("outer",outer);
