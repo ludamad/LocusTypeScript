@@ -45,6 +45,14 @@ module ts {
         return declarations;
     }
 
+    export function getSymbolDecl(symbol:Symbol, kind:SyntaxKind): Declaration {
+        for (var i = 0; i < symbol.declarations.length; i++) {
+            if (symbol.declarations[i].kind === kind) {
+                return symbol.declarations[i];
+            }
+        }
+        return null
+    }
 
     export function getFunctionDeclarationsWithThisBrand(block:Node):FunctionDeclaration[] {
         return <FunctionDeclaration[]> getDeclarations(block, isFunctionDeclarationWithThisBrand);
@@ -133,21 +141,21 @@ module ts {
     // [ConcreteTypeScript] Find variable declaration associated with identifier, or 'null' if not a VariableDeclaration
     export function findVariableDeclarationForName(location: Node, text: string): VariableDeclaration {
         var symbol = getSymbol(location, text, SymbolFlags.Variable);
-        if (!symbol || symbol.declarations.length < 1 || symbol.declarations[0].kind !== SyntaxKind.VariableDeclaration) {
+        if (!symbol || symbol.declarations.length < 1) {
             return null;
         }
-        // Matched, return variable declaration:
-        return <VariableDeclaration>symbol.declarations[0];
+        // Matched, return variable declaration (if exists):
+        return <VariableDeclaration> getSymbolDecl(symbol, SyntaxKind.VariableDeclaration);
     }
         
       // [ConcreteTypeScript] Find function declaration associated with identifier, or 'null' if not a FunctionDeclaration
       export function findFunctionDeclarationForName(location: Node, text: string): FunctionDeclaration {
           var symbol = getSymbol(location, text, SymbolFlags.Function);
-          if (!symbol || symbol.declarations.length < 1 || symbol.declarations[0].kind !== SyntaxKind.FunctionDeclaration) {
+          if (!symbol || symbol.declarations.length < 1) {
               return null;
           }
-          // Matched, return variable declaration:
-          return <FunctionDeclaration>symbol.declarations[0];
+          // Matched, return function declaration (if exists):
+          return <FunctionDeclaration> getSymbolDecl(symbol, SyntaxKind.FunctionDeclaration);
       }
 
       export function findParent(node:Node, symbolFlag:SymbolFlags) {

@@ -2618,8 +2618,10 @@ module ts {
                 var declaration = propAccess.brandAnalysis.getDeclaration();
                 var resolvedToConcrete = (declaration.resolvedType.flags & TypeFlags.Concrete);
                 var assignmentValues = propAccess.brandAnalysis.assignments;
+                // console.log("Here with ", propAccess.name.text,  assignmentValues.length, resolvedToConcrete);
                 if (resolvedToConcrete && assignmentValues.length === 1 && assignmentValues[0] === node.right) {
                     // Emit protection if this is a binding-relevant assignment:
+                    // console.log("Here with ", propAccess.name.text, propAccess.brandAnalysis.isPrototypeProperty());
                     if (propAccess.brandAnalysis.isPrototypeProperty()) {
                         emitCTSRT("protectProtoAssignment");
                         write("(");
@@ -2644,6 +2646,7 @@ module ts {
                 // [ConcreteTypeScript] Handle binding assignment
                 if (isPropertyAssignment(node)) {
                     var propAccess:PropertyAccessExpression = <PropertyAccessExpression>node.left;
+                    // console.log("Here with ", propAccess.name.text);
                     if (propAccess.brandAnalysis) {
                         if (emitConcreteAssignment(node, propAccess.expression, propAccess)) {
                             return;

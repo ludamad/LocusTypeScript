@@ -84,7 +84,7 @@ module ts {
                     merged.assignmentSets[i] = this.assignmentSets[i] || merged.assignmentSets[i];
                 }
             }
-            return merged;            
+            return merged;
         }
 
         get(brandPropId:number):FlowTypeAnalysis {
@@ -110,6 +110,7 @@ module ts {
                 binder.declareSymbol(binder.brandTypeDecl.symbol.members, binder.brandTypeDecl.symbol, propertyNode, SymbolFlags.Property, 0);
                 binder.fillProp(propertyNode);
             }
+            // console.log("GOT _BRAND PROP " + (<Identifier>propertyNode.name).text)
             // Incorporate the assignment information:
             return binder.getPropId(propAccess.name.text);
         }
@@ -126,7 +127,6 @@ module ts {
                 // Set to parent of FunctionDeclaration:
                 protoBrandType.parent = binder.brandTypeDecl;
                 binder.brandTypeDecl.prototypeBrandDeclaration = protoBrandType;
-                console.log("GOT BRAND FOR " + binder.brandTypeDecl.name.text)
                 binder.declareSymbol(binder.brandTypeDecl.symbol.exports, binder.brandTypeDecl.symbol, protoBrandType, SymbolFlags.Brand|SymbolFlags.ExportType, SymbolFlags.BrandTypeExcludes);
             }
             if (!hasProperty(protoBrandType.symbol.members, propAccess.name.text)) { 
@@ -138,6 +138,7 @@ module ts {
                 propertyNode.parent = protoBrandType;
                 propertyNode.brandTypeDeclaration = binder.brandTypeDecl;
                 binder.declareSymbol(protoBrandType.symbol.members, protoBrandType.symbol, propertyNode, SymbolFlags.Property, 0);
+                // console.log("GOT BRAND PROP " + (<Identifier>propertyNode.name).text)
                 binder.fillProtoProp(propertyNode);
             }
             return binder.getProtoPropId(propAccess.name.text);
@@ -162,7 +163,7 @@ module ts {
                 // If the previous value had any null types, we use our current assignment as a 'refinement'.
                 // The logic is, all sequential writes need to be consistent.
                 if (brandPropId === i) {
-                    copy.assignmentSets[i] = (this.assignmentSets[i] || copy.assignmentSets[i]).scanAssignment(node.right);
+                    copy.assignmentSets[i] = copy.assignmentSets[i].scanAssignment(node.right);
                 } else {
                     copy.assignmentSets[i] = this.assignmentSets[i] || copy.assignmentSets[i];
                 }
@@ -175,11 +176,15 @@ module ts {
         mark(node:Node, binder:BrandTypeBinder) {
             var propId = binder.getBrandPropertyId(node);
             if (propId !== null) {
+                // console.log("_MARKED " + (<any>node).name.text);
                 (<PropertyAccessExpression>node).brandAnalysis = this.get(binder.getPropId((<PropertyAccessExpression>node).name.text));
             }
             propId = binder.getBrandProtoPropertyId(node);
             if (propId !== null) {
-                (<PropertyAccessExpression>node).brandAnalysis = this.get(binder.getProtoPropId((<PropertyAccessExpression>node).name.text));
+                // console.log("MARKED " + (<any>node).name.text);
+                var p = (<PropertyAccessExpression>node).brandAnalysis = this.get(binder.getProtoPropId((<PropertyAccessExpression>node).name.text));
+                
+                // console.log("MARKED " + p.assignments.length);
                 (<PropertyAccessExpression>node).useProtoBrand = true;
             }
         }
@@ -424,19 +429,12 @@ module ts {
                     case SyntaxKind.FunctionDeclaration:
                         // Special case so we don't consider our declaration scope as conditionally occuring:
                         var bodyScan = this.scan((<FunctionDeclaration>child).body, prev);
-                        // TODO: Figure out this shizz
-                        //     // prev = bodyScan;
-                        // if (this.declarationScope === child && this.containerScope === child) {
-                        //     prev = bodyScan;
-                        // } else if (this.declarationScope === child) {
-                        //     prev = bodyScan.merge(prev, MergeKind.PROTO_PROPS);
-                        // } else if (this.containerScope === child) {
-                        //     prev = bodyScan.merge(prev, MergeKind.NORMAL_PROPS);
-                        // } else {
-                        //     prev = bodyScan.merge(prev);
-                        // }
-                        
-                            prev = bodyScan;
+                            // prev = bodyScan;
+                        if (this.declarationScope === child) {
+                            prev = bodyScan.merge(prev, MergeKind.PROTO_PROPS);
+                        } else {
+                            prev = bodyScan.merge(prev);
+                        }
                         break;
                     case SyntaxKind.TryStatement:
                         // Scan the try block:
@@ -476,10 +474,10 @@ module ts {
             if (hasProperty(brandTypeDecl.symbol.members, key)) {
                 var member = brandTypeDecl.symbol.members[key];
                 if (member.flags & SymbolFlags.Property) {
-                    if (!member.declarations || member.declarations[0].kind !== SyntaxKind.BrandProperty) {
+                    if (!member.declarations || !getSymbolDecl(member, SyntaxKind.BrandProperty)) {
                         continue;
                     }
-                    properties.push(<BrandPropertyDeclaration> member.declarations[0]);
+                    properties.push(<BrandPropertyDeclaration> getSymbolDecl(member, SyntaxKind.BrandProperty));
                 }
             }
         }
@@ -516,7 +514,7 @@ module ts {
         brandTypeBinder.brandTypeDecl = brandTypeDecl;
         brandTypeBinder.declarationScope = scope;
         // Search starting from the parent scope if we are a FunctionDeclaration with a 'var this : declare T' declaration.
-        brandTypeBinder.containerScope = isFunctionDeclarationWithThisBrand(scope) ? getModuleOrSourceFile(scope) : scope;
+        brandTypeBinder.containerScope = isFunctionDeclarationWithThisBrand(scope) ? getThisContainer(scope, true) : scope;
         brandTypeBinder.declareSymbol = declareSymbol;
 
         var assignmentResults = brandTypeBinder.scan(brandTypeBinder.containerScope, new BrandPropertyTypes(brandTypeBinder));

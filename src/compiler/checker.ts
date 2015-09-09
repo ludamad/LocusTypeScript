@@ -1206,7 +1206,7 @@ module ts {
                     }
                     else if (type.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Brand | TypeFlags.Enum | TypeFlags.TypeParameter)) {
                         if (type.flags & TypeFlags.Brand) {
-                            var brandDecl = <BrandTypeDeclaration>(type.symbol.declarations[0]);
+                            var brandDecl = <BrandTypeDeclaration>getSymbolDecl(type.symbol, SyntaxKind.BrandTypeDeclaration);
                             if (brandDecl.parent.kind === SyntaxKind.BrandTypeDeclaration) {
                                 writer.writeSymbol((<BrandTypeDeclaration>brandDecl.parent).name.text, (<BrandTypeDeclaration>brandDecl.parent).symbol);
                                 writer.writeOperator(".");
@@ -2140,7 +2140,8 @@ module ts {
             var links = getSymbolLinks(symbol);
             if (!links.declaredType) {
                 /* On first occurrence */
-                var brandTypeDecl = (<BrandTypeDeclaration>symbol.declarations[0]);
+                var brandTypeDecl = <BrandTypeDeclaration>getSymbolDecl(symbol, SyntaxKind.BrandTypeDeclaration)
+                Debug.assert(!!brandTypeDecl, "Not a BrandTypeDeclaration!");
                 var type = <InterfaceType>createObjectType(TypeFlags.Brand, symbol);
                 type.declaredProperties = map(Object.keys(symbol.members), key => symbol.members[key]);
                 var baseTypes:Type[] = type.baseTypes = [];
@@ -2428,10 +2429,11 @@ module ts {
                     members = symbol.exports;
                 }
                 if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method)) {
-                    if ( (<FunctionLikeDeclaration>symbol.declarations[0]).declaredTypeOfThis) {
+                    var funcDecl = <FunctionDeclaration> getSymbolDecl(symbol, SyntaxKind.FunctionDeclaration);
+                    if (funcDecl && funcDecl.declaredTypeOfThis) {
                         constructSignatures = getSignaturesOfSymbol(symbol);
                         var prototypeSymbol = createSymbol(SymbolFlags.Property | SymbolFlags.Prototype, "prototype");
-                        prototypeSymbol.brandType = (<FunctionLikeDeclaration>symbol.declarations[0]).declaredTypeOfThis.brandTypeDeclaration.prototypeBrandDeclaration;
+                        prototypeSymbol.brandType = funcDecl.declaredTypeOfThis.brandTypeDeclaration.prototypeBrandDeclaration;
                         members = createSymbolTable([prototypeSymbol]);
                     } else {
                         callSignatures = getSignaturesOfSymbol(symbol);
