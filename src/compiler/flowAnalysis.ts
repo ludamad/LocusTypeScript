@@ -176,15 +176,11 @@ module ts {
         mark(node:Node, binder:BrandTypeBinder) {
             var propId = binder.getBrandPropertyId(node);
             if (propId !== null) {
-                // console.log("_MARKED " + (<any>node).name.text);
                 (<PropertyAccessExpression>node).brandAnalysis = this.get(binder.getPropId((<PropertyAccessExpression>node).name.text));
             }
             propId = binder.getBrandProtoPropertyId(node);
             if (propId !== null) {
-                // console.log("MARKED " + (<any>node).name.text);
-                var p = (<PropertyAccessExpression>node).brandAnalysis = this.get(binder.getProtoPropId((<PropertyAccessExpression>node).name.text));
-                
-                // console.log("MARKED " + p.assignments.length);
+                (<PropertyAccessExpression>node).brandAnalysis = this.get(binder.getProtoPropId((<PropertyAccessExpression>node).name.text));
                 (<PropertyAccessExpression>node).useProtoBrand = true;
             }
         }
