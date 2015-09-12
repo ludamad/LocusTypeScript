@@ -208,10 +208,12 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             protect(type, name, obj, true);
         });
 
-        cement(this, "protectProtoAssignment", function(type, name, obj, value) {
+        cement(this, "protectProtoAssignment", function(type, protoBrandType, name, obj, value) {
             if (!hasProperty(obj, "$$cts$$prototypeFrozen")) {
                 addUnenum(obj,"$$cts$$prototypeFrozen", true);
-                cement(obj, "prototype", obj.prototype);
+                var prototype = obj.prototype;
+                this.brand(protoBrandType, prototype);
+                this.protectAssignment(protoBrandType, "prototype", obj, prototype);
             }
             this.protectAssignment(type, name, obj.prototype, value);
         });
@@ -230,13 +232,20 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             return false;
         });
         cement(this, "brand", function(brand, obj) {
-            if (typeof obj === "undefined") {
-                return;
+            if (typeof obj === "undefined" || obj === null) {
+                throw new Error("Attempt to brand undefined/null object!")
             }
             if (typeof obj.$$cts$$brands === "undefined") {
-                addUnenum(obj, "$$cts$$brands", []);
+                addUnenum(obj, "$$cts$$brands", [brand]);
+            } else {
+                for (var i = 0; i < obj.$$cts$$brands.length; i++) {
+                    if (obj.$$cts$$brands[i] === brand) {
+                        // Alredy has brand, exit
+                        return;
+                    }
+                }
+                obj.$$cts$$brands.push(brand);
             }
-            obj.$$cts$$brands.push(brand);
         });
         
 

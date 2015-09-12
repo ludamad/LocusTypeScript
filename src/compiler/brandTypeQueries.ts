@@ -53,7 +53,7 @@ module ts {
         }
         return null
     }
-
+    
     export function getFunctionDeclarationsWithThisBrand(block:Node):FunctionDeclaration[] {
         return <FunctionDeclaration[]> getDeclarations(block, isFunctionDeclarationWithThisBrand);
     }

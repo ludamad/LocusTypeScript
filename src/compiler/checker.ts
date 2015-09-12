@@ -1730,7 +1730,9 @@ module ts {
         function getTypeOfBrandProperty(declaration: BrandPropertyDeclaration): Type {
             // We wish to give a type to the brand property that is a union over all declaration-scope assignments.
             if (declaration.resolvedType) return declaration.resolvedType;
-            return declaration.resolvedType = getUnionOverExpressions(declaration.bindingAssignments);
+            declaration.resolvedType = getUnionOverExpressions(declaration.bindingAssignments);
+            console.log(typeToString(declaration.resolvedType));
+            return declaration.resolvedType;
         }
 
         // [ConcreteTypeScript]
@@ -2154,7 +2156,10 @@ module ts {
                 // Do after creating our type, to prevent infinite recursion
                 var initializer = brandTypeDecl.variableDeclaration && brandTypeDecl.variableDeclaration.initializer;
                 if (initializer) {
-                    baseTypes.push(checkAndMarkExpression(initializer));
+                    if (initializer.kind !== SyntaxKind.ObjectLiteralExpression) {
+                        var initType = stripConcreteType(checkAndMarkExpression(initializer));
+                        baseTypes.push(initType);
+                    }
                 } else {
                     // Before the branding has finished, this is the type of local 'this':
                     if (brandTypeDecl.extendedType) {

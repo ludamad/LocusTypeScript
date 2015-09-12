@@ -9,6 +9,10 @@ var cts_test = require("./cts_test");
 var BRANCH = parseInt(process.env.BRANCH, 10);
 
 describe("Branding semantics", () => {
+    it("should bind object literal", () => {
+        var a : declare BrandObjectLiteral = {b: 0};
+        cts_test.assertType(a, "b", Number);
+    })
     it("should declare after scope break", () => {
         var leakedA;
         while (true) {

@@ -433,6 +433,8 @@ module ts {
 
     export interface ObjectLiteralElement extends Declaration {
         _objectLiteralBrandBrand: any;
+        // [ConcreteTypeScript] Brand property declaration created during initializer analysis
+        brandPropertyDeclaration?: BrandPropertyDeclaration;
     }
 
     export interface ShorthandPropertyAssignment extends ObjectLiteralElement {

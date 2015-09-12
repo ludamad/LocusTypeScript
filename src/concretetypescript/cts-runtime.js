@@ -255,4 +255,4 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
     })();
 
     runtime.cement(global, "$$cts$$runtime", runtime);
-})((typeof window !== "undefine d") ? window : (typeof global !== "undefined") ? global : this);
+})((typeof window !== "undefined") ? window : (typeof global !== "undefined") ? global : this);

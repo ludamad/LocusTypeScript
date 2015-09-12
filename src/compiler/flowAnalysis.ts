@@ -93,41 +93,42 @@ module ts {
         passConditionalBarrier():BrandPropertyTypes {
             var passed = new BrandPropertyTypes(this.binder);
             for (var i = 0; i < passed.assignmentSets.length; i++) {
-                passed.assignmentSets[i] = this.assignmentSets[i].passConditionalBarrier();
+                // TODO think about corner cases here
+                passed.assignmentSets[i] = (this.assignmentSets[i] || passed.assignmentSets[i]).passConditionalBarrier();
             }
             return passed;
         }
         
-        _scanPropertyAssignment(propAccess:PropertyAccessExpression, binder:BrandTypeBinder) {
-            if (!hasProperty(binder.brandTypeDecl.symbol.members, propAccess.name.text)) { 
+        _scanPropertyAssignment(propAccess:PropertyAccessExpression) {
+            if (!hasProperty(this.binder.brandTypeDecl.symbol.members, propAccess.name.text)) { 
                 // Create a property declaration for the brand-type symbol list:
                 var propertyNode = <BrandPropertyDeclaration> new (objectAllocator.getNodeConstructor(SyntaxKind.BrandProperty))();
                 propertyNode.name = propAccess.name; // Right-hand <identifier>
                 propertyNode.pos = propAccess.pos;
                 propertyNode.end = propAccess.end;
-                propertyNode.parent = binder.declarationScope;
-                propertyNode.brandTypeDeclaration = binder.brandTypeDecl;
-                binder.declareSymbol(binder.brandTypeDecl.symbol.members, binder.brandTypeDecl.symbol, propertyNode, SymbolFlags.Property, 0);
-                binder.fillProp(propertyNode);
+                propertyNode.parent = this.binder.declarationScope;
+                propertyNode.brandTypeDeclaration = this.binder.brandTypeDecl;
+                this.binder.declareSymbol(this.binder.brandTypeDecl.symbol.members, this.binder.brandTypeDecl.symbol, propertyNode, SymbolFlags.Property, 0);
+                this.binder.fillProp(propertyNode);
             }
             // console.log("GOT _BRAND PROP " + (<Identifier>propertyNode.name).text)
             // Incorporate the assignment information:
-            return binder.getPropId(propAccess.name.text);
+            return this.binder.getPropId(propAccess.name.text);
         }
         
-        _scanProtoPropertyAssignment(propAccess:PropertyAccessExpression, binder:BrandTypeBinder) {
-            var protoBrandType = binder.brandTypeDecl.prototypeBrandDeclaration;
+        _scanProtoPropertyAssignment(propAccess:PropertyAccessExpression) {
+            var protoBrandType = this.binder.brandTypeDecl.prototypeBrandDeclaration;
             if (!protoBrandType) {
                 // Create the prototype brand type:
                 protoBrandType = <BrandTypeDeclaration> new (objectAllocator.getNodeConstructor(SyntaxKind.BrandTypeDeclaration))();
                 protoBrandType.name = (<PropertyAccessExpression>propAccess.expression).name; // Right-hand <identifier>
                 protoBrandType.pos = propAccess.pos;
                 protoBrandType.end = propAccess.end;
-                protoBrandType.scope = binder.containerScope;
+                protoBrandType.scope = this.binder.containerScope;
                 // Set to parent of FunctionDeclaration:
-                protoBrandType.parent = binder.brandTypeDecl;
-                binder.brandTypeDecl.prototypeBrandDeclaration = protoBrandType;
-                binder.declareSymbol(binder.brandTypeDecl.symbol.exports, binder.brandTypeDecl.symbol, protoBrandType, SymbolFlags.Brand|SymbolFlags.ExportType, SymbolFlags.BrandTypeExcludes);
+                protoBrandType.parent = this.binder.brandTypeDecl;
+                this.binder.brandTypeDecl.prototypeBrandDeclaration = protoBrandType;
+                this.binder.declareSymbol(this.binder.brandTypeDecl.symbol.exports, this.binder.brandTypeDecl.symbol, protoBrandType, SymbolFlags.Brand|SymbolFlags.ExportType, SymbolFlags.BrandTypeExcludes);
             }
             if (!hasProperty(protoBrandType.symbol.members, propAccess.name.text)) { 
                 // Create a property declaration for the brand-type symbol list:
@@ -136,15 +137,28 @@ module ts {
                 propertyNode.pos = propAccess.pos;
                 propertyNode.end = propAccess.end;
                 propertyNode.parent = protoBrandType;
-                propertyNode.brandTypeDeclaration = binder.brandTypeDecl;
-                binder.declareSymbol(protoBrandType.symbol.members, protoBrandType.symbol, propertyNode, SymbolFlags.Property, 0);
+                propertyNode.brandTypeDeclaration = this.binder.brandTypeDecl;
+                this.binder.declareSymbol(protoBrandType.symbol.members, protoBrandType.symbol, propertyNode, SymbolFlags.Property, 0);
                 // console.log("GOT BRAND PROP " + (<Identifier>propertyNode.name).text)
-                binder.fillProtoProp(propertyNode);
+                this.binder.fillProtoProp(propertyNode);
             }
-            return binder.getProtoPropId(propAccess.name.text);
+            return this.binder.getProtoPropId(propAccess.name.text);
         }
 
-        scanAssignment(node:BinaryExpression, binder:BrandTypeBinder) {
+        addAssignedValue(brandPropId: number, node:Expression) {
+            var copy = new BrandPropertyTypes(this.binder);
+            for (var i = 0; i < copy.assignmentSets.length; i++) {
+                // If the previous value had any null types, we use our current assignment as a 'refinement'.
+                // The logic is, all sequential writes need to be consistent.
+                if (brandPropId === i) {
+                    copy.assignmentSets[i] = (this.assignmentSets[i] || copy.assignmentSets[i]).scanAssignment(node);
+                } else {
+                    copy.assignmentSets[i] = this.assignmentSets[i] || copy.assignmentSets[i];
+                }
+            }
+            return copy;
+        }
+        scanAssignment(node:BinaryExpression) {
             // /* TODO: Detect any sort of assignment operator applied to our brand variable */
 
             // Detect type-building assignment for brand-types. We are interested in the case when...
@@ -153,25 +167,31 @@ module ts {
             // No restrictions on RHS, but we are only interested in its statically known type.
             // Match for PropertyAccessExpression with "<identifier>.<identifier>".
 
-            if (binder.getBrandPropertyId(node.left) !== null) {
-                var brandPropId:number = this._scanPropertyAssignment(<PropertyAccessExpression>node.left, binder);
-            } else if (binder.getBrandProtoPropertyId(node.left) !== null) {
-                var brandPropId:number = this._scanProtoPropertyAssignment(<PropertyAccessExpression>node.left, binder);
+            if (this.binder.getBrandPropertyId(node.left) !== null) {
+                var brandPropId:number = this._scanPropertyAssignment(<PropertyAccessExpression>node.left);
+            } else if (this.binder.getBrandProtoPropertyId(node.left) !== null) {
+                var brandPropId:number = this._scanProtoPropertyAssignment(<PropertyAccessExpression>node.left);
             }
-            var copy = new BrandPropertyTypes(this.binder);
-            for (var i = 0; i < copy.assignmentSets.length; i++) {
-                // If the previous value had any null types, we use our current assignment as a 'refinement'.
-                // The logic is, all sequential writes need to be consistent.
-                if (brandPropId === i) {
-                    copy.assignmentSets[i] = copy.assignmentSets[i].scanAssignment(node.right);
-                } else {
-                    copy.assignmentSets[i] = this.assignmentSets[i] || copy.assignmentSets[i];
-                }
-            }
-            var value = (<BinaryExpression> node).right;
-            
-            return copy;
+            return this.addAssignedValue(brandPropId, node.right);
         }
+        // // Handle prototype initialization separately:
+        // scanInitializers(initializer:Expression) {
+        //     // /* TODO: Detect any sort of assignment operator applied to our brand variable */
+        // 
+        //     // Detect type-building assignment for brand-types. We are interested in the case when...
+        //     // 1. The LHS is a PropertyAccessExpression with form "<identifier>.<identifier>".
+        //     // 2. <variable> has an associated VariableDeclaration with form "var <identifier> : brand <identifier".
+        //     // No restrictions on RHS, but we are only interested in its statically known type.
+        //     // Match for PropertyAccessExpression with "<identifier>.<identifier>".
+        // 
+        //     if (binder.getBrandPropertyId(node.left) !== null) {
+        //         var brandPropId:number = this._scanPropertyAssignment(<PropertyAccessExpression>node.left);
+        //     } else if (binder.getBrandProtoPropertyId(node.left) !== null) {
+        //         var brandPropId:number = this._scanProtoPropertyAssignment(<PropertyAccessExpression>node.left);
+        //     }
+        //     return this.addAssignedValue(brandPropId, node.right);
+        // }
+        
         // Store relevant assignments for type calculation:
         mark(node:Node, binder:BrandTypeBinder) {
             var propId = binder.getBrandPropertyId(node);
@@ -287,7 +307,28 @@ module ts {
             }
             return this.getProtoPropId(propAccess.name.text);
         }
-
+        scanInitializer(initializer:Expression, prev:BrandPropertyTypes):BrandPropertyTypes {
+            if (initializer.kind === SyntaxKind.ObjectLiteralExpression) {
+                forEach((<ObjectLiteralExpression>initializer).properties, (propAccess:ObjectLiteralElement) => {
+                    if (propAccess.kind === SyntaxKind.PropertyAssignment && propAccess.name.kind === SyntaxKind.Identifier){
+                        var propName:Identifier = <Identifier>propAccess.name;
+                        // Create a property declaration for the brand-type symbol list:
+                        var propertyNode = <BrandPropertyDeclaration> new (objectAllocator.getNodeConstructor(SyntaxKind.BrandProperty))();
+                        propertyNode.name = propAccess.name; // Right-hand <identifier>
+                        propertyNode.pos = propAccess.pos;
+                        propertyNode.end = propAccess.end;
+                        propertyNode.parent = this.declarationScope;
+                        propertyNode.brandTypeDeclaration = this.brandTypeDecl;
+                        this.declareSymbol(this.brandTypeDecl.symbol.members, this.brandTypeDecl.symbol, propertyNode, SymbolFlags.Property, 0);
+                        var propId = this.getPropId(propName.text);
+                        prev = prev.addAssignedValue(propId, (<PropertyAssignment> propAccess).initializer);
+                        this.fillProp(propertyNode);
+                        propAccess.brandPropertyDeclaration = propertyNode;
+                    }
+                });
+            }
+            return prev;
+        }
         scan(node:Node, prev:BrandPropertyTypes):BrandPropertyTypes {
             if (typeof node === "undefined") {
                 return prev;
@@ -390,7 +431,7 @@ module ts {
                     case SyntaxKind.BinaryExpression:
                         /* Check if we have a relevant binding assignment: */
                         if ((<BinaryExpression>child).operator === SyntaxKind.EqualsToken) {
-                            prev = prev.scanAssignment(<BinaryExpression>child, this);
+                            prev = prev.scanAssignment(<BinaryExpression>child);
                         }
                         // Consider the shortcircuting behaviour of && or ||
                         if ((<BinaryExpression>child).operator === SyntaxKind.AmpersandAmpersandToken ||
@@ -505,7 +546,7 @@ module ts {
     //  - the BrandTypeDeclaration will have all found brand property assignments declared as symbols
     //  - the resulting brand properties will have a list of relevant assignment expressions
     // As well, all 
-    function bindBrandTypeBasedOnVarScope(scope:Node, brandTypeDecl:BrandTypeDeclaration, declareSymbol:_declareSymbol) {
+    function bindBrandTypeBasedOnVarScope(scope:Node, brandTypeDecl:BrandTypeDeclaration, declareSymbol:_declareSymbol, initializer: Expression) {
         var brandTypeBinder = new BrandTypeBinder();
         brandTypeBinder.brandTypeDecl = brandTypeDecl;
         brandTypeBinder.declarationScope = scope;
@@ -513,7 +554,9 @@ module ts {
         brandTypeBinder.containerScope = isFunctionDeclarationWithThisBrand(scope) ? getThisContainer(scope, true) : scope;
         brandTypeBinder.declareSymbol = declareSymbol;
 
-        var assignmentResults = brandTypeBinder.scan(brandTypeBinder.containerScope, new BrandPropertyTypes(brandTypeBinder));
+        if (!initializer) throw new Error("Need initializer");
+        var initial = brandTypeBinder.scanInitializer(initializer, new BrandPropertyTypes(brandTypeBinder));
+        var assignmentResults = brandTypeBinder.scan(brandTypeBinder.containerScope, initial);
         
         // Set the binding assignments for each property:
         forEach(brandTypeBinder.props, (brandPropDecl:BrandPropertyDeclaration) => {
@@ -538,7 +581,7 @@ module ts {
         // Find all relevant brand type declarations bound to the current scope.
         forEach(getBrandTypeVarDeclarations(scope), (declaration:VariableDeclaration) => {
             declaration.type.brandTypeDeclaration.variableDeclaration = declaration;
-            bindBrandTypeBasedOnVarScope(scope, declaration.type.brandTypeDeclaration, declareSymbol);
+            bindBrandTypeBasedOnVarScope(scope, declaration.type.brandTypeDeclaration, declareSymbol, declaration.initializer);
         });
     }
 }

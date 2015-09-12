@@ -1,3 +1,4 @@
+cd .. ; jake ; cd flowtype_tests
 cd error_cases
 #for i in *.ts ; do
 #    node ../../TypeScript/built/local/tsc.js $@ "$i" > "../output/stdout_$i"

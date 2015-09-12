@@ -2217,8 +2217,14 @@ module ts {
                     write("]");
                 }
             }
+            
+            // [ConcreteTypeScript]
+            function isConcreteObjectLiteralElement(prop: ObjectLiteralElement):boolean {
+                return !!(prop.brandPropertyDeclaration && (prop.brandPropertyDeclaration.resolvedType.flags & TypeFlags.Concrete));
+            }
 
             function emitObjectLiteral(node: ObjectLiteralExpression) {
+                // [ConcreteTypeScript] Filter out properties we will add with protectors below
                 if (!node.properties.length) {
                     write("{}");
                 }
@@ -2235,6 +2241,20 @@ module ts {
                     emitCommaList(node.properties, /*includeTrailingComma*/ compilerOptions.target >= ScriptTarget.ES5);
                     write(" }");
                 }
+                // [ConcreteTypeScript] Emit protectors that were not emitted in the object initializer
+                forEach(node.properties.filter(isConcreteObjectLiteralElement), property => {
+                    // Set in flowAnalysis.ts
+                    var declaration = property.brandPropertyDeclaration;
+                    var varName = declaration.brandTypeDeclaration.variableDeclaration.name.text;
+                    write(";"); writeLine();
+                    emitCTSRT("protectAssignment");
+                    write("(");
+                    emitCTSType((<ConcreteType>declaration.resolvedType).baseType);
+                    write(", " + JSON.stringify((<Identifier>property.name).text) + ", ");
+                    write(varName + ", ");
+                    emit((<PropertyAssignment>property).initializer)
+                    write(")");
+                });
             }
 
             function emitComputedPropertyName(node: ComputedPropertyName) {
@@ -2269,9 +2289,11 @@ module ts {
     
             function emitPropertyAssignment(node: PropertyDeclaration) {
                 emitLeadingComments(node);
-                emit(node.name);
-                write(": ");
-                emit(node.initializer);
+                if (!isConcreteObjectLiteralElement(<ObjectLiteralElement><any>node)) {
+                    emit(node.name);
+                    write(": ");
+                    emit(node.initializer);
+                }
                 emitTrailingComments(node);
             }
 
