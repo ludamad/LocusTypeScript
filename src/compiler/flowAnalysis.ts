@@ -364,26 +364,47 @@ module ts {
             }
             return prev;
         }
-        scan(node:Node, prev:BrandPropertyTypes):BrandPropertyTypes {
-            if (typeof node === "undefined") {
+        scan(child:Node, prev:BrandPropertyTypes):BrandPropertyTypes {
+            if (typeof child === "undefined") {
                 return prev;
             }
 
-            prev.mark(node, this);
+            prev.mark(child, this);
 
-            /* Otherwise, continue recursive iteration: */
-            forEachChild(node, (child) => {
-                switch (child.kind) {
-                    case SyntaxKind.PropertyAccessExpression:
-                        // Classify prototype accesses that resolve as the brand type, 
-                        // or ones that can potentially leak before branding,
-                        // and should be treated as the subtype.
-                        if (!this.isBrandPrototypeAccess(child)) {
-                            prev = this.scan(child, prev);
-                            break;
+            switch (child.kind) {
+                case SyntaxKind.PropertyAccessExpression:
+                    // Classify prototype accesses that resolve as the brand type, 
+                    // or ones that can potentially leak before branding,
+                    // and should be treated as the subtype.
+                    if (!this.isBrandPrototypeAccess(child)) {
+                        forEachChild(child, (subchild) => {
+                            prev = this.scan(subchild, prev);
+                        });
+                        break;
+                    }
+                    var downgrade = true;
+                    if (child.parent.kind === SyntaxKind.PropertyAccessExpression ) {
+                        downgrade = false;
+                    }
+                    if (downgrade) {
+                        // Don't downgrade if after last property assignment:
+                        if (child.tempNumbering < this.protoBrandPoint.tempNumbering || isNodeDescendentOf(child, this.protoBrandPoint)) {
+                            child.downgradeToBaseClass = true;
                         }
+                    }
+                    (<PropertyAccessExpression>child).brandTypeDeclForPrototypeProperty = this.brandTypeDecl;
+                    break;
+                case SyntaxKind.ThisKeyword:
+                case SyntaxKind.Identifier:
+                    // Classify identifiers that resolve as the brand type, 
+                    // or ones that can potentially leak before branding,
+                    // and should be treated as the subtype.
+                    var name:string = (<Identifier>child).text || "this";
+                    var varDecl = findVariableDeclarationForName(child.parent, name);
+                    if (varDecl && varDecl.type && varDecl.type.brandTypeDeclaration === this.brandTypeDecl) {
                         var downgrade = true;
                         if (child.parent.kind === SyntaxKind.PropertyAccessExpression ) {
+                            // || child.parent.kind === SyntaxKind.VariableDeclaration) {
                             downgrade = false;
                         } else {
                             // Navigate parents:
@@ -399,152 +420,125 @@ module ts {
                         }
                         if (downgrade) {
                             // Don't downgrade if after last property assignment:
-                            if (child.tempNumbering < this.protoBrandPoint.tempNumbering || isNodeDescendentOf(child, this.protoBrandPoint)) {
+                            if (child.tempNumbering < this.brandPoint.tempNumbering || isNodeDescendentOf(child, this.brandPoint)) {
+
                                 child.downgradeToBaseClass = true;
                             }
                         }
-                        (<PropertyAccessExpression>child).brandTypeDeclForPrototypeProperty = this.brandTypeDecl;
-                        break;
-                    case SyntaxKind.ThisKeyword:
-                    case SyntaxKind.Identifier:
-                        // Classify identifiers that resolve as the brand type, 
-                        // or ones that can potentially leak before branding,
-                        // and should be treated as the subtype.
-                        var name:string = (<Identifier>child).text || "this";
-                        var varDecl = findVariableDeclarationForName(child.parent, name);
-                        if (varDecl && varDecl.type && varDecl.type.brandTypeDeclaration === this.brandTypeDecl) {
-                            var downgrade = true;
-                            if (child.parent.kind === SyntaxKind.PropertyAccessExpression ) {
-                                // || child.parent.kind === SyntaxKind.VariableDeclaration) {
-                                downgrade = false;
-                            } else {
-                                // Navigate parents:
-                                var parentScan = child;
-                                while ((parentScan = parentScan.parent)) {
-                                    if (parentScan.kind === SyntaxKind.ReturnStatement) {
-                                        downgrade = false;
-                                        break;
-                                    } else if (isStatement(parentScan)) {
-                                        break;
-                                    }
-                                }
-                            }
-                            if (downgrade) {
-                                // Don't downgrade if after last property assignment:
-                                if (child.tempNumbering < this.brandPoint.tempNumbering || isNodeDescendentOf(child, this.brandPoint)) {
-
-                                    child.downgradeToBaseClass = true;
-                                }
-                            }
-                        }
-                        break;
-                    case SyntaxKind.BreakStatement:
-                    case SyntaxKind.ContinueStatement:
-                    case SyntaxKind.ReturnStatement:
-                        // Truncate the scope to only the topmost block we care about
-                        var breakingContainer = (<ReturnStatement>child).breakingContainer;
-                        if (isNodeDescendentOf(this.containerScope, breakingContainer)) {
-                            breakingContainer = this.containerScope;
-                        }
-                        var id = breakingContainer.id;
-                        this.nodePostLinks[id] = (this.nodePostLinks[id] || []);
-                        // TODO: Issue #1: Disable property binding inside this scan:
-                        prev = this.scan(child, prev);
-                        // This would allow for assignments in the return statement.
-                        // However, branding occurs _before_ the return statement has a chance to execute.
-                        this.nodePostLinks[id].push(prev);
-                        break;
-                    case SyntaxKind.SwitchStatement:
-                        prev = this.scan((<SwitchStatement>child).expression, prev);
-                        var beforeCases = prev;
-                        // Flow analysis: Merge the result of every case
-                        forEach((<SwitchStatement>child).clauses, (clause) => {
-                            prev = prev.merge(this.scan(clause, beforeCases.passConditionalBarrier()));
-                        });
-                        break;
-                        
-                    case SyntaxKind.ConditionalExpression:
-                        prev = this.scan((<ConditionalExpression>child).condition, prev);
-                        var whenTrue = this.scan((<ConditionalExpression>child).whenTrue, prev.passConditionalBarrier());
-                        var whenFalse = this.scan((<ConditionalExpression>child).whenFalse, prev.passConditionalBarrier());
-                        // Flow analysis: Merge the result of the left and the right
-                        prev = whenTrue.merge(whenFalse);
-                        break;
-                    case SyntaxKind.BinaryExpression:
-                        /* Check if we have a relevant binding assignment: */
-                        if ((<BinaryExpression>child).operator === SyntaxKind.EqualsToken) {
-                            prev = prev.scanAssignment(<BinaryExpression>child);
-                        }
-                        // Consider the shortcircuting behaviour of && or ||
-                        if ((<BinaryExpression>child).operator === SyntaxKind.AmpersandAmpersandToken ||
-                            (<BinaryExpression>child).operator === SyntaxKind.BarBarToken) {
-                            // Flow analysis: Merge the result of the left and of the left-then-right
-                            var left = this.scan((<BinaryExpression>child).left, prev);
-                            var right = this.scan((<BinaryExpression>child).right, left);
-                            prev = left.merge(right);
-                        } else {
-                            prev = this.scan((<BinaryExpression>child).left, prev);
-                            prev = this.scan((<BinaryExpression>child).right, prev);
-                        }
-                        break;
-                    case SyntaxKind.ForStatement:
-                        forEach((<ForStatement>child).declarations, (decl) => {
-                            prev = this.scan(decl, prev);
-                        });
-                        prev = this.scan((<ForStatement>child).initializer, prev);
-                        prev = this.scan((<ForStatement>child).condition, prev);
-                        // Flow analysis: Merge the result of entering the loop and of not
-                        prev = this.scan((<ForStatement>child).statement, prev).merge(prev);
-                        break;
-                    case SyntaxKind.ForInStatement:
-                        forEach((<ForInStatement>child).declarations, (decl) => {
-                            prev = this.scan(decl, prev);
-                        });
-                        prev = this.scan((<ForInStatement>child).expression, prev);
-                        prev = this.scan((<ForInStatement>child).variable, prev);
-                        // Flow analysis: Merge the result of entering the loop and of not
-                        prev = this.scan((<ForInStatement>child).statement, prev).merge(prev);
-                        break;
-                    case SyntaxKind.FunctionDeclaration:
-                    case SyntaxKind.FunctionExpression:
-                    case SyntaxKind.ArrowFunction:
-                        // Special case so we don't consider our declaration scope as conditionally occuring:
-                        var bodyScan = this.scan((<FunctionLikeDeclaration>child).body, prev);
-                            // prev = bodyScan;
-                        if (this.declarationScope === child) {
-                            prev = bodyScan.merge(prev, MergeKind.PROTO_PROPS);
-                        } else {
-                            prev = bodyScan.merge(prev);
-                        }
-                        break;
-                    case SyntaxKind.TryStatement:
-                        // Scan the try block:
-                        var ifTry = this.scan((<TryStatement>child).tryBlock, prev);
-                        // Treat it as conditional, pass to 'catch' block:
-                        var ifCatch = this.scan((<TryStatement>child).catchClause, ifTry.merge(prev).passConditionalBarrier());
-                        // Scan the finally block (possibly 'undefined'):
-                        prev = this.scan((<TryStatement>child).finallyBlock, ifCatch.merge(prev));
-                        break;
-                    case SyntaxKind.IfStatement:
-                        prev = this.scan((<IfStatement>child).expression, prev);
-                        var ifTrue = this.scan((<IfStatement>child).thenStatement, prev.passConditionalBarrier());
-                        var ifFalse = this.scan((<IfStatement>child).elseStatement, prev.passConditionalBarrier());
-                        prev = ifTrue.merge(ifFalse);
-                        break;
-                    case SyntaxKind.WhileStatement:
-                        prev = this.scan((<WhileStatement>child).expression, prev);
-                        // Flow analysis: Merge the result of entering the loop and of not
-                        prev = this.scan((<WhileStatement>child).statement, prev).merge(prev);
-                        break;
-                    default:
-                        prev = this.scan(child, prev);
+                    }
+                    break;
+                case SyntaxKind.BreakStatement:
+                case SyntaxKind.ContinueStatement:
+                case SyntaxKind.ReturnStatement:
+                    // Truncate the scope to only the topmost block we care about
+                    var breakingContainer = (<ReturnStatement>child).breakingContainer;
+                    if (isNodeDescendentOf(this.containerScope, breakingContainer)) {
+                        breakingContainer = this.containerScope;
+                    }
+                    var id = breakingContainer.id;
+                    this.nodePostLinks[id] = (this.nodePostLinks[id] || []);
+                    // TODO: Issue #1: Disable property binding inside this scan:
+                    prev = this.scan(child, prev);
+                    // This would allow for assignments in the return statement.
+                    // However, branding occurs _before_ the return statement has a chance to execute.
+                    this.nodePostLinks[id].push(prev);
+                    break;
+                case SyntaxKind.SwitchStatement:
+                    prev = this.scan((<SwitchStatement>child).expression, prev);
+                    var beforeCases = prev;
+                    // Flow analysis: Merge the result of every case
+                    forEach((<SwitchStatement>child).clauses, (clause) => {
+                        prev = prev.merge(this.scan(clause, beforeCases.passConditionalBarrier()));
+                    });
+                    break;
+                    
+                case SyntaxKind.ConditionalExpression:
+                    prev = this.scan((<ConditionalExpression>child).condition, prev);
+                    var whenTrue = this.scan((<ConditionalExpression>child).whenTrue, prev.passConditionalBarrier());
+                    var whenFalse = this.scan((<ConditionalExpression>child).whenFalse, prev.passConditionalBarrier());
+                    // Flow analysis: Merge the result of the left and the right
+                    prev = whenTrue.merge(whenFalse);
+                    break;
+                case SyntaxKind.BinaryExpression:
+                    /* Check if we have a relevant binding assignment: */
+                    if ((<BinaryExpression>child).operator === SyntaxKind.EqualsToken) {
+                        prev = prev.scanAssignment(<BinaryExpression>child);
+                    }
+                    // Consider the shortcircuting behaviour of && or ||
+                    if ((<BinaryExpression>child).operator === SyntaxKind.AmpersandAmpersandToken ||
+                        (<BinaryExpression>child).operator === SyntaxKind.BarBarToken) {
+                        // Flow analysis: Merge the result of the left and of the left-then-right
+                        var left = this.scan((<BinaryExpression>child).left, prev);
+                        var right = this.scan((<BinaryExpression>child).right, left);
+                        prev = left.merge(right);
+                    } else {
+                        prev = this.scan((<BinaryExpression>child).left, prev);
+                        prev = this.scan((<BinaryExpression>child).right, prev);
+                    }
+                    break;
+                case SyntaxKind.ForStatement:
+                    forEach((<ForStatement>child).declarations, (decl) => {
+                        prev = this.scan(decl, prev);
+                    });
+                    prev = this.scan((<ForStatement>child).initializer, prev);
+                    prev = this.scan((<ForStatement>child).condition, prev);
+                    // Flow analysis: Merge the result of entering the loop and of not
+                    prev = this.scan((<ForStatement>child).statement, prev).merge(prev);
+                    break;
+                case SyntaxKind.ForInStatement:
+                    forEach((<ForInStatement>child).declarations, (decl) => {
+                        prev = this.scan(decl, prev);
+                    });
+                    prev = this.scan((<ForInStatement>child).expression, prev);
+                    prev = this.scan((<ForInStatement>child).variable, prev);
+                    // Flow analysis: Merge the result of entering the loop and of not
+                    prev = this.scan((<ForInStatement>child).statement, prev).merge(prev);
+                    break;
+                case SyntaxKind.FunctionDeclaration:
+                case SyntaxKind.FunctionExpression:
+                case SyntaxKind.ArrowFunction:
+                    // Special case so we don't consider our declaration scope as conditionally occuring:
+                    var bodyScan = this.scan((<FunctionLikeDeclaration>child).body, prev);
+                        // prev = bodyScan;
+                    if (this.containerScope === child) {
+                        prev = bodyScan;
+                    } else if (this.declarationScope === child) {
+                        prev = bodyScan.merge(prev, MergeKind.PROTO_PROPS);
+                    } else {
+                        prev = bodyScan.merge(prev);
+                    }
+                    break;
+                case SyntaxKind.TryStatement:
+                    // Scan the try block:
+                    var ifTry = this.scan((<TryStatement>child).tryBlock, prev);
+                    // Treat it as conditional, pass to 'catch' block:
+                    var ifCatch = this.scan((<TryStatement>child).catchClause, ifTry.merge(prev).passConditionalBarrier());
+                    // Scan the finally block (possibly 'undefined'):
+                    prev = this.scan((<TryStatement>child).finallyBlock, ifCatch.merge(prev));
+                    break;
+                case SyntaxKind.IfStatement:
+                    prev = this.scan((<IfStatement>child).expression, prev);
+                    var ifTrue = this.scan((<IfStatement>child).thenStatement, prev.passConditionalBarrier());
+                    var ifFalse = this.scan((<IfStatement>child).elseStatement, prev.passConditionalBarrier());
+                    prev = ifTrue.merge(ifFalse);
+                    break;
+                case SyntaxKind.WhileStatement:
+                    prev = this.scan((<WhileStatement>child).expression, prev);
+                    // Flow analysis: Merge the result of entering the loop and of not
+                    prev = this.scan((<WhileStatement>child).statement, prev).merge(prev);
+                    break;
+                default:
+                    forEachChild(child, (subchild) => {
+                        prev = this.scan(subchild, prev);
+                    });
                 }
-            });
-            if (typeof this.nodePostLinks[node.id] !== "undefined") {
-                this.nodePostLinks[node.id].forEach( links => {
-                    prev = prev.merge(links);
-                });
-            }
+                if (typeof this.nodePostLinks[child.id] !== "undefined") {
+                    this.nodePostLinks[child.id].forEach( links => {
+                        prev = prev.merge(links);
+                    });
+                }
+
+            /* Otherwise, continue recursive iteration: */
             return prev;
         }
     }

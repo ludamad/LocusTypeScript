@@ -5618,10 +5618,18 @@ module ts {
                 Debug.assert(!!brandDecl);
                 var type:Type;
                 if (node.downgradeToBaseClass) {
-                    if (brandDecl.extendedType) {
-                        type = getDeclaredTypeOfSymbol(brandDecl.extendedType.brandTypeDeclaration.symbol);
+                    var extended:Type = brandDecl.extendedType && getTypeFromTypeNode(brandDecl.extendedType);
+                    if (extended) {
+                        var brandTypeExtension:BrandTypeDeclaration = <BrandTypeDeclaration>getSymbolDecl(extended.symbol, SyntaxKind.BrandTypeDeclaration);
+                        type = getDeclaredTypeOfSymbol(brandTypeExtension.symbol);
                     } else {
-                        type = emptyObjectType;
+                        var baseExtended = brandDecl.ownerBrandDeclaration && brandDecl.ownerBrandDeclaration.extendedType && getTypeFromTypeNode(brandDecl.ownerBrandDeclaration.extendedType);
+                        if (baseExtended) {
+                            var brandTypeExtension:BrandTypeDeclaration = <BrandTypeDeclaration>getSymbolDecl(baseExtended.symbol, SyntaxKind.BrandTypeDeclaration);
+                            type = getDeclaredTypeOfSymbol(brandTypeExtension.prototypeBrandDeclaration.symbol);
+                        } else {
+                            type = emptyObjectType;
+                        }
                     }
                 } else {
                     type = getDeclaredTypeOfSymbol(brandDecl.symbol);
