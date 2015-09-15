@@ -2789,7 +2789,7 @@ module ts {
                 }
                 emitLines(node.statements);
                 writeLine();
-                emitBrandingsForBlockEnd(node);
+                // emitBrandingsForBlockEnd(node);
                 decreaseIndent();
                 writeLine();
                 emitToken(SyntaxKind.CloseBraceToken, node.statements.end);
@@ -3058,6 +3058,7 @@ module ts {
                 if (scope && scope.kind === SyntaxKind.SourceFile) {
                     if (!isBrand) {
                         writeLine();
+                        emitCTSRT("cementGlobal");
                         write("(" + JSON.stringify(name) + ",");
                         emit(node.name);
                         write(");");
@@ -4124,6 +4125,25 @@ module ts {
                 }
                 if (node.mustFloat && compilerOptions.emitV8Intrinsics) {
                     write(")");
+                }
+                if (node.brandsToEmitAfterwards) {
+                    forEach(node.brandsToEmitAfterwards, (brandProto) => {
+                        var owner = brandProto.ownerBrandDeclaration;
+                        write("$$cts$$runtime.brand($$cts$$brandTypes.");
+                        writeTextOfNode(currentSourceFile, (owner || brandProto).name);
+                        if (owner) {
+                            write(".prototype")
+                            write(", ");
+                            writeTextOfNode(currentSourceFile, owner.functionDeclaration.name);
+                            write(".prototype);");
+                            writeLine();
+                        } else {
+                            write(", ");
+                            writeTextOfNode(currentSourceFile, brandProto.variableDeclaration.name);
+                            write(");");
+                            writeLine();
+                        }
+                    });
                 }
             }
 

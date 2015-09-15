@@ -1209,9 +1209,10 @@ module ts {
                             var brandDecl = <BrandTypeDeclaration>getSymbolDecl(type.symbol, SyntaxKind.BrandTypeDeclaration);
                             if (brandDecl.parent.kind === SyntaxKind.BrandTypeDeclaration) {
                                 writer.writeSymbol((<BrandTypeDeclaration>brandDecl.parent).name.text, (<BrandTypeDeclaration>brandDecl.parent).symbol);
-                                writer.writeOperator(".");
-                            }
-                        }
+                                writer.writeOperator(".prototype");
+                            } else 
+                            buildSymbolDisplay(type.symbol, writer, enclosingDeclaration, SymbolFlags.Type);
+                        } else
                         buildSymbolDisplay(type.symbol, writer, enclosingDeclaration, SymbolFlags.Type);
                     }
                     else if (type.flags & TypeFlags.Tuple) {
@@ -1708,7 +1709,7 @@ module ts {
             // the type of which is an instantiation of the class type with type Any supplied as a type argument for each type parameter.
             // It is an error to explicitly declare a static property member with the name 'prototype'.
             if (prototype.brandType) {
-                return getTypeOfSymbol(prototype.brandType.symbol);
+                return getDeclaredTypeOfSymbol(prototype.brandType.symbol);
             }
             var classType = <InterfaceType>getDeclaredTypeOfSymbol(prototype.parent);
             return classType.typeParameters ? createTypeReference(<GenericType>classType, map(classType.typeParameters, _ => anyType)) : classType;
@@ -7584,6 +7585,16 @@ module ts {
 
         function checkTypeReference(node: TypeReferenceNode) {
             var type = getTypeFromTypeReferenceNode(node);
+            // [ConcreteTypeScript]
+            if (node.brandTypeDeclaration) {
+                forEach([node.brandTypeDeclaration, node.brandTypeDeclaration.prototypeBrandDeclaration], (bdecl) => {
+                    if (bdecl)
+                    forEach(Object.keys(bdecl.symbol.members), (key) => {
+                        // Make sure resolvedType is set for emit
+                        getTypeOfBrandProperty(<BrandPropertyDeclaration> getSymbolDecl(bdecl.symbol.members[key], SyntaxKind.BrandProperty))
+                    });
+                });
+            }
             if (type !== unknownType && node.typeArguments) {
                 // Do type argument local checks only if referenced type is successfully resolved
                 var len = node.typeArguments.length;

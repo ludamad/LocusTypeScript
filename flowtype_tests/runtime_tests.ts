@@ -9,6 +9,11 @@ var cts_test = require("./cts_test");
 var BRANCH = parseInt(process.env.BRANCH, 10);
 
 describe("Branding semantics", () => {
+    function WheresTheBeef() {
+        var a : declare BrandObjectLiteral2 = {b: 0};
+        cts_test.assertType(a, "b", Number);
+    }
+
     it("should bind object literal", () => {
         var a : declare BrandObjectLiteral = {b: 0};
         cts_test.assertType(a, "b", Number);
@@ -20,6 +25,7 @@ describe("Branding semantics", () => {
             let a : declare BlockExit = {};
             leakedA = a;
             cts_test.assertNotBranded(a);
+            a.b = 0;
             break;
         }
         cts_test.assertBranded(leakedA);
@@ -28,6 +34,7 @@ describe("Branding semantics", () => {
         (function() {
             var a : declare BeforeReturn = {};
             cts_test.assertNotBranded(a);
+            a.b = 0;
             return cts_test.assertBranded(a);
         })();
     });
@@ -37,6 +44,7 @@ describe("Branding semantics", () => {
             var a : declare FunctionExit = {};
             tester = () => cts_test.assertBranded(a);
             cts_test.assertNotBranded(a);
+            a.b = 0;
         })();
         tester();
     });
@@ -46,6 +54,7 @@ describe("Branding semantics", () => {
             let a : declare ScopeExit = {};
             tester = () => cts_test.assertBranded(a);
             cts_test.assertNotBranded(a);
+            a.b = 0;
         }
         tester();
     });

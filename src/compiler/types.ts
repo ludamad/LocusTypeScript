@@ -350,6 +350,10 @@ module ts {
         assertFloat?: boolean;        // If set, can assert that this value is always a float instead of generic number
         assertInt?: boolean;          // If set, can assert that this value is always an int instead of generic number
         downgradeToBaseClass?: boolean;
+        // HACK Used during flowAnalysis to decide chronological order
+        tempNumbering?: number;
+        // Set in flowAnalysis.ts
+        brandsToEmitAfterwards?: BrandTypeDeclaration[];
         // [/ConcreteTypeScript]
     }
 
@@ -834,6 +838,10 @@ module ts {
         // TODO should parallel extension relationship for brand types.
         extendedType?: TypeNode;
         prototypeBrandDeclaration?: BrandTypeDeclaration;
+        // The BrandTypeDeclaration that has us as a prototypeBrandDeclaration
+        ownerBrandDeclaration?: BrandTypeDeclaration;
+        // If the 'this' type of a function
+        functionDeclaration?: FunctionLikeDeclaration;
     }
 
     export interface TypeAliasDeclaration extends Declaration, ModuleElement {

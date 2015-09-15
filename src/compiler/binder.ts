@@ -371,10 +371,31 @@ module ts {
             // The parent of the declaration is expected to be the containing scope:
             node.scope = scope;
             var symbolKind = SymbolFlags.Brand | SymbolFlags.ExportType, symbolExcludes = SymbolFlags.BrandTypeExcludes;
+
             if (scope.symbol && scope.symbol.flags & SymbolFlags.HasExports) {
                 declareSymbol(scope.symbol.exports, undefined, node, symbolKind, symbolExcludes);
             } else {
                 declareSymbol(scope.locals, undefined, node, symbolKind, symbolExcludes);
+            }
+            var parent = node.parent;
+            while (parent.kind !== SyntaxKind.VariableDeclaration) {
+                Debug.assert(!!parent);
+                parent = parent.parent;
+            }
+            node.variableDeclaration = <VariableDeclaration>parent;
+            if (!node.variableDeclaration.name || node.variableDeclaration.name.text === "this") {
+                // Create the prototype brand type:
+                var proto = <BrandTypeDeclaration> new (objectAllocator.getNodeConstructor(SyntaxKind.BrandTypeDeclaration))();
+                proto.name = <Identifier> new (objectAllocator.getNodeConstructor(SyntaxKind.Identifier))();
+                proto.name.text = "prototype";
+                proto.name.parent = proto;
+                proto.pos = proto.name.pos = node.pos;
+                proto.end = proto.name.end = node.end;
+                // Set to parent of FunctionDeclaration:
+                proto.parent = node;
+                node.prototypeBrandDeclaration = proto;
+                proto.ownerBrandDeclaration = node;
+                declareSymbol(node.symbol.exports, node.symbol, proto, symbolKind, symbolExcludes);
             }
         }
 
@@ -437,7 +458,9 @@ module ts {
                     break;
                 case SyntaxKind.VariableDeclaration:
                     if ((<VariableDeclaration>node).name.text === "this") {
-                        (<FunctionLikeDeclaration>getThisContainer(node, false)).declaredTypeOfThis = (<VariableDeclaration>node).type;
+                        var funcDecl = (<FunctionLikeDeclaration>getThisContainer(node, false));
+                        funcDecl.declaredTypeOfThis = (<VariableDeclaration>node).type;
+                        funcDecl.declaredTypeOfThis.brandTypeDeclaration.functionDeclaration = funcDecl;
                     }
                     if (node.flags & NodeFlags.BlockScoped) {
                         bindBlockScopedVariableDeclaration(<Declaration>node);

@@ -166,12 +166,16 @@ module ts {
               }
           }
       }
-      
       export function isFunctionDeclarationWithThisBrand(scope:Node):boolean {
           if (scope.kind === SyntaxKind.FunctionDeclaration) {
               return !!(<FunctionDeclaration>scope).declaredTypeOfThis;
           }
           return false;
+      }
+    
+      export function isFunctionDeclarationCheckThisBrand(scope:Node, brandTypeDecl: BrandTypeDeclaration):boolean {
+          if (!isFunctionDeclarationWithThisBrand(scope)) return false;
+          return (<FunctionDeclaration>scope).declaredTypeOfThis.brandTypeDeclaration === brandTypeDecl;
       }
       
       export function getModuleOrSourceFile(scope:Node) {

@@ -11,4 +11,4 @@ $$cts$$runtime.protectAssignment((new $$cts$$runtime.UnionType(String, Number)),
 if (1) {
     $$cts$$runtime.protectAssignment((new $$cts$$runtime.UnionType(String, Number)), "a", a, "hey");;
     $$cts$$runtime.protectAssignment((new $$cts$$runtime.UnionType(String, Number)), "b", a, "hey");;
-}
+}$$cts$$runtime.brand($$cts$$brandTypes.Foo, a);

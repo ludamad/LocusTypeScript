@@ -118,18 +118,7 @@ module ts {
         
         _scanProtoPropertyAssignment(propAccess:PropertyAccessExpression) {
             var protoBrandType = this.binder.brandTypeDecl.prototypeBrandDeclaration;
-            if (!protoBrandType) {
-                // Create the prototype brand type:
-                protoBrandType = <BrandTypeDeclaration> new (objectAllocator.getNodeConstructor(SyntaxKind.BrandTypeDeclaration))();
-                protoBrandType.name = (<PropertyAccessExpression>propAccess.expression).name; // Right-hand <identifier>
-                protoBrandType.pos = propAccess.pos;
-                protoBrandType.end = propAccess.end;
-                protoBrandType.scope = this.binder.containerScope;
-                // Set to parent of FunctionDeclaration:
-                protoBrandType.parent = this.binder.brandTypeDecl;
-                this.binder.brandTypeDecl.prototypeBrandDeclaration = protoBrandType;
-                this.binder.declareSymbol(this.binder.brandTypeDecl.symbol.exports, this.binder.brandTypeDecl.symbol, protoBrandType, SymbolFlags.Brand|SymbolFlags.ExportType, SymbolFlags.BrandTypeExcludes);
-            }
+            Debug.assert(!!protoBrandType)
             if (!hasProperty(protoBrandType.symbol.members, propAccess.name.text)) { 
                 // Create a property declaration for the brand-type symbol list:
                 var propertyNode = <BrandPropertyDeclaration> new (objectAllocator.getNodeConstructor(SyntaxKind.BrandProperty))();
@@ -174,6 +163,8 @@ module ts {
             }
             return this.addAssignedValue(brandPropId, node.right);
         }
+        
+        
         // // Handle prototype initialization separately:
         // scanInitializers(initializer:Expression) {
         //     // /* TODO: Detect any sort of assignment operator applied to our brand variable */
@@ -224,6 +215,49 @@ module ts {
         containerScope:Node;
         // Scope where brand type is declared
         declarationScope:Node;
+        brandPoint:Node = null;
+        protoBrandPoint:Node = null;
+        _findBrandPoints():void {
+            var lastNode =  null;
+            var lastProtoNode =  null;
+            var numbering = 0;
+            var iter = (node:Node) => {
+                if (!node) {
+                    return;
+                }
+                node.tempNumbering = numbering++;
+                
+                if (isFunctionDeclarationCheckThisBrand(node, this.brandTypeDecl)) {
+                    lastProtoNode = node;
+                }
+                if (node.kind === SyntaxKind.BinaryExpression && (<BinaryExpression>node).operator === SyntaxKind.EqualsToken) {
+                    if (this.getBrandProtoPropertyId((<BinaryExpression>node).left) !== null) 
+                        lastProtoNode = node;
+                    if (this.getBrandPropertyId((<BinaryExpression>node).left) !== null) {
+                        lastNode = node;
+                    }
+                } else if (this.brandTypeDecl.variableDeclaration === node) {
+                    lastNode = node;
+                }
+                forEachChild(node, iter);
+            }
+            iter(this.containerScope);
+            this.brandPoint = lastNode;
+            var pointScope = this.declarationScope, protoPointScope = this.containerScope;
+            if (pointScope.kind === SyntaxKind.FunctionDeclaration || pointScope.kind === SyntaxKind.FunctionExpression || pointScope.kind === SyntaxKind.ArrowFunction) {
+                pointScope = (<FunctionLikeDeclaration> pointScope).body;
+            }
+            while (this.brandPoint.parent !== pointScope) {
+                this.brandPoint = this.brandPoint.parent;
+            }
+            this.protoBrandPoint = lastProtoNode;
+            if (protoPointScope.kind === SyntaxKind.FunctionDeclaration || protoPointScope.kind === SyntaxKind.FunctionExpression || protoPointScope.kind === SyntaxKind.ArrowFunction) {
+                protoPointScope = (<FunctionLikeDeclaration> protoPointScope).body;
+            }
+            while (this.protoBrandPoint.parent !== protoPointScope) {
+                this.protoBrandPoint = this.protoBrandPoint.parent;
+            }
+        }
 
         fillProp(prop:BrandPropertyDeclaration) {
             if (this.propNameToId[(<Identifier>prop.name).text] === undefined) this.getPropId((<Identifier>prop.name).text);
@@ -238,7 +272,6 @@ module ts {
             this.allProps[id] = prop;
             this.protoProps.push(prop);
         }
-    
         getPropId(str:string, dontCreate?:boolean):number {
             if (this.propNameToId[str] != null) return this.propNameToId[str];
             if (dontCreate) {console.log("NAME", str); console.log(this.propNameToId); throw new Error("DontCreate");}
@@ -248,6 +281,8 @@ module ts {
             this.propIdIsPrototype[id] = false;
             return id;
         }
+        
+        
         getProtoPropId(str:string, dontCreate?:boolean):number {
             if (this.prototypePropNameToId[str] != null) return this.prototypePropNameToId[str];
             if (dontCreate) {console.log("NAME", str); console.log(this.prototypePropNameToId); throw new Error("DontCreate");}
@@ -363,7 +398,10 @@ module ts {
                             }
                         }
                         if (downgrade) {
-                            child.downgradeToBaseClass = true;
+                            // Don't downgrade if after last property assignment:
+                            if (child.tempNumbering < this.protoBrandPoint.tempNumbering || isNodeDescendentOf(child, this.protoBrandPoint)) {
+                                child.downgradeToBaseClass = true;
+                            }
                         }
                         (<PropertyAccessExpression>child).brandTypeDeclForPrototypeProperty = this.brandTypeDecl;
                         break;
@@ -392,7 +430,11 @@ module ts {
                                 }
                             }
                             if (downgrade) {
-                                child.downgradeToBaseClass = true;
+                                // Don't downgrade if after last property assignment:
+                                if (child.tempNumbering < this.brandPoint.tempNumbering || isNodeDescendentOf(child, this.brandPoint)) {
+
+                                    child.downgradeToBaseClass = true;
+                                }
                             }
                         }
                         break;
@@ -464,8 +506,10 @@ module ts {
                         prev = this.scan((<ForInStatement>child).statement, prev).merge(prev);
                         break;
                     case SyntaxKind.FunctionDeclaration:
+                    case SyntaxKind.FunctionExpression:
+                    case SyntaxKind.ArrowFunction:
                         // Special case so we don't consider our declaration scope as conditionally occuring:
-                        var bodyScan = this.scan((<FunctionDeclaration>child).body, prev);
+                        var bodyScan = this.scan((<FunctionLikeDeclaration>child).body, prev);
                             // prev = bodyScan;
                         if (this.declarationScope === child) {
                             prev = bodyScan.merge(prev, MergeKind.PROTO_PROPS);
@@ -551,13 +595,25 @@ module ts {
         brandTypeBinder.brandTypeDecl = brandTypeDecl;
         brandTypeBinder.declarationScope = scope;
         // Search starting from the parent scope if we are a FunctionDeclaration with a 'var this : declare T' declaration.
-        brandTypeBinder.containerScope = isFunctionDeclarationWithThisBrand(scope) ? getThisContainer(scope, true) : scope;
+        var isFuncDeclWithThisBrand = isFunctionDeclarationCheckThisBrand(scope, brandTypeDecl);
+        brandTypeBinder.containerScope = isFuncDeclWithThisBrand ? getThisContainer(scope, true) : scope;
         brandTypeBinder.declareSymbol = declareSymbol;
 
-        if (!initializer) throw new Error("Need initializer");
-        var initial = brandTypeBinder.scanInitializer(initializer, new BrandPropertyTypes(brandTypeBinder));
+        var initial:BrandPropertyTypes = new BrandPropertyTypes(brandTypeBinder);
+        if (initializer) {
+            initial = brandTypeBinder.scanInitializer(initializer, initial);
+        }
+        brandTypeBinder._findBrandPoints();
         var assignmentResults = brandTypeBinder.scan(brandTypeBinder.containerScope, initial);
         
+        brandTypeBinder.brandPoint.brandsToEmitAfterwards = brandTypeBinder.brandPoint.brandsToEmitAfterwards || [];
+        brandTypeBinder.brandPoint.brandsToEmitAfterwards.push(brandTypeDecl);
+
+        if (brandTypeBinder.protoBrandPoint) {
+            brandTypeBinder.protoBrandPoint.brandsToEmitAfterwards = brandTypeBinder.protoBrandPoint.brandsToEmitAfterwards || [];
+            // Can possibly be undefined:
+            brandTypeBinder.protoBrandPoint.brandsToEmitAfterwards.push(brandTypeDecl.prototypeBrandDeclaration);
+        }
         // Set the binding assignments for each property:
         forEach(brandTypeBinder.props, (brandPropDecl:BrandPropertyDeclaration) => {
             var name = (<Identifier>brandPropDecl.name).text;
@@ -580,7 +636,6 @@ module ts {
     export function bindBrandPropertiesInScopeAfterInitialBinding(scope:Node, declareSymbol:_declareSymbol) {
         // Find all relevant brand type declarations bound to the current scope.
         forEach(getBrandTypeVarDeclarations(scope), (declaration:VariableDeclaration) => {
-            declaration.type.brandTypeDeclaration.variableDeclaration = declaration;
             bindBrandTypeBasedOnVarScope(scope, declaration.type.brandTypeDeclaration, declareSymbol, declaration.initializer);
         });
     }

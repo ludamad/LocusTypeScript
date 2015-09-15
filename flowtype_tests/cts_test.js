@@ -19,7 +19,7 @@ module.exports = {
            return;
        }
        assert.ok(setter, "Setter should be installed!");
-       if (type.length) {
+       if (Array.isArray(type)) {
            assert.ok(setter.$$cts$$type instanceof $$cts$$runtime.UnionType, "Union type not installed!");
            for (var i = 0; i < type.length; i++) {
                assert.equal(setter.$$cts$$type.types[i], type[i]);
