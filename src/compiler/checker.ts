@@ -1732,7 +1732,6 @@ module ts {
             // We wish to give a type to the brand property that is a union over all declaration-scope assignments.
             if (declaration.resolvedType) return declaration.resolvedType;
             declaration.resolvedType = getUnionOverExpressions(declaration.bindingAssignments);
-            console.log(typeToString(declaration.resolvedType));
             return declaration.resolvedType;
         }
 
@@ -2144,6 +2143,9 @@ module ts {
             if (!links.declaredType) {
                 /* On first occurrence */
                 var brandTypeDecl = <BrandTypeDeclaration>getSymbolDecl(symbol, SyntaxKind.BrandTypeDeclaration)
+                if (brandTypeDecl.extendedType) {
+                    brandTypeDecl.extendedTypeResolved = getTypeFromTypeNode(brandTypeDecl.extendedType);
+                }
                 Debug.assert(!!brandTypeDecl, "Not a BrandTypeDeclaration!");
                 var type = <InterfaceType>createObjectType(TypeFlags.Brand, symbol);
                 type.declaredProperties = map(Object.keys(symbol.members), key => symbol.members[key]);
@@ -3157,7 +3159,7 @@ module ts {
             return allConcrete;
         }
 
-        function getUnionType(types: Type[], noSubtypeReduction?: boolean): Type {
+        function getUnionType(types: Type[], noSubtypeReduction?: boolean, noNullOrUndefinedReduction?: boolean): Type {
             if (types.length === 0) {
                 return emptyObjectType;
             }
@@ -3171,10 +3173,13 @@ module ts {
                 if (containsAnyType(sortedTypes)) {
                     return anyType;
                 }
-                removeAllButLast(sortedTypes, undefinedType);
-                removeAllButLast(sortedTypes, nullType);
+                if (!noNullOrUndefinedReduction) {
+                    removeAllButLast(sortedTypes, undefinedType);
+                    removeAllButLast(sortedTypes, nullType);
+                }
             }
             else {
+                Debug.assert(!noNullOrUndefinedReduction);
                 removeSubtypes(sortedTypes);
             }
             if (sortedTypes.length === 1) {
@@ -3193,7 +3198,10 @@ module ts {
                     // Make sure we have our baseType set
                     // so that we can access it in emit code:
                     var strippedTypes = map(type.types, (concreteType) => stripConcreteType(concreteType));
-                    var baseType = (<any>type).baseType = getUnionType(strippedTypes);
+                    var baseType = (<any>type).baseType = getUnionType(strippedTypes, true, /*Don't collapse !null|!string: */ true);
+                    console.log("BASE BASE BASE")
+                    console.log(typeToString(baseType))
+                    
                     // We cast our UnionType into a concrete type, 
                     // since we have set 'baseType' on it above.
                     baseType.concreteType = <any>type;
@@ -3275,6 +3283,8 @@ module ts {
                     return intNumberType;
                 case SyntaxKind.NullKeyword:
                     return nullType;
+                case SyntaxKind.UndefinedKeyword:
+                    return undefinedType;
                 // [/ConcreteTypeScript]
                 case SyntaxKind.BooleanKeyword:
                     return booleanType;
@@ -8836,6 +8846,7 @@ module ts {
         
         function checkBrandTypeDeclaration(node: BrandTypeDeclaration) {
             checkTypeNameIsReserved(node.name, Diagnostics.Class_name_cannot_be_0);
+            
             // checkSourceElement(node.type);
         }
 

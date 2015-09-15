@@ -2453,6 +2453,10 @@ module ts {
                     write("Number");
                 } else if (type.flags & TypeFlags.Brand) {
                     write("$$cts$$brandTypes." + type.symbol.name);
+                } else if (type.flags & TypeFlags.Null) {
+                    emitCTSRT("Null");
+                } else if (type.flags & TypeFlags.Undefined) {
+                    emitCTSRT("Undefined");
                 } else if (type.flags & TypeFlags.Union) {
                     write("(new "); emitCTSRT("UnionType");
                     write("("); 
@@ -2648,7 +2652,14 @@ module ts {
                     if (propAccess.brandAnalysis.isPrototypeProperty()) {
                         emitCTSRT("protectProtoAssignment(");
                         emitCTSType((<ConcreteType>declaration.resolvedType).baseType);
-                        write(", $$cts$$brandTypes.");
+                        var extendedPrototypeStr = "undefined";
+                        if (brandDecl.extendedTypeResolved && (brandDecl.extendedTypeResolved.flags & TypeFlags.Brand)) {
+                            var extendedBrandDecl = <BrandTypeDeclaration> getSymbolDecl(brandDecl.extendedTypeResolved.symbol, SyntaxKind.BrandTypeDeclaration);
+                            if (extendedBrandDecl.prototypeBrandDeclaration) {
+                                extendedPrototypeStr = "$$cts$$brandTypes." + extendedBrandDecl.name.text + ".prototype";
+                            }
+                        }
+                        write(", " + extendedPrototypeStr + ", $$cts$$brandTypes.");
                         emit(brandDecl.name);
                         write(".prototype, " + JSON.stringify(propAccess.name.text));
                         write(", " + ((<Identifier>(<PropertyAccessExpression>expression).expression).text) + ", ");
@@ -2723,7 +2734,7 @@ module ts {
                     writeLine();
                     write("$$cts$$brandTypes.");
                     writeTextOfNode(currentSourceFile, brandName);
-                    write(" = new $$cts$$runtime.Brand();");
+                    write(" = new $$cts$$runtime.Brand('"+ brandName.text + "');");
                     if (brandTypeDeclaration.prototypeBrandDeclaration) {
                         writeLine();
                         write("$$cts$$brandTypes.");

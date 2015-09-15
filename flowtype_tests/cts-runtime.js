@@ -99,14 +99,20 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             return false;
         });
 
-        var Null = {};
-        cement(this, "Null", Null);
+        cement(this, "Null", {});
         cement(this.Null, "$$cts$$check", function(val) { 
             return (val === null);
         });
+        cement(this.Null, "toString", function(val) {return "null"});
+
+        cement(this, "Undefined", {});
+        cement(this.Undefined, "$$cts$$check", function(val) { 
+            return (typeof val === "undefined");
+        });
+        cement(this.Undefined, "toString", function(val) {return "undefined"});
 
         // and a global caster, which checks and returns the value if the check succeeded or an exception otherwise
-        cement(this, "cast", function(type, val) {
+        function cast(type, val) {
             if (type.$$cts$$check(val)) return val;
             if (!val) {
                 switch (type) {
@@ -123,7 +129,8 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
                 }
             }
             throw new Error("Cannot cast value " + val + " to type " + type);
-        }, true);
+        }
+        cement(this, "cast", cast, true);
 
         // because there are so few falsey values, we can do a "half-coercion"
         // of false values. This is useful for the common pattern of using &&
@@ -208,18 +215,22 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             protect(type, name, obj, true);
         });
 
-        cement(this, "protectProtoAssignment", function(type, protoBrandType, name, obj, value) {
+        cement(this, "protectProtoAssignment", function(type, protoCheckType, protoBrandType, name, obj, value) {
             if (!hasProperty(obj, "$$cts$$prototypeFrozen")) {
                 addUnenum(obj,"$$cts$$prototypeFrozen", true);
                 var prototype = obj.prototype;
+                if (typeof protoCheckType !== "undefined") {
+                    cast(protoCheckType, prototype);
+                }
                 this.brand(protoBrandType, prototype);
                 cement(obj, "prototype", prototype);
             }
             this.protectAssignment(type, name, obj.prototype, value);
         });
 
-        function Brand() {}
+        function Brand(brandName) {this.brandName = brandName;}
         cement(Brand, "prototype", Brand.prototype);
+        cement(Brand, "toString", function() {return this.brandName;});
         cement(Brand.prototype, "$$cts$$check", function(obj) {
             if (typeof obj !== "object" || typeof obj.$$cts$$brands === "undefined") {
                 return false;

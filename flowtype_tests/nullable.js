@@ -3,5 +3,4 @@ if (typeof $$cts$$runtime === "undefined") {
     else if (typeof document !== "undefined") { document.writeLine("<script src=\"cts-runtime.js\"></script>"); }
     else throw new Error("Could not load ConcreteTypeScript runtime!");
 }
-var a = null;
-a = 1;
+var a = ($$cts$$runtime.cast($$cts$$runtime.Undefined,("ee")));

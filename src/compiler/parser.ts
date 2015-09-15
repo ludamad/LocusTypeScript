@@ -1736,7 +1736,7 @@ module ts {
                 case SyntaxKind.AnyKeyword:
                 case SyntaxKind.StringKeyword:
                 case SyntaxKind.NumberKeyword:
-                case SyntaxKind.NullKeyword:
+                case SyntaxKind.NullKeyword: // [ConcreteTypeScript] Let 'null' be a concrete type
                 case SyntaxKind.FloatNumberKeyword: // [ConcreteTypeScript]
                 case SyntaxKind.IntNumberKeyword: // [ConcreteTypeScript]
                 case SyntaxKind.BooleanKeyword:
@@ -1763,6 +1763,22 @@ module ts {
                     return parseParenthesizedType();
                 case SyntaxKind.DeclareKeyword:
                     return parseBrandType(specifiedConcrete, isConcrete);
+                // [ConcreteTypeScript] hackishly handle undefined as a type
+                case SyntaxKind.Identifier:
+                    if (scanner.getTokenValue() === "undefined") {
+                        var node = tryParse(parseKeywordAndNoDot);
+                        if (node) {
+                            node.kind = SyntaxKind.UndefinedKeyword;
+                        }
+                    }
+                    
+                    // [ConcreteTypeScript] Copy over concreteness
+                    if (node) {
+                        node.specifiedConcrete = specifiedConcrete;
+                        node.isConcrete = isConcrete;
+                    }
+                    // [/ConcreteTypeScript]
+                    return node || parseTypeReference(specifiedConcrete, isConcrete /* [ConcreteTypeScript] */);
                 default:
                     return parseTypeReference(specifiedConcrete, isConcrete /* [ConcreteTypeScript] */);
             }

@@ -1,2 +1,2 @@
-var a :!null|!string = null;
-a = 1;
+
+var a = <!undefined> <any> "ee";

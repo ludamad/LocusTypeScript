@@ -453,7 +453,7 @@ module ts {
                         prev = prev.merge(this.scan(clause, beforeCases.passConditionalBarrier()));
                     });
                     break;
-                    
+
                 case SyntaxKind.ConditionalExpression:
                     prev = this.scan((<ConditionalExpression>node).condition, prev);
                     var whenTrue = this.scan((<ConditionalExpression>node).whenTrue, prev.passConditionalBarrier());

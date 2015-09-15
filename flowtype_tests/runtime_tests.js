@@ -4,22 +4,22 @@ if (typeof $$cts$$runtime === "undefined") {
     else if (typeof document !== "undefined") { document.writeLine("<script src=\"cts-runtime.js\"></script>"); }
     else throw new Error("Could not load ConcreteTypeScript runtime!");
 }var $$cts$$brandTypes = {};
-$$cts$$brandTypes.BrandObjectLiteral2 = new $$cts$$runtime.Brand();
-$$cts$$brandTypes.BrandObjectLiteral = new $$cts$$runtime.Brand();
-$$cts$$brandTypes.BlockExit = new $$cts$$runtime.Brand();
-$$cts$$brandTypes.BeforeReturn = new $$cts$$runtime.Brand();
-$$cts$$brandTypes.FunctionExit = new $$cts$$runtime.Brand();
-$$cts$$brandTypes.ScopeExit = new $$cts$$runtime.Brand();
-$$cts$$brandTypes.ShouldBrandProto = new $$cts$$runtime.Brand();
+$$cts$$brandTypes.BrandObjectLiteral2 = new $$cts$$runtime.Brand('BrandObjectLiteral2');
+$$cts$$brandTypes.BrandObjectLiteral = new $$cts$$runtime.Brand('BrandObjectLiteral');
+$$cts$$brandTypes.BlockExit = new $$cts$$runtime.Brand('BlockExit');
+$$cts$$brandTypes.BeforeReturn = new $$cts$$runtime.Brand('BeforeReturn');
+$$cts$$brandTypes.FunctionExit = new $$cts$$runtime.Brand('FunctionExit');
+$$cts$$brandTypes.ScopeExit = new $$cts$$runtime.Brand('ScopeExit');
+$$cts$$brandTypes.ShouldBrandProto = new $$cts$$runtime.Brand('ShouldBrandProto');
 $$cts$$brandTypes.ShouldBrandProto.prototype = new $$cts$$runtime.Brand();
-$$cts$$brandTypes.ShouldCheckThisProto = new $$cts$$runtime.Brand();
+$$cts$$brandTypes.ShouldCheckThisProto = new $$cts$$runtime.Brand('ShouldCheckThisProto');
 $$cts$$brandTypes.ShouldCheckThisProto.prototype = new $$cts$$runtime.Brand();
-$$cts$$brandTypes.IfBranch = new $$cts$$runtime.Brand();
-$$cts$$brandTypes.IfNoElse = new $$cts$$runtime.Brand();
-$$cts$$brandTypes.IfNoElseAfterAssign = new $$cts$$runtime.Brand();
-$$cts$$brandTypes.SwitchAllCasesWrite = new $$cts$$runtime.Brand();
-$$cts$$brandTypes.SwitchOneCaseWrites = new $$cts$$runtime.Brand();
-$$cts$$brandTypes.SwitchAllCasesWriteNoDefault = new $$cts$$runtime.Brand();
+$$cts$$brandTypes.IfBranch = new $$cts$$runtime.Brand('IfBranch');
+$$cts$$brandTypes.IfNoElse = new $$cts$$runtime.Brand('IfNoElse');
+$$cts$$brandTypes.IfNoElseAfterAssign = new $$cts$$runtime.Brand('IfNoElseAfterAssign');
+$$cts$$brandTypes.SwitchAllCasesWrite = new $$cts$$runtime.Brand('SwitchAllCasesWrite');
+$$cts$$brandTypes.SwitchOneCaseWrites = new $$cts$$runtime.Brand('SwitchOneCaseWrites');
+$$cts$$brandTypes.SwitchAllCasesWriteNoDefault = new $$cts$$runtime.Brand('SwitchAllCasesWriteNoDefault');
 "use strict";
 // For now, for non-concrete types, we simply test that there was no binding.
 // The file can be inspected manually, otherwise.
@@ -86,7 +86,7 @@ describe("This branding semantics", function () {
             $$cts$$runtime.brand($$cts$$brandTypes.ShouldBrandProto, this);
             cts_test.assertBranded(this);
         }
-        $$cts$$runtime.protectProtoAssignment(Number, $$cts$$brandTypes.ShouldBrandProto.prototype, "x", ShouldBrandProto, 1);;$$cts$$runtime.brand($$cts$$brandTypes.ShouldBrandProto.prototype, ShouldBrandProto.prototype);
+        $$cts$$runtime.protectProtoAssignment(Number, undefined, $$cts$$brandTypes.ShouldBrandProto.prototype, "x", ShouldBrandProto, 1);;$$cts$$runtime.brand($$cts$$brandTypes.ShouldBrandProto.prototype, ShouldBrandProto.prototype);
         cts_test.assertBranded(ShouldBrandProto.prototype);
         var val = new ShouldBrandProto();
     });
@@ -95,7 +95,7 @@ describe("This branding semantics", function () {
             $$cts$$runtime.brand($$cts$$brandTypes.ShouldCheckThisProto, this);
             cts_test.assertBranded(this);
         }
-        $$cts$$runtime.protectProtoAssignment(Number, $$cts$$brandTypes.ShouldCheckThisProto.prototype, "x", ShouldCheckThisProto, 1);;$$cts$$runtime.brand($$cts$$brandTypes.ShouldCheckThisProto.prototype, ShouldCheckThisProto.prototype);
+        $$cts$$runtime.protectProtoAssignment(Number, undefined, $$cts$$brandTypes.ShouldCheckThisProto.prototype, "x", ShouldCheckThisProto, 1);;$$cts$$runtime.brand($$cts$$brandTypes.ShouldCheckThisProto.prototype, ShouldCheckThisProto.prototype);
         var failedLikeShould = true;
         try {
             ShouldCheckThisProto.call({});
