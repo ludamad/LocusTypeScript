@@ -213,7 +213,7 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
                 addUnenum(obj,"$$cts$$prototypeFrozen", true);
                 var prototype = obj.prototype;
                 this.brand(protoBrandType, prototype);
-                this.protectAssignment(protoBrandType, "prototype", obj, prototype);
+                cement(obj, "prototype", prototype);
             }
             this.protectAssignment(type, name, obj.prototype, value);
         });

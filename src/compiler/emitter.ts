@@ -2637,7 +2637,8 @@ module ts {
             }
             // [ConcreteTypeScript]
             function emitConcreteAssignment(node:BinaryExpression, expression:Expression, propAccess:PropertyAccessExpression):boolean {
-                var declaration = propAccess.brandAnalysis.getDeclaration();
+                var declaration: BrandPropertyDeclaration = propAccess.brandAnalysis.getDeclaration();
+                var brandDecl = declaration.brandTypeDeclaration;
                 var resolvedToConcrete = (declaration.resolvedType.flags & TypeFlags.Concrete);
                 var assignmentValues = propAccess.brandAnalysis.assignments;
                 // console.log("Here with ", propAccess.name.text,  assignmentValues.length, resolvedToConcrete);
@@ -2645,11 +2646,12 @@ module ts {
                     // Emit protection if this is a binding-relevant assignment:
                     // console.log("Here with ", propAccess.name.text, propAccess.brandAnalysis.isPrototypeProperty());
                     if (propAccess.brandAnalysis.isPrototypeProperty()) {
-                        emitCTSRT("protectProtoAssignment");
-                        write("(");
+                        emitCTSRT("protectProtoAssignment(");
                         emitCTSType((<ConcreteType>declaration.resolvedType).baseType);
-                        write(", " + JSON.stringify(propAccess.name.text) + ", ");
-                        write(((<Identifier>(<PropertyAccessExpression>expression).expression).text) + ", ");
+                        write(", $$cts$$brandTypes.");
+                        emit(brandDecl.name);
+                        write(".prototype, " + JSON.stringify(propAccess.name.text));
+                        write(", " + ((<Identifier>(<PropertyAccessExpression>expression).expression).text) + ", ");
                     } else {
                         emitCTSRT("protectAssignment");
                         write("(");
@@ -2805,7 +2807,7 @@ module ts {
                     write(" {");
                     increaseIndent(); writeLine();
                     emit(node);
-                    emitBrandingsForBlockEnd(node);
+                    // emitBrandingsForBlockEnd(node);
                     decreaseIndent(); writeLine();
                     write("}");
                 }
@@ -3313,12 +3315,17 @@ module ts {
                 }
                 else {
                     if (node.body.kind === SyntaxKind.Block) {
-                        emitLinesStartingAt((<Block>node.body).statements, startIndex);
-                        var s = (<Block>node.body).statements;
-                        if (s.length === 0 || s[s.length - 1].kind !== SyntaxKind.ReturnStatement) {
-                            emitBrandingsForBlockEnd(node.body);
-                            emitBrandingsForBlockEnd(node);
+                        if (node.declaredTypeOfThis) {
+                            emitCTSRT("cast($$cts$$brandTypes.");
+                            write(node.declaredTypeOfThis.brandTypeDeclaration.name.text)
+                            write(".prototype, Object.getPrototypeOf(this))")
                         }
+                        emitLinesStartingAt((<Block>node.body).statements, startIndex);
+                        // var s = (<Block>node.body).statements;
+                        // if (s.length === 0 || s[s.length - 1].kind !== SyntaxKind.ReturnStatement) {
+                        //     emitBrandingsForBlockEnd(node.body);
+                        //     emitBrandingsForBlockEnd(node);
+                        // }
                     }
                     else {
                         writeLine();

@@ -10,6 +10,10 @@ $$cts$$brandTypes.BlockExit = new $$cts$$runtime.Brand();
 $$cts$$brandTypes.BeforeReturn = new $$cts$$runtime.Brand();
 $$cts$$brandTypes.FunctionExit = new $$cts$$runtime.Brand();
 $$cts$$brandTypes.ScopeExit = new $$cts$$runtime.Brand();
+$$cts$$brandTypes.ShouldBrandProto = new $$cts$$runtime.Brand();
+$$cts$$brandTypes.ShouldBrandProto.prototype = new $$cts$$runtime.Brand();
+$$cts$$brandTypes.ShouldCheckThisProto = new $$cts$$runtime.Brand();
+$$cts$$brandTypes.ShouldCheckThisProto.prototype = new $$cts$$runtime.Brand();
 $$cts$$brandTypes.IfBranch = new $$cts$$runtime.Brand();
 $$cts$$brandTypes.IfNoElse = new $$cts$$runtime.Brand();
 $$cts$$brandTypes.IfNoElseAfterAssign = new $$cts$$runtime.Brand();
@@ -20,17 +24,18 @@ $$cts$$brandTypes.SwitchAllCasesWriteNoDefault = new $$cts$$runtime.Brand();
 // For now, for non-concrete types, we simply test that there was no binding.
 // The file can be inspected manually, otherwise.
 var cts_test = require("./cts_test");
+var assert = require("assert");
 var BRANCH = parseInt(process.env.BRANCH, 10);
 describe("Branding semantics", function () {
     function WheresTheBeef() {
         var a = {  };
         $$cts$$runtime.protectAssignment(Number, "b", a, 0);$$cts$$runtime.brand($$cts$$brandTypes.BrandObjectLiteral2, a);
-        cts_test.assertType(a, "b", Number);$$cts$$runtime.brand($$cts$$brandTypes.BrandObjectLiteral2, a);
+        cts_test.assertType(a, "b", Number);
     }
     it("should bind object literal", function () {
         var a = {  };
         $$cts$$runtime.protectAssignment(Number, "b", a, 0);$$cts$$runtime.brand($$cts$$brandTypes.BrandObjectLiteral, a);
-        cts_test.assertType(a, "b", Number);$$cts$$runtime.brand($$cts$$brandTypes.BrandObjectLiteral, a);
+        cts_test.assertType(a, "b", Number);
     });
     it("should declare after scope break", function () {
         var leakedA;
@@ -61,7 +66,6 @@ describe("Branding semantics", function () {
             tester = function () { return cts_test.assertBranded(a); };
             cts_test.assertNotBranded(a);
             $$cts$$runtime.protectAssignment(Number, "b", a, 0);;$$cts$$runtime.brand($$cts$$brandTypes.FunctionExit, a);
-            $$cts$$runtime.brand($$cts$$brandTypes.FunctionExit, a);
         })();
         tester();
     });
@@ -76,6 +80,36 @@ describe("Branding semantics", function () {
         tester();
     });
 });
+describe("This branding semantics", function () {
+    it("should brand prototype object", function () {
+        /*this-branded*/function ShouldBrandProto() {$$cts$$runtime.cast($$cts$$brandTypes.ShouldBrandProto.prototype, Object.getPrototypeOf(this))
+            $$cts$$runtime.brand($$cts$$brandTypes.ShouldBrandProto, this);
+            cts_test.assertBranded(this);
+        }
+        $$cts$$runtime.protectProtoAssignment(Number, $$cts$$brandTypes.ShouldBrandProto.prototype, "x", ShouldBrandProto, 1);;$$cts$$runtime.brand($$cts$$brandTypes.ShouldBrandProto.prototype, ShouldBrandProto.prototype);
+        cts_test.assertBranded(ShouldBrandProto.prototype);
+        var val = new ShouldBrandProto();
+    });
+    it("should check prototype of this", function () {
+        /*this-branded*/function ShouldCheckThisProto() {$$cts$$runtime.cast($$cts$$brandTypes.ShouldCheckThisProto.prototype, Object.getPrototypeOf(this))
+            $$cts$$runtime.brand($$cts$$brandTypes.ShouldCheckThisProto, this);
+            cts_test.assertBranded(this);
+        }
+        $$cts$$runtime.protectProtoAssignment(Number, $$cts$$brandTypes.ShouldCheckThisProto.prototype, "x", ShouldCheckThisProto, 1);;$$cts$$runtime.brand($$cts$$brandTypes.ShouldCheckThisProto.prototype, ShouldCheckThisProto.prototype);
+        var failedLikeShould = true;
+        try {
+            ShouldCheckThisProto.call({});
+            failedLikeShould = false;
+        }
+        catch (err) {
+            // Should error
+            console.log("EXPECTED ERROR:");
+            console.log(err);
+            cts_test.assertBranded(ShouldCheckThisProto.prototype);
+        }
+        assert.ok(failedLikeShould);
+    });
+});
 describe("If statement runtime semantics", function () {
     it("branching", function () {
         var a = {};
@@ -87,7 +121,6 @@ describe("If statement runtime semantics", function () {
             $$cts$$runtime.protectAssignment((new $$cts$$runtime.UnionType(String, Number)), "b", a, "Hello");;
             cts_test.assertType(a, "b", [String, Number]);
         }$$cts$$runtime.brand($$cts$$brandTypes.IfBranch, a);
-        $$cts$$runtime.brand($$cts$$brandTypes.IfBranch, a);
     });
     it("no else clause ", function () {
         var a = {};
@@ -95,7 +128,6 @@ describe("If statement runtime semantics", function () {
             a.$$cts$$value$b = 1;
             cts_test.assertType(a, "b", null); // non-concrete
         }$$cts$$runtime.brand($$cts$$brandTypes.IfNoElse, a);
-        $$cts$$runtime.brand($$cts$$brandTypes.IfNoElse, a);
     });
     it("no else clause; after assignment", function () {
         var a = {};
@@ -105,7 +137,6 @@ describe("If statement runtime semantics", function () {
             $$cts$$runtime.protectAssignment((new $$cts$$runtime.UnionType(String, Number)), "b", a, "Hello");;
             cts_test.assertType(a, "b", [String, Number]);
         }$$cts$$runtime.brand($$cts$$brandTypes.IfNoElseAfterAssign, a);
-        $$cts$$runtime.brand($$cts$$brandTypes.IfNoElseAfterAssign, a);
     });
 });
 describe("Switch statement runtime semantics", function () {
@@ -121,7 +152,6 @@ describe("Switch statement runtime semantics", function () {
                 cts_test.assertType(a, "b", [String, Number]);
                 break;
         }$$cts$$runtime.brand($$cts$$brandTypes.SwitchAllCasesWrite, a);
-        $$cts$$runtime.brand($$cts$$brandTypes.SwitchAllCasesWrite, a);
     });
     it("one case writes", function () {
         var a = {};
@@ -134,7 +164,6 @@ describe("Switch statement runtime semantics", function () {
                 break;
         }$$cts$$runtime.brand($$cts$$brandTypes.SwitchOneCaseWrites, a);
         cts_test.assertType(a, "b", null); // non-concrete
-        $$cts$$runtime.brand($$cts$$brandTypes.SwitchOneCaseWrites, a);
     });
     it("all cases write; no default", function () {
         var a = {};
@@ -148,6 +177,5 @@ describe("Switch statement runtime semantics", function () {
         }$$cts$$runtime.brand($$cts$$brandTypes.SwitchAllCasesWriteNoDefault, a);
         // Default must be accounted for, causing an uncertain write.
         cts_test.assertType(a, "b", null); // non-concrete
-        $$cts$$runtime.brand($$cts$$brandTypes.SwitchAllCasesWriteNoDefault, a);
     });
 });

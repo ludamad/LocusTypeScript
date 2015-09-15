@@ -26,5 +26,5 @@ $$cts$$runtime.cementGlobal("Baz",Baz);$$cts$$runtime.brand($$cts$$brandTypes.Ba
 }
 $$cts$$runtime.cementGlobal("Bar",Bar);
 // Do we error if this assignment does not exist?
-Bar.prototype = Baz.prototype;
+Bar.prototype = Foo.prototype;
 $$cts$$runtime.protectProtoAssignment(Number, "z", Bar, 2);;$$cts$$runtime.brand($$cts$$brandTypes.Bar.prototype, Bar.prototype);

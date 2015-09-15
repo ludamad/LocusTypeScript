@@ -14,6 +14,6 @@ function Bar() {
     this.total = this.x + this.y + this.z;
 }
 // Do we error if this assignment does not exist?
-Bar.prototype = Baz.prototype;
+Bar.prototype = Foo.prototype;
 
 Bar.prototype.z = 2;
