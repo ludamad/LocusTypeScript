@@ -1,3 +1,5 @@
+/// <reference path="./ctsTypes.ts"/>
+
 namespace ts {
     export interface Map<T> {
         [index: string]: T;
@@ -20,6 +22,13 @@ namespace ts {
     // token > SyntaxKind.Identifer => token is a keyword
     // Also, If you add a new SyntaxKind be sure to keep the `Markers` section at the bottom in sync
     export const enum SyntaxKind {
+        // [ConcreteTypeScript]
+        FloatNumberKeyword,   // [ConcreteTypeScript]
+        LikeKeyword,          // [ConcreteTypeScript]
+        IntNumberKeyword,     // [ConcreteTypeScript]
+        BrandTypeDeclaration, // [ConcreteTypeScript]        
+        BrandProperty, // [ConcreteTypeScript]        
+        // [/ConcreteTypeScript]
         Unknown,
         EndOfFileToken,
         SingleLineCommentTrivia,
@@ -506,6 +515,8 @@ namespace ts {
         typeParameters?: NodeArray<TypeParameterDeclaration>;
         parameters: NodeArray<ParameterDeclaration>;
         type?: TypeNode;
+        // [ConcreteTypeScript] Add support for this types
+        thisType?: TypeNode;
     }
 
     // SyntaxKind.VariableDeclaration
@@ -639,6 +650,7 @@ namespace ts {
 
     export interface TypeNode extends Node {
         _typeNodeBrand: any;
+        brandTypeDeclaration: BrandTypeDeclaration;
     }
 
     export interface FunctionOrConstructorTypeNode extends TypeNode, SignatureDeclaration {
@@ -959,6 +971,7 @@ namespace ts {
 
     export interface ReturnStatement extends Statement {
         expression?: Expression;
+        breakingContainer?: Node;
     }
 
     export interface WithStatement extends Statement {
@@ -1610,6 +1623,9 @@ namespace ts {
         EnumMember              = 0x00000008,  // Enum member
         Function                = 0x00000010,  // Function
         Class                   = 0x00000020,  // Class
+        // [ConcreteTypeScript]
+        Brand                  = 0x80000000,  // Brand
+        // [/ConcreteTypeScript]
         Interface               = 0x00000040,  // Interface
         ConstEnum               = 0x00000080,  // Const enum
         RegularEnum             = 0x00000100,  // Enum

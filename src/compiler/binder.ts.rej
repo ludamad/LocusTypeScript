@@ -1,0 +1,66 @@
+--- src/compiler/binder.ts
++++ src/compiler/binder.ts
+@@ -2,6 +2,8 @@
+ /// <reference path="core.ts"/>
+ /// <reference path="scanner.ts"/>
+ /// <reference path="parser.ts"/>
++/// <reference path="flowAnalysis.ts"/>
++/// <reference path="brandTypeQueries.ts"/>
+ 
+ module ts {
+ 
+@@ -273,7 +276,11 @@ module ts {
+                 case SyntaxKind.FunctionDeclaration:
+                 case SyntaxKind.FunctionExpression:
+                 case SyntaxKind.ArrowFunction:
+-                    declareSymbol(container.locals, undefined, node, symbolKind, symbolExcludes);
++                    if (node.kind == SyntaxKind.BrandTypeDeclaration) {
++                        bindBrandTypeDeclaration(<BrandTypeDeclaration>node);
++                    } else {
++                        declareSymbol(container.locals, undefined, node, symbolKind, symbolExcludes);
++                    }
+                     break;
+                 case SyntaxKind.ClassDeclaration:
+                     if (node.flags & NodeFlags.Static) {
+@@ -451,6 +519,11 @@ module ts {
+                     bindDeclaration(<Declaration>node, SymbolFlags.FunctionScopedVariable, SymbolFlags.ParameterExcludes, /*isBlockScopeContainer*/ false);
+                     break;
+                 case SyntaxKind.VariableDeclaration:
++                    if ((<VariableDeclaration>node).name.text === "this") {
++                        var funcDecl = (<FunctionLikeDeclaration>getThisContainer(node, false));
++                        funcDecl.declaredTypeOfThis = (<VariableDeclaration>node).type;
++                        funcDecl.declaredTypeOfThis.brandTypeDeclaration.functionDeclaration = funcDecl;
++                    }
+                     if (node.flags & NodeFlags.BlockScoped) {
+                         bindBlockScopedVariableDeclaration(<Declaration>node);
+                     }
+@@ -552,7 +625,28 @@ module ts {
+                 case SyntaxKind.SwitchStatement:
+                     bindChildren(node, 0 , true);
+                     break;
+-
++            // TODO: un-clump these unrelated case statements:
++                case SyntaxKind.BreakStatement:
++                case SyntaxKind.ContinueStatement:
++                case SyntaxKind.ReturnStatement:
++                case SyntaxKind.TypeReference:
++                case SyntaxKind.BinaryExpression:
++                  if (node.kind === SyntaxKind.BreakStatement || node.kind === SyntaxKind.ContinueStatement || node.kind === SyntaxKind.ReturnStatement) {
++                     (<BreakOrContinueStatement>node).breakingContainer = findBreakingScope(node);
++                  }
++
++                  if (node.kind === SyntaxKind.TypeReference && (<TypeReferenceNode>node).brandTypeDeclaration) {
++                      bindDeclaration((<TypeReferenceNode>node).brandTypeDeclaration, SymbolFlags.Brand, SymbolFlags.BrandTypeExcludes, /*isBlockScopeContainer*/ false);
++                  }
++                  if (node.kind === SyntaxKind.BinaryExpression && (<BinaryExpression>node).operator === SyntaxKind.EqualsToken) {
++                      var binNode = <BinaryExpression> node;
++                      if (binNode.left.kind === SyntaxKind.PropertyAccessExpression) {
++                          // We have an expression of type <identifier>.<identifier> = <expression>.
++                          // Scan to see if we should bind symbols for brand types.
++                        //   bindPropertyAssignment(<PropertyAccessExpression> binNode.left, binNode.right);
++                      }
++                  }
++            // TODO: Refactor this fallthrough
+                 default:
+                     var saveParent = parent;
+                     parent = node;
