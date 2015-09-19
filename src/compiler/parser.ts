@@ -102,6 +102,7 @@ namespace ts {
                     visitNode(cbNode, (<FunctionLikeDeclaration>node).body);
             case SyntaxKind.TypeReference:
                 return visitNode(cbNode, (<TypeReferenceNode>node).typeName) ||
+                    visitNode(cbNode, (<TypeReferenceNode>node).brandTypeDeclaration) ||
                     visitNodes(cbNodes, (<TypeReferenceNode>node).typeArguments);
             case SyntaxKind.TypePredicate:
                 return visitNode(cbNode, (<TypePredicateNode>node).parameterName) ||
@@ -269,7 +270,7 @@ namespace ts {
             case SyntaxKind.EnumDeclaration:
                 return visitNodes(cbNodes, node.decorators) ||
                     visitNodes(cbNodes, node.modifiers) ||
-                    visitNode(cbNode, (<EnumDeclaration>node).name) ||
+                    visitNode(cbNode, (<EnumDeclaration>node).name)  ||
                     visitNodes(cbNodes, (<EnumDeclaration>node).members);
             case SyntaxKind.EnumMember:
                 return visitNode(cbNode, (<EnumMember>node).name) ||
@@ -390,9 +391,14 @@ namespace ts {
         }
     }
 
-    export function createSourceFile(fileName: string, sourceText: string, languageVersion: ScriptTarget, setParentNodes = false): SourceFile {
+    // [ConcreteTypeScript] hack
+    var options:CompilerOptions;
+    export function createSourceFile(fileName: string, sourceText: string, languageVersion: ScriptTarget, _options: CompilerOptions /* [ConcreteTypeScript] */, setParentNodes = false): SourceFile {
         let start = new Date().getTime();
-        let result = Parser.parseSourceFile(fileName, sourceText, languageVersion, /*syntaxCursor*/ undefined, setParentNodes);
+        let result:SourceFile = Parser.parseSourceFile(fileName, sourceText, languageVersion, /*syntaxCursor*/ undefined, setParentNodes);
+        result.compilerOptions = _options;
+        // [ConcreteTypeScript] hack
+        options = _options;
 
         parseTime += new Date().getTime() - start;
         return result;
@@ -425,7 +431,7 @@ namespace ts {
     // Implement the parser as a singleton module.  We do this for perf reasons because creating
     // parser instances can actually be expensive enough to impact us on projects with many source
     // files.
-    module Parser {
+    export module Parser {
         // Share a single scanner across all calls to parse a source file.  This helps speed things
         // up by avoiding the cost of creating/compiling scanners over and over again.
         const scanner = createScanner(ScriptTarget.Latest, /*skipTrivia*/ true);
@@ -649,6 +655,12 @@ namespace ts {
                 }
             }
         }
+        
+
+        // [ConcreteTypeScript] TODO rethinking after refactoring to 1.6
+        export function concreteTypeScriptHackSetCompilerOptions(_options) {
+            options = _options;
+        }
 
         function createSourceFile(fileName: string, languageVersion: ScriptTarget): SourceFile {
             let sourceFile = <SourceFile>createNode(SyntaxKind.SourceFile, /*pos*/ 0);
@@ -796,6 +808,7 @@ namespace ts {
         }
 
         function parseErrorAtPosition(start: number, length: number, message: DiagnosticMessage, arg0?: any): void {
+                            // throw new Error(JSON.stringify(createFileDiagnostic(sourceFile, start, length, message, arg0).messageText))
             // Don't report another error if it would just be at the same position as the last error.
             let lastError = lastOrUndefined(parseDiagnostics);
             if (!lastError || start !== lastError.start) {
@@ -1197,7 +1210,7 @@ namespace ts {
                         return isIdentifier() && !isHeritageClauseExtendsOrImplementsKeyword();
                     }
                 case ParsingContext.VariableDeclarations:
-                    return isIdentifierOrPattern();
+                    return isIdentifierOrPattern() || token === SyntaxKind.ThisKeyword;
                 case ParsingContext.ArrayBindingElements:
                     return token === SyntaxKind.CommaToken || token === SyntaxKind.DotDotDotToken || isIdentifierOrPattern();
                 case ParsingContext.TypeParameters:
@@ -1721,7 +1734,7 @@ namespace ts {
             let result = <NodeArray<T>>[];
             result.pos = getNodePos();
 
-            let commaStart = -1; // Meaning the previous token was not a comma
+            let commaStart:number = -1; // Meaning the previous token was not a comma
             while (true) {
                 if (isListElement(kind, /* inErrorRecovery */ false)) {
                     result.push(parseListElement(kind, parseElement));
@@ -1911,7 +1924,7 @@ namespace ts {
 
         // TYPES
 
-        function parseTypeReferenceOrTypePredicate(): TypeReferenceNode | TypePredicateNode {
+        function parseTypeReferenceOrTypePredicate(specifiedConcrete?: boolean, isConcrete?: boolean /* [ConcreteTypeScript] */): TypeReferenceNode | TypePredicateNode {
             let typeName = parseEntityName(/*allowReservedWords*/ false, Diagnostics.Type_expected);
             if (typeName.kind === SyntaxKind.Identifier && token === SyntaxKind.IsKeyword && !scanner.hasPrecedingLineBreak()) {
                 nextToken();
@@ -1921,6 +1934,8 @@ namespace ts {
                 return finishNode(node);
             }
             let node = <TypeReferenceNode>createNode(SyntaxKind.TypeReference, typeName.pos);
+            node.specifiedConcrete = !!specifiedConcrete;
+            node.isConcrete = !!isConcrete;
             node.typeName = typeName;
             if (!scanner.hasPrecedingLineBreak() && token === SyntaxKind.LessThanToken) {
                 node.typeArguments = parseBracketedList(ParsingContext.TypeArguments, parseType, SyntaxKind.LessThanToken, SyntaxKind.GreaterThanToken);
@@ -1928,6 +1943,24 @@ namespace ts {
             return finishNode(node);
         }
 
+        // [ConcreteTypeScript]
+        function parseBrandType(specifiedConcrete?: boolean, isConcrete?: boolean): TypeReferenceNode {
+              // For use in binder:
+              var declNode = <BrandTypeDeclaration>createNode(SyntaxKind.BrandTypeDeclaration);
+              nextToken();
+              // TODO consider interaction with generics
+              var node = <TypeReferenceNode>parseTypeReferenceOrTypePredicate(specifiedConcrete, isConcrete);              Debug.assert(node.kind !== SyntaxKind.TypePredicate);
+              node.brandTypeDeclaration = declNode; 
+              declNode.name = <Identifier>node.typeName;
+              declNode.parent = node;
+              if (token === SyntaxKind.ExtendsKeyword) {
+                  nextToken();
+                  declNode.extendedType = parseType();
+              }              finishNode(declNode);
+              return node;
+
+        }
+ 
         function parseTypeQuery(): TypeQueryNode {
             let node = <TypeQueryNode>createNode(SyntaxKind.TypeQuery);
             parseExpected(SyntaxKind.TypeOfKeyword);
@@ -2350,42 +2383,80 @@ namespace ts {
         }
 
         function parseNonArrayType(): TypeNode {
-            switch (token) {
-                case SyntaxKind.AnyKeyword:
-                case SyntaxKind.StringKeyword:
-                case SyntaxKind.NumberKeyword:
-                case SyntaxKind.BooleanKeyword:
-                case SyntaxKind.SymbolKeyword:
-                    // If these are followed by a dot, then parse these out as a dotted type reference instead.
-                    let node = tryParse(parseKeywordAndNoDot);
-                    return node || parseTypeReferenceOrTypePredicate();
-                case SyntaxKind.VoidKeyword:
-                    return parseTokenNode<TypeNode>();
-                case SyntaxKind.TypeOfKeyword:
-                    return parseTypeQuery();
-                case SyntaxKind.OpenBraceToken:
-                    return parseTypeLiteral();
-                case SyntaxKind.OpenBracketToken:
-                    return parseTupleType();
-                case SyntaxKind.OpenParenToken:
-                    return parseParenthesizedType();
-                default:
-                    return parseTypeReferenceOrTypePredicate();
-            }
-        }
+            var specifiedConcrete: boolean = false; // [ConcreteTypeScript]            var isConcrete: boolean = !!options.defaultConcrete; // [ConcreteTypeScript]
+            while (1) { // [ConcreteTypeScript] to accept concrete/deconcrete
+                switch (token) {
+                    // [ConcreteTypeScript] Specifications for concreteness                    case SyntaxKind.ExclamationToken:
+                    case SyntaxKind.LikeKeyword:
+                        if (specifiedConcrete) return undefined; // FIXME
+                        specifiedConcrete = true;
+                        isConcrete = (token === SyntaxKind.ExclamationToken);
+                        break;
+                        nextToken();
+                    // [/ConcreteTypeScript]
+
+                    case SyntaxKind.NullKeyword: // [ConcreteTypeScript] Let 'null' be a concrete type
+                    case SyntaxKind.FloatNumberKeyword: // [ConcreteTypeScript]
+                    case SyntaxKind.IntNumberKeyword: // [ConcreteTypeScript]
+                    case SyntaxKind.AnyKeyword:
+                    case SyntaxKind.StringKeyword:
+                    case SyntaxKind.NumberKeyword:
+                    case SyntaxKind.BooleanKeyword:
+                    case SyntaxKind.SymbolKeyword:
+                        // If these are followed by a dot, then parse these out as a dotted type reference instead.
+                        var node = tryParse(parseKeywordAndNoDot);
+                        // [ConcreteTypeScript] Copy over concreteness
+                        if (node) {
+                            node.specifiedConcrete = specifiedConcrete;
+                            node.isConcrete = isConcrete;
+                        }
+                        // [/ConcreteTypeScript]
+                        return node || parseTypeReferenceOrTypePredicate(specifiedConcrete, isConcrete /* [ConcreteTypeScript] */);
+     
+                    case SyntaxKind.VoidKeyword:
+                        return parseTokenNode<TypeNode>();
+                    case SyntaxKind.TypeOfKeyword:
+                        return parseTypeQuery();
+                    case SyntaxKind.OpenBraceToken:
+                        return parseTypeLiteral();
+                    case SyntaxKind.OpenBracketToken:
+                        return parseTupleType();
+                    case SyntaxKind.OpenParenToken:
+                        return parseParenthesizedType();
+                    case SyntaxKind.DeclareKeyword:                        return parseBrandType(specifiedConcrete, isConcrete);
+                    // [ConcreteTypeScript] hackishly handle undefined as a type
+                    case SyntaxKind.Identifier:
+                        if (scanner.getTokenValue() === "undefined") {
+                            var node = tryParse(parseKeywordAndNoDot);
+                            if (node) {
+                                node.kind = SyntaxKind.UndefinedKeyword;
+                            }
+                        }
+                        // [ConcreteTypeScript] Copy over concreteness
+                        if (node) {
+                            node.specifiedConcrete = specifiedConcrete;
+                            node.isConcrete = isConcrete;
+                        }
+                        // [/ConcreteTypeScript]
+                        return node || parseTypeReferenceOrTypePredicate(specifiedConcrete, isConcrete /* [ConcreteTypeScript] */);
+                    default:
+                        return parseTypeReferenceOrTypePredicate(specifiedConcrete, isConcrete /* [ConcreteTypeScript] */);                }            }        }
 
         function isStartOfType(): boolean {
             switch (token) {
+                case SyntaxKind.ExclamationToken: // [ConcreteTypeScript]
                 case SyntaxKind.AnyKeyword:
                 case SyntaxKind.StringKeyword:
                 case SyntaxKind.NumberKeyword:
+                case SyntaxKind.FloatNumberKeyword: // [ConcreteTypeScript]
+                case SyntaxKind.IntNumberKeyword: // [ConcreteTypeScript]
                 case SyntaxKind.BooleanKeyword:
                 case SyntaxKind.SymbolKeyword:
                 case SyntaxKind.VoidKeyword:
                 case SyntaxKind.TypeOfKeyword:
                 case SyntaxKind.OpenBraceToken:
-                case SyntaxKind.OpenBracketToken:
                 case SyntaxKind.LessThanToken:
+                case SyntaxKind.OpenBracketToken:
                 case SyntaxKind.NewKeyword:
                     return true;
                 case SyntaxKind.OpenParenToken:
@@ -2488,6 +2559,9 @@ namespace ts {
             if (token === SyntaxKind.NewKeyword) {
                 return parseFunctionOrConstructorType(SyntaxKind.ConstructorType);
             }
+            if (token === SyntaxKind.DeclareKeyword) {
+               return parseBrandType();
+            }  
             return parseUnionTypeOrHigher();
         }
 
@@ -4182,6 +4256,10 @@ namespace ts {
                     case SyntaxKind.AbstractKeyword:
                         nextToken();
                         continue;
+
+                    // TODO
+                    //case SyntaxKind.DeclareKeyword:
+                    //    return lookAhead(nextTokenIsIdentifierOrKeywordOrDeclarationStart);
                     default:
                         return false;
                 }
@@ -4323,6 +4401,7 @@ namespace ts {
                         return parseDeclaration();
                     }
                     break;
+
             }
             return parseExpressionOrLabeledStatement();
         }
@@ -4342,6 +4421,8 @@ namespace ts {
                     return parseClassDeclaration(fullStart, decorators, modifiers);
                 case SyntaxKind.InterfaceKeyword:
                     return parseInterfaceDeclaration(fullStart, decorators, modifiers);
+                case SyntaxKind.DeclareKeyword:
+                    return parseBrandTypeDeclaration(fullStart, modifiers);
                 case SyntaxKind.TypeKeyword:
                     return parseTypeAliasDeclaration(fullStart, decorators, modifiers);
                 case SyntaxKind.EnumKeyword:
@@ -4367,6 +4448,10 @@ namespace ts {
                         return finishNode(node);
                     }
             }
+        }
+        function nextTokenIsIdentifierOrKeywordOrDeclarationStart() {
+            nextToken();
+            return tokenIsIdentifierOrKeyword(token) || isStartOfDeclaration();
         }
 
         function nextTokenIsIdentifierOrStringLiteralOnSameLine() {
@@ -4445,6 +4530,19 @@ namespace ts {
 
         function parseVariableDeclaration(): VariableDeclaration {
             let node = <VariableDeclaration>createNode(SyntaxKind.VariableDeclaration);
+            // [ConcreteTypeScript] HACK: name.text === undefined signifies a 'this' type declaration.
+            if (token !== SyntaxKind.ThisKeyword) {                node.name = parseIdentifierOrPattern();
+            } else {
+                node.name = createIdentifier(/*is identifier: */ true);
+            }
+            node.type = parseTypeAnnotation();
+            if (!isInOrOfKeyword(token)) {
+                node.initializer = parseInitializer(/*inParameter*/ false);
+            }
+ 
+            return finishNode(node);        }
+
+        function parseVarThisDeclaration(): VariableDeclaration {            var node = <VariableDeclaration>createNode(SyntaxKind.VariableDeclaration);
             node.name = parseIdentifierOrPattern();
             node.type = parseTypeAnnotation();
             if (!isInOrOfKeyword(token)) {
@@ -4453,9 +4551,19 @@ namespace ts {
             return finishNode(node);
         }
 
+        function parseBrandTypeDeclaration(fullStart: number, modifiers: ModifiersArray): BrandTypeDeclaration {            var node = <BrandTypeDeclaration>createNode(SyntaxKind.BrandTypeDeclaration, fullStart);
+            setModifiers(node, modifiers);
+            parseExpected(SyntaxKind.DeclareKeyword);
+            node.name = parseIdentifier();
+            if (token === SyntaxKind.ExtendsKeyword) {
+                nextToken();
+                node.extendedType = parseType();
+            }
+            return finishNode(node);
+        }
+
         function parseVariableDeclarationList(inForStatementInitializer: boolean): VariableDeclarationList {
             let node = <VariableDeclarationList>createNode(SyntaxKind.VariableDeclarationList);
-
             switch (token) {
                 case SyntaxKind.VarKeyword:
                     break;
@@ -5945,7 +6053,7 @@ namespace ts {
         }
     }
 
-    module IncrementalParser {
+    export module IncrementalParser {
         export function updateSourceFile(sourceFile: SourceFile, newText: string, textChangeRange: TextChangeRange, aggressiveChecks: boolean): SourceFile {
             aggressiveChecks = aggressiveChecks || Debug.shouldAssert(AssertionLevel.Aggressive);
 
@@ -6387,7 +6495,7 @@ namespace ts {
             }
         }
 
-        interface IncrementalElement extends TextRange {
+        export interface IncrementalElement extends TextRange {
             parent?: Node;
             intersectsChange: boolean;
             length?: number;

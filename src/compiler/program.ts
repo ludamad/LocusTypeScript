@@ -1,4 +1,5 @@
 /// <reference path="sys.ts" />
+/// <reference path="parser.ts" />
 /// <reference path="emitter.ts" />
 /// <reference path="core.ts" />
 
@@ -240,7 +241,7 @@ namespace ts {
                 text = "";
             }
 
-            return text !== undefined ? createSourceFile(fileName, text, languageVersion, setParentNodes) : undefined;
+            return text !== undefined ? createSourceFile(fileName, text, languageVersion, options /* [ConcreteTypeScript] */, setParentNodes) : undefined;
         }
 
         function directoryExists(directoryPath: string): boolean {
@@ -334,6 +335,7 @@ namespace ts {
     export function createProgram(rootNames: string[], options: CompilerOptions, host?: CompilerHost, oldProgram?: Program): Program {
         let program: Program;
         let files: SourceFile[] = [];
+        Parser.concreteTypeScriptHackSetCompilerOptions(options);
         let fileProcessingDiagnostics = createDiagnosticCollection();
         let programDiagnostics = createDiagnosticCollection();
 

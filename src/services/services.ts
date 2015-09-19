@@ -778,6 +778,7 @@ namespace ts {
         public text: string;
         public scriptSnapshot: IScriptSnapshot;
         public lineMap: number[];
+        public compilerOptions:CompilerOptions;
 
         public statements: NodeArray<Statement>;
         public endOfFileToken: Node;
@@ -1852,7 +1853,7 @@ namespace ts {
 
         // Parse
         let inputFileName = transpileOptions.fileName || "module.ts";
-        let sourceFile = createSourceFile(inputFileName, input, options.target);
+        let sourceFile = createSourceFile(inputFileName, input, options.target, options);
         if (transpileOptions.moduleName) {
             sourceFile.moduleName = transpileOptions.moduleName;
         }
@@ -1912,9 +1913,9 @@ namespace ts {
         return output.outputText;
     }
 
-    export function createLanguageServiceSourceFile(fileName: string, scriptSnapshot: IScriptSnapshot, scriptTarget: ScriptTarget, version: string, setNodeParents: boolean): SourceFile {
+    export function createLanguageServiceSourceFile(fileName: string, scriptSnapshot: IScriptSnapshot, scriptTarget: ScriptTarget, version: string, setNodeParents: boolean, options?: CompilerOptions): SourceFile {
         let text = scriptSnapshot.getText(0, scriptSnapshot.getLength());
-        let sourceFile = createSourceFile(fileName, text, scriptTarget, setNodeParents);
+        let sourceFile = createSourceFile(fileName, text, scriptTarget, options, setNodeParents);
         setSourceFileFields(sourceFile, scriptSnapshot, version);
         // after full parsing we can use table with interned strings as name table
         sourceFile.nameTable = sourceFile.identifiers;
@@ -1978,7 +1979,7 @@ namespace ts {
         }
 
         // Otherwise, just create a new source file.
-        return createLanguageServiceSourceFile(sourceFile.fileName, scriptSnapshot, sourceFile.languageVersion, version, /*setNodeParents:*/ true);
+        return createLanguageServiceSourceFile(sourceFile.fileName, scriptSnapshot, sourceFile.languageVersion, version, /*setNodeParents:*/ true, sourceFile.compilerOptions);
     }
 
     export function createGetCanonicalFileName(useCaseSensitivefileNames: boolean): (fileName: string) => string {

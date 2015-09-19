@@ -611,18 +611,18 @@ module ts {
         // Set the binding assignments for each property:
         forEach(brandTypeBinder.props, (brandPropDecl:BrandPropertyDeclaration) => {
             var name = (<Identifier>brandPropDecl.name).text;
-            var assignments = assignmentResults.get(brandTypeBinder.getPropId(name));
-            if (assignments == null) {console.log((<any>assignmentResults).assignmentSets); throw new Error("WWWEEERE");}
-            brandPropDecl.bindingAssignments = assignments;
+            var flowTypeAnalysis:FlowTypeAnalysis = assignmentResults.get(brandTypeBinder.getPropId(name));                
+            Debug.assert(!!flowTypeAnalysis)
+            nodeToFlowTypeAnalysis.set(brandPropDecl, flowTypeAnalysis);
         });
         
         // Set the binding assignments for each prototype property:
         if (brandTypeDecl.prototypeBrandDeclaration) {
             forEach(brandTypeBinder.protoProps, (brandPropDecl:BrandPropertyDeclaration) => {
                 var name = (<Identifier>brandPropDecl.name).text;
-                var assignments = assignmentResults.get(brandTypeBinder.getProtoPropId(name));
-                if (assignments == null) {console.log((<any>assignmentResults).assignmentSets); throw new Error("WWWEEERE");}
-                brandPropDecl.bindingAssignments = assignments;
+                var flowTypeAnalysis:FlowTypeAnalysis = assignmentResults.get(brandTypeBinder.getProtoPropId(name));
+                Debug.assert(!!flowTypeAnalysis)
+                nodeToFlowTypeAnalysis.set(brandPropDecl, flowTypeAnalysis);
             });
         }
     }

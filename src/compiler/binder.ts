@@ -1,4 +1,6 @@
 /// <reference path="parser.ts"/>
+/// <reference path="brandTypeQueries.ts"/>
+/// <reference path="flowAnalysis.ts"/>
 
 /* @internal */
 namespace ts {
@@ -412,7 +414,7 @@ namespace ts {
                 parent = parent.parent;
             }
             node.variableDeclaration = <VariableDeclaration>parent;
-            if (!node.variableDeclaration.name || node.variableDeclaration.name.text === "this") {
+            if (!node.variableDeclaration.name || (<Identifier>node.variableDeclaration.name).text === "this") {
                 // Create the prototype brand type:
                 var proto = <BrandTypeDeclaration> new (objectAllocator.getNodeConstructor(SyntaxKind.BrandTypeDeclaration))();
                 proto.name = <Identifier> new (objectAllocator.getNodeConstructor(SyntaxKind.Identifier))();
@@ -518,7 +520,12 @@ namespace ts {
                     // their container in the tree.  To accomplish this, we simply add their declared
                     // symbol to the 'locals' of the container.  These symbols can then be found as
                     // the type checker walks up the containers, checking them for matching names.
-                    return declareSymbol(container.locals, undefined, node, symbolFlags, symbolExcludes);
+                    
+                    if (node.kind == SyntaxKind.BrandTypeDeclaration) {
+                        bindBrandTypeDeclaration(<BrandTypeDeclaration>node);
+                    } else {
+                        return declareSymbol(container.locals, undefined, node, symbolFlags, symbolExcludes);
+                    }
             }
         }
 

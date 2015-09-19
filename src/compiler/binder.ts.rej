@@ -1,26 +1,3 @@
---- src/compiler/binder.ts
-+++ src/compiler/binder.ts
-@@ -2,6 +2,8 @@
- /// <reference path="core.ts"/>
- /// <reference path="scanner.ts"/>
- /// <reference path="parser.ts"/>
-+/// <reference path="flowAnalysis.ts"/>
-+/// <reference path="brandTypeQueries.ts"/>
- 
- module ts {
- 
-@@ -273,7 +276,11 @@ module ts {
-                 case SyntaxKind.FunctionDeclaration:
-                 case SyntaxKind.FunctionExpression:
-                 case SyntaxKind.ArrowFunction:
--                    declareSymbol(container.locals, undefined, node, symbolKind, symbolExcludes);
-+                    if (node.kind == SyntaxKind.BrandTypeDeclaration) {
-+                        bindBrandTypeDeclaration(<BrandTypeDeclaration>node);
-+                    } else {
-+                        declareSymbol(container.locals, undefined, node, symbolKind, symbolExcludes);
-+                    }
-                     break;
-                 case SyntaxKind.ClassDeclaration:
                      if (node.flags & NodeFlags.Static) {
 @@ -451,6 +519,11 @@ module ts {
                      bindDeclaration(<Declaration>node, SymbolFlags.FunctionScopedVariable, SymbolFlags.ParameterExcludes, /*isBlockScopeContainer*/ false);
