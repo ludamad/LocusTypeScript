@@ -72,6 +72,7 @@ namespace ts {
         "extends": SyntaxKind.ExtendsKeyword,
         "false": SyntaxKind.FalseKeyword,
         "finally": SyntaxKind.FinallyKeyword,
+        "floatNumber": SyntaxKind.FloatNumberKeyword, // [ConcreteTypeScript]
         "for": SyntaxKind.ForKeyword,
         "from": SyntaxKind.FromKeyword,
         "function": SyntaxKind.FunctionKeyword,
@@ -82,8 +83,10 @@ namespace ts {
         "in": SyntaxKind.InKeyword,
         "instanceof": SyntaxKind.InstanceOfKeyword,
         "interface": SyntaxKind.InterfaceKeyword,
+        "intNumber": SyntaxKind.IntNumberKeyword,
         "is": SyntaxKind.IsKeyword,
         "let": SyntaxKind.LetKeyword,
+        "like": SyntaxKind.LikeKeyword,
         "module": SyntaxKind.ModuleKeyword,
         "namespace": SyntaxKind.NamespaceKeyword,
         "new": SyntaxKind.NewKeyword,
