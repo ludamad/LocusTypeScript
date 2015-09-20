@@ -10425,7 +10425,7 @@ namespace ts {
                         let leftOk = checkArithmeticOperandType(node.left, leftType, Diagnostics.The_left_hand_side_of_an_arithmetic_operation_must_be_of_type_any_number_or_an_enum_type);
                         let rightOk = checkArithmeticOperandType(node.right, rightType, Diagnostics.The_right_hand_side_of_an_arithmetic_operation_must_be_of_type_any_number_or_an_enum_type);
                         if (leftOk && rightOk) {
-                            checkAssignmentOperator(numberType);
++                            checkAssignmentOperator(createConcreteType(numberType)); // [ConcreteTypeScript] Result is concrete
                         }
                     }
 
@@ -10784,7 +10784,7 @@ namespace ts {
         function checkNumericLiteral(node: LiteralExpression): Type {
             // Grammar checking
             checkGrammarNumericLiteral(node);
-            return numberType;
+            return createConcreteType(numberType); // [ConcreteTypeScript]
         }
 
         function checkExpressionWorker(node: Expression, contextualMapper: TypeMapper): Type {
@@ -10799,14 +10799,14 @@ namespace ts {
                     return nullType;
                 case SyntaxKind.TrueKeyword:
                 case SyntaxKind.FalseKeyword:
-                    return booleanType;
+                    return createConcreteType(booleanType); // [ConcreteTypeScript]
                 case SyntaxKind.NumericLiteral:
                     return checkNumericLiteral(<LiteralExpression>node);
                 case SyntaxKind.TemplateExpression:
                     return checkTemplateExpression(<TemplateExpression>node);
                 case SyntaxKind.StringLiteral:
                 case SyntaxKind.NoSubstitutionTemplateLiteral:
-                    return stringType;
+                    return createConcreteType(stringType); // [ConcreteTypeScript]
                 case SyntaxKind.RegularExpressionLiteral:
                     return globalRegExpType;
                 case SyntaxKind.ArrayLiteralExpression:
@@ -11297,6 +11297,17 @@ namespace ts {
         function checkTypeReferenceNode(node: TypeReferenceNode | ExpressionWithTypeArguments) {
             checkGrammarTypeArguments(node, node.typeArguments);
             let type = getTypeFromTypeReference(node);
+            // [ConcreteTypeScript]
+            if (node.brandTypeDeclaration) {
+                for (var bdecl of [node.brandTypeDeclaration, node.brandTypeDeclaration.prototypeBrandDeclaration]) {
+                    if (bdecl)
+                    forEach(Object.keys(bdecl.symbol.members), (key) => {
+                        // Make sure resolvedType is set for emit
+                        getTypeOfBrandProperty(<BrandPropertyDeclaration> getSymbolDecl(bdecl.symbol.members[key], SyntaxKind.BrandProperty))
+                    });
+                });
+            }
+ 
             if (type !== unknownType && node.typeArguments) {
                 // Do type argument local checks only if referenced type is successfully resolved
                 forEach(node.typeArguments, checkSourceElement);
@@ -12457,6 +12468,33 @@ namespace ts {
                 // Node is the primary declaration of the symbol, just validate the initializer
                 if (node.initializer) {
                     checkTypeAssignableTo(checkExpressionCached(node.initializer), type, node, /*headMessage*/ undefined);
+                    let brandTypeDecl:BrandTypeDeclaration = null;
+                    if (node.type && node.kind == SyntaxKind.VariableDeclaration) {
+                        brandTypeDecl = (<VariableDeclaration>node).type.brandTypeDeclaration;
+                    }
+                    // Brand type declarations get a free pass
+                    if (brandTypeDecl) {
+                        if (brandTypeDecl.extendedType) {
+                            // Use default messages
+                            let extendedType:Type = getTypeFromTypeNode(brandTypeDecl.extendedType);
+                            if (!(extendedType.flags & TypeFlags.Concrete)) {
+                                extendedType = createConcreteType(extendedType);
+                            }
+                            checkTypeAssignableTo(checkExpressionCached(node.initializer), extendedType, node, /*headMessage*/ undefined);
+    
+                            // [ConcreteTypeScript]
+                            let initType =checkExpressionCached((node.initializer); // FIXME: rechecking
+                            checkCTSCoercion(node.initializer, initType, type);
+                            // [/ConcreteTypeScript]
+                        }
+                    } else {
+                        // Use default messages
+                        checkTypeAssignableTo(checkExpressionCached(node.initializer), type, node, /*headMessage*/ undefined);
+                        // [ConcreteTypeScript]
+                        let initType =checkExpressionCached(node.initializer); // FIXME: rechecking
+                        checkCTSCoercion(node.initializer, initType, type);
+                        // [/ConcreteTypeScript]
+                    }
                     checkParameterInitializer(node);
                 }
             }
@@ -13282,7 +13320,7 @@ namespace ts {
                         let t = getTypeFromTypeNode(typeRefNode);
                         if (t !== unknownType) {
                             let declaredType = (t.flags & TypeFlags.Reference) ? (<TypeReference>t).target : t;
-                            if (declaredType.flags & (TypeFlags.Class | TypeFlags.Interface)) {
+                            if (declaredType.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Brand)) {
                                 checkTypeAssignableTo(type, t, node.name || node, Diagnostics.Class_0_incorrectly_implements_interface_1);
                             }
                             else {
@@ -14513,6 +14551,20 @@ namespace ts {
                                 copySymbol(location.symbol, meaning);
                             }
                             break;
+                    // TODO Remove this post refactor
+                    // case SyntaxKind.FunctionType:
+                    // case SyntaxKind.ConstructorType:
+                    // case SyntaxKind.CallSignature:
+                    // case SyntaxKind.ConstructSignature:
+                    // case SyntaxKind.IndexSignature:
+                    // case SyntaxKind.Method:
+                    // case SyntaxKind.Constructor:
+                    // case SyntaxKind.GetAccessor:
+                    // case SyntaxKind.SetAccessor:
+                    // case SyntaxKind.FunctionDeclaration:
+                    // case SyntaxKind.ArrowFunction:
+                    //     copySymbols(getSymbolOfNode(location).exports, meaning & SymbolFlags.Brand);
+                    //     break;
                     }
                     
                     if (introducesArgumentsExoticObject(location)) {
