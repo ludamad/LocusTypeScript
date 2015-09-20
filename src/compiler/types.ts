@@ -1855,7 +1855,16 @@ namespace ts {
         /* @internal */
         ContainsAnyFunctionType = 0x00800000,  // Type is or contains object literal type
         ESSymbol                = 0x01000000,  // Type of symbol primitive introduced in ES6
-        Brand                   = 0x02000000,  // [ConcreteTypeScript] brand type
+        // [ConcreteTypeScript]
+        // Flag for concrete types, which wrap their non-concrete base types
+        Concrete                = 0x10000000,
+        // Flag for the floating-point hint
+        FloatHint               = 0x20000000,
+        // Flag for the int hint
+        IntHint                 = 0x40000000,
+        // Object brand, nominal typing stemming from a code location
+        Brand                   = 0x80000000,
+        // [/ConcreteTypeScript]
 
         /* @internal */
         Intrinsic = Any | String | Number | Boolean | ESSymbol | Void | Undefined | Null,
@@ -1864,6 +1873,7 @@ namespace ts {
         StringLike = String | StringLiteral,
         NumberLike = Number | Enum,
         ObjectType = Class | Brand |  Interface | Reference | Tuple | Anonymous,
+        RuntimeCheckable = Intrinsic  | StringLiteral | Class | Brand, // TODO Rename to RuntimeCheckablePrimitive
         UnionOrIntersection = Union | Intersection,
         StructuredType = ObjectType | Union | Intersection,
         /* @internal */
@@ -1880,6 +1890,7 @@ namespace ts {
         /* @internal */ id: number;      // Unique ID
         symbol?: Symbol;                 // Symbol associated with type (if any)
         pattern?: DestructuringPattern;  // Destructuring pattern represented by type (if any)
+        concreteType?: ConcreteType;
     }
 
     /* @internal */
@@ -1927,6 +1938,17 @@ namespace ts {
         baseType: IntrinsicType | ObjectType | UnionType;
     }
 
+    // [ConcreteTypeScript] Brand types
+    export interface BrandType extends Type {
+        //TODO: Use this field
+        monomorphicProperties: Symbol[];  // Which fields are guaranteed to be in a fixed place in the object?
+    }
+
+    // [ConcreteTypeScript] Concrete types
+    export interface ConcreteType extends Type {
+        baseType: IntrinsicType | ObjectType | UnionType;
+    }
+ 
     // Type references (TypeFlags.Reference)
     export interface TypeReference extends ObjectType {
         target: GenericType;    // Type reference target
@@ -1934,6 +1956,7 @@ namespace ts {
     }
 
     // Generic class and interface types
+    // Brand types too (TypeFlags.Brand) // [ConcreteTypeScript]
     export interface GenericType extends InterfaceType, TypeReference {
         /* @internal */
         instantiations: Map<TypeReference>;   // Generic instantiation cache
