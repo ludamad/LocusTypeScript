@@ -778,6 +778,7 @@ namespace ts {
                     if (!includeFunctions) {
                         continue;
                     }
+                case SyntaxKind.BrandPropery:
                 case SyntaxKind.PropertyDeclaration:
                 case SyntaxKind.PropertySignature:
                 case SyntaxKind.MethodDeclaration:

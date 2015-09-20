@@ -811,9 +811,12 @@ namespace ts {
                             // throw new Error(JSON.stringify(createFileDiagnostic(sourceFile, start, length, message, arg0).messageText))
             // Don't report another error if it would just be at the same position as the last error.
             let lastError = lastOrUndefined(parseDiagnostics);
+            // throw new Error(JSON.stringify([start, length, createFileDiagnostic(sourceFile, start, length, message, arg0).messageText]));
             if (!lastError || start !== lastError.start) {
                 parseDiagnostics.push(createFileDiagnostic(sourceFile, start, length, message, arg0));
             }
+            
+            console.log((<any>new Error()).stack);
 
             // Mark that we've encountered an error.  We'll set an appropriate bit on the next
             // node we finish so that it can't be reused incrementally.
@@ -2387,14 +2390,14 @@ namespace ts {
             while (1) { // [ConcreteTypeScript] to accept concrete/deconcrete
                 switch (token) {
                     // [ConcreteTypeScript] Specifications for concreteness                    case SyntaxKind.ExclamationToken:
+                        console.log("BEE")
                     case SyntaxKind.LikeKeyword:
+                        nextToken();
                         if (specifiedConcrete) return undefined; // FIXME
                         specifiedConcrete = true;
                         isConcrete = (token === SyntaxKind.ExclamationToken);
                         break;
-                        nextToken();
                     // [/ConcreteTypeScript]
-
                     case SyntaxKind.NullKeyword: // [ConcreteTypeScript] Let 'null' be a concrete type
                     case SyntaxKind.FloatNumberKeyword: // [ConcreteTypeScript]
                     case SyntaxKind.IntNumberKeyword: // [ConcreteTypeScript]
@@ -2444,7 +2447,7 @@ namespace ts {
 
         function isStartOfType(): boolean {
             switch (token) {
-                case SyntaxKind.ExclamationToken: // [ConcreteTypeScript]
+                case SyntaxKind.ExclamationToken: // [ConcreteTypeScript]                    console.log("START OF TYPE BRAH")                    return lookAhead(isIdentifier);
                 case SyntaxKind.AnyKeyword:
                 case SyntaxKind.StringKeyword:
                 case SyntaxKind.NumberKeyword:
