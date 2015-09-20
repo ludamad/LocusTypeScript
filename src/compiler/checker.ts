@@ -8180,8 +8180,41 @@ namespace ts {
             return checkPropertyAccessExpressionOrQualifiedName(node, node.left, node.right);
         }
 
+        // [ConcreteTypeScript]
+        function getNarrowedTypeOfBrandPropertyAccess(access:PropertyAccessExpression) {
+            // BUG FIX: Make sure resolvedType is always set.
+            let declaration = access.brandAnalysis.getDeclaration();
+            getTypeOfBrandProperty(declaration);
+            return getUnionOverExpressions(access.brandAnalysis);
+        }
+
         function checkPropertyAccessExpressionOrQualifiedName(node: PropertyAccessExpression | QualifiedName, left: Expression | QualifiedName, right: Identifier) {
-            let type = checkExpression(left);
+            // [ConcreteTypeScript] types for .prototype:
+            if ((<PropertyAccessExpression>node).brandTypeDeclForPrototypeProperty) {
+                let brandDecl = (<PropertyAccessExpression>node).brandTypeDeclForPrototypeProperty.prototypeBrandDeclaration;
+                Debug.assert(!!brandDecl);
+                let type:Type;
+                if (node.downgradeToBaseClass) {
+                    let extended:Type = brandDecl.extendedType && getTypeFromTypeNode(brandDecl.extendedType);
+                    if (extended) {
+                        let brandTypeExtension:BrandTypeDeclaration = <BrandTypeDeclaration>getSymbolDecl(extended.symbol, SyntaxKind.BrandTypeDeclaration);
+                        type = getDeclaredTypeOfSymbol(brandTypeExtension.symbol);
+                    } else {
+                        let baseExtended = brandDecl.ownerBrandDeclaration && brandDecl.ownerBrandDeclaration.extendedType && getTypeFromTypeNode(brandDecl.ownerBrandDeclaration.extendedType);
+                        if (baseExtended) {
+                            let brandTypeExtension:BrandTypeDeclaration = <BrandTypeDeclaration>getSymbolDecl(baseExtended.symbol, SyntaxKind.BrandTypeDeclaration);
+                            type = getDeclaredTypeOfSymbol(brandTypeExtension.prototypeBrandDeclaration.symbol);
+                        } else {
+                            type = emptyObjectType;
+                        }
+                    }
+                } else {
+                    type = getDeclaredTypeOfSymbol(brandDecl.symbol);
+                }
+                return type;
+            }
+            // [/ConcreteTypeScript]
+            let type:Type = checkExpression(left);
             if (isTypeAny(type)) {
                 return type;
             }
@@ -8204,7 +8237,46 @@ namespace ts {
             if (prop.parent && prop.parent.flags & SymbolFlags.Class) {
                 checkClassPropertyAccess(node, left, type, prop);
             }
-            return getTypeOfSymbol(prop);
+
+            // [ConcreteTypeScript] Enact special logic for Brand types.
+            let ptype:Type = getTypeOfSymbol(prop);
+            if (node.kind == SyntaxKind.PropertyAccessExpression) {
+                // if (prop.declarations && prop.declarations[0].kind == SyntaxKind.BrandProperty) {
+                if ((<PropertyAccessExpression>node).brandAnalysis != null) {
+                    ptype = getNarrowedTypeOfBrandPropertyAccess(<PropertyAccessExpression>node);
+                }
+            }
+            // Must check if the member is concrete but it is being accessed on a non-concrete type
+            if ((ptype.flags & TypeFlags.Concrete) &&
+                !(type.flags & TypeFlags.Concrete)) {
+                node.mustCheck = ptype;
+            }
+
+            // And may use direct access if the target object is concrete
+            if (type.flags & TypeFlags.Concrete &&
+                (<ConcreteType>type).baseType.flags & (TypeFlags.Class | TypeFlags.Brand)) {
+                node.direct = true;
+
+                // As well as name-mangled access if the target value is concrete, or a method being called
+                if (ptype.flags & TypeFlags.Concrete ||
+                    (prop.flags & SymbolFlags.Method && node.parent.kind === SyntaxKind.CallExpression &&
+                     (<CallExpression>node.parent).expression === <any>node)) {
+                    node.mangled = true;
+                }
+            }
+
+            // And float/intness
+            if (ptype.flags & TypeFlags.Concrete &&
+                (<ConcreteType>ptype).baseType.flags & TypeFlags.FloatHint) {
+                node.assertFloat = true;
+            }
+            if (ptype.flags & TypeFlags.Concrete &&
+                (<ConcreteType>ptype).baseType.flags & TypeFlags.IntHint) {
+                node.assertInt = true;
+            }
+
+            return ptype;
+            // [/ConcreteTypeScript]
         }
 
         function isValidPropertyAccess(node: PropertyAccessExpression | QualifiedName, propertyName: string): boolean {
@@ -8222,7 +8294,17 @@ namespace ts {
             return true;
         }
 
+        // [ConcreteTypeScript] Must check index access if it returns a concrete type
         function checkIndexedAccess(node: ElementAccessExpression): Type {
+            let type = checkIndexedAccessPrime(node);
+            if (type.flags & TypeFlags.Concrete) {
+                node.mustCheck = type;
+            }
+            return type;
+        }
+
+        function checkIndexedAccessPrime(node: ElementAccessExpression): Type {
+        // [/ConcreteTypeScript]
             // Grammar checking
             if (!node.argumentExpression) {
                 let sourceFile = getSourceFile(node);
@@ -8241,6 +8323,11 @@ namespace ts {
             // Obtain base constraint such that we can bail out if the constraint is an unknown type
             let objectType = getApparentType(checkExpression(node.expression));
             let indexType = node.argumentExpression ? checkExpression(node.argumentExpression) : unknownType;
+
+            // [ConcreteTypeScript] Allow concrete indexes
+            objectType = stripConcreteType(objectType);
+            indexType = stripConcreteType(indexType);
+            // [/ConcreteTypeScript]
 
             if (objectType === unknownType) {
                 return unknownType;
@@ -9938,6 +10025,7 @@ namespace ts {
 
         function checkArithmeticOperandType(operand: Node, type: Type, diagnostic: DiagnosticMessage): boolean {
             if (!isTypeAnyOrAllConstituentTypesHaveKind(type, TypeFlags.NumberLike)) {
+                console.log(typeToString(type));
                 error(operand, diagnostic);
                 return false;
             }
@@ -10024,17 +10112,17 @@ namespace ts {
 
         function checkDeleteExpression(node: DeleteExpression): Type {
             checkExpression(node.expression);
-            return booleanType;
+            return createConcreteType(booleanType); // [ConcreteTypeScript] Always concrete
         }
 
         function checkTypeOfExpression(node: TypeOfExpression): Type {
             checkExpression(node.expression);
-            return stringType;
+            return createConcreteType(stringType); // [ConcreteTypeScript] Always concrete
         }
 
         function checkVoidExpression(node: VoidExpression): Type {
             checkExpression(node.expression);
-            return undefinedType;
+            return createConcreteType(undefinedType); // [ConcreteTypeScript] Always concrete
         }
 
         function checkAwaitExpression(node: AwaitExpression): Type {
@@ -10062,11 +10150,12 @@ namespace ts {
                     if (someConstituentTypeHasKind(operandType, TypeFlags.ESSymbol)) {
                         error(node.operand, Diagnostics.The_0_operator_cannot_be_applied_to_type_symbol, tokenToString(node.operator));
                     }
-                    return numberType;
+                    return createConcreteType(numberType); // [ConcreteTypeScript] Always concrete
                 case SyntaxKind.ExclamationToken:
-                    return booleanType;
+                    return createConcreteType(booleanType); // [ConcreteTypeScript] Always concrete
                 case SyntaxKind.PlusPlusToken:
                 case SyntaxKind.MinusMinusToken:
+                    operandType = stripConcreteType(operandType); // [ConcreteTypeScript] Concreteness irrelevant for us
                     let ok = checkArithmeticOperandType(node.operand, operandType, Diagnostics.An_arithmetic_operand_must_be_of_type_any_number_or_an_enum_type);
                     if (ok) {
                         // run check only if former checks succeeded to avoid reporting cascading errors
@@ -10152,6 +10241,11 @@ namespace ts {
         }
 
         function checkInstanceOfExpression(node: BinaryExpression, leftType: Type, rightType: Type): Type {
+            // [ConcreteTypeScript] Either side may of course be concrete
+            leftType = stripConcreteType(leftType);
+            rightType = stripConcreteType(rightType);
+                // TODO make sure floatNum and intNum are Primitive
+            // [/ConcreteTypeScript]
             // TypeScript 1.0 spec (April 2014): 4.15.4
             // The instanceof operator requires the left operand to be of type Any, an object type, or a type parameter type,
             // and the right operand to be of type Any or a subtype of the 'Function' interface type.

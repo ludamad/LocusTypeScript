@@ -1,0 +1,158 @@
+         }
+ 
+         function checkBinaryExpression(node: BinaryExpression, contextualMapper?: TypeMapper) {
+@@ -6767,11 +7328,11 @@ module ts {
+                         let leftOk = checkArithmeticOperandType(node.left, leftType, Diagnostics.The_left_hand_side_of_an_arithmetic_operation_must_be_of_type_any_number_or_an_enum_type);
+                         let rightOk = checkArithmeticOperandType(node.right, rightType, Diagnostics.The_right_hand_side_of_an_arithmetic_operation_must_be_of_type_any_number_or_an_enum_type);
+                         if (leftOk && rightOk) {
+-                            checkAssignmentOperator(numberType);
++                            checkAssignmentOperator(createConcreteType(numberType)); // [ConcreteTypeScript] Result is concrete
+                         }    
+                     }
+ 
+-                    return numberType;
++                    return createConcreteType(numberType); // [ConcreteTypeScript] Result is concrete
+                 case SyntaxKind.PlusToken:
+                 case SyntaxKind.PlusEqualsToken:
+                     // TypeScript 1.0 spec (April 2014): 4.15.2
+@@ -6805,6 +7380,14 @@ module ts {
+                     else if (leftType.flags & TypeFlags.StringLike || rightType.flags & TypeFlags.StringLike) {
+                         // If one or both operands are of the String primitive type, the result is of the String primitive type.
+                         resultType = stringType;
++
++                        // [ConcreteTypeScript]
++                        // If one side is known concretely to be a string, then we know concretely that the result is a string
++                        if ((leftConcrete && leftType.flags & TypeFlags.StringLike) ||
++                            (rightConcrete && rightType.flags & TypeFlags.StringLike)) {
++                            resultConcrete = true;
++                        }
++                        // [/ConcreteTypeScript]
+                     }
+                     else if (leftType.flags & TypeFlags.Any || leftType === unknownType || rightType.flags & TypeFlags.Any || rightType === unknownType) {
+                         // Otherwise, the result is of type Any.
+@@ -7031,12 +7653,13 @@ module ts {
+                     return nullType;
+                 case SyntaxKind.TrueKeyword:
+                 case SyntaxKind.FalseKeyword:
+-                    return booleanType;
++                    return createConcreteType(booleanType); // [ConcreteTypeScript]
+                 case SyntaxKind.NumericLiteral:
+-                    return numberType;
++                    return createConcreteType(numberType); // [ConcreteTypeScript]
+                 case SyntaxKind.TemplateExpression:
+                     return checkTemplateExpression(<TemplateExpression>node);
+                 case SyntaxKind.StringLiteral:
++                    return createConcreteType(stringType); // [ConcreteTypeScript]
+                 case SyntaxKind.NoSubstitutionTemplateLiteral:
+                     return stringType;
+                 case SyntaxKind.RegularExpressionLiteral:
+@@ -7345,6 +7968,16 @@ module ts {
+ 
+         function checkTypeReference(node: TypeReferenceNode) {
+             let type = getTypeFromTypeReferenceNode(node);
++            // [ConcreteTypeScript]
++            if (node.brandTypeDeclaration) {
++                forEach([node.brandTypeDeclaration, node.brandTypeDeclaration.prototypeBrandDeclaration], (bdecl) => {
++                    if (bdecl)
++                    forEach(Object.keys(bdecl.symbol.members), (key) => {
++                        // Make sure resolvedType is set for emit
++                        getTypeOfBrandProperty(<BrandPropertyDeclaration> getSymbolDecl(bdecl.symbol.members[key], SyntaxKind.BrandProperty))
++                    });
++                });
++            }
+             if (type !== unknownType && node.typeArguments) {
+                 // Do type argument local checks only if referenced type is successfully resolved
+                 let len = node.typeArguments.length;
+@@ -8026,8 +8660,34 @@ module ts {
+             }
+ 
+             if (node.initializer && !(getNodeLinks(node.initializer).flags & NodeCheckFlags.TypeChecked)) {
+-                // Use default messages
+-                checkTypeAssignableTo(checkAndMarkExpression(node.initializer), type, node, /*headMessage*/ undefined);
++                let brandTypeDecl:BrandTypeDeclaration = null;
++                if (node.type && node.kind == SyntaxKind.VariableDeclaration) {
++                    brandTypeDecl = (<VariableDeclaration>node).type.brandTypeDeclaration;
++                }
++                // Brand type declarations get a free pass
++                if (brandTypeDecl) {
++                    if (brandTypeDecl.extendedType) {
++                        // Use default messages
++                        let extendedType:Type = getTypeFromTypeNode(brandTypeDecl.extendedType);
++                        if (!(extendedType.flags & TypeFlags.Concrete)) {
++                            extendedType = createConcreteType(extendedType);
++                        }
++                        checkTypeAssignableTo(checkAndMarkExpression(node.initializer), extendedType, node, /*headMessage*/ undefined);
++
++                        // [ConcreteTypeScript]
++                        let initType = checkAndMarkExpression(node.initializer); // FIXME: rechecking
++                        checkCTSCoercion(node.initializer, initType, type);
++                        // [/ConcreteTypeScript]
++                    }
++                } else {
++                    // Use default messages
++                    checkTypeAssignableTo(checkAndMarkExpression(node.initializer), type, node, /*headMessage*/ undefined);
++
++                    // [ConcreteTypeScript]
++                    let initType = checkAndMarkExpression(node.initializer); // FIXME: rechecking
++                    checkCTSCoercion(node.initializer, initType, type);
++                    // [/ConcreteTypeScript]
++                }
+             }
+ 
+             return type;
+@@ -8353,7 +9019,7 @@ module ts {
+                         let t = getTypeFromTypeReferenceNode(typeRefNode);
+                         if (t !== unknownType) {
+                             let declaredType = (t.flags & TypeFlags.Reference) ? (<TypeReference>t).target : t;
+-                            if (declaredType.flags & (TypeFlags.Class | TypeFlags.Interface)) {
++                            if (declaredType.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Brand)) {
+                                 checkTypeAssignableTo(type, t, node.name, Diagnostics.Class_0_incorrectly_implements_interface_1);
+                             }
+                             else {
+@@ -9191,10 +9865,23 @@ module ts {
+                             copySymbols(getSymbolOfNode(location).members, meaning & SymbolFlags.Type);
+                         }
+                         break;
++                        
+                     case SyntaxKind.FunctionExpression:
+                         if ((<FunctionExpression>location).name) {
+                             copySymbol(location.symbol, meaning);
+                         }
++                    // case SyntaxKind.FunctionType:
++                    // case SyntaxKind.ConstructorType:
++                    // case SyntaxKind.CallSignature:
++                    // case SyntaxKind.ConstructSignature:
++                    // case SyntaxKind.IndexSignature:
++                    // case SyntaxKind.Method:
++                    // case SyntaxKind.Constructor:
++                    // case SyntaxKind.GetAccessor:
++                    // case SyntaxKind.SetAccessor:
++                    // case SyntaxKind.FunctionDeclaration:
++                    // case SyntaxKind.ArrowFunction:
++                    //     copySymbols(getSymbolOfNode(location).exports, meaning & SymbolFlags.Brand);
+                         break;
+                     case SyntaxKind.CatchClause:
+                         if ((<CatchClause>location).name.text) {
+@@ -9242,6 +9930,8 @@ module ts {
+             switch (node.kind) {
+                 case SyntaxKind.AnyKeyword:
+                 case SyntaxKind.NumberKeyword:
++                case SyntaxKind.FloatNumberKeyword: // [ConcreteTypeScript]
++                case SyntaxKind.IntNumberKeyword: // [ConcreteTypeScript]
+                 case SyntaxKind.StringKeyword:
+                 case SyntaxKind.BooleanKeyword:
+                     return true;
+@@ -9550,13 +10240,6 @@ module ts {
+             return symbol.flags & SymbolFlags.ValueModule && symbol.declarations.length === 1 && symbol.declarations[0].kind === SyntaxKind.SourceFile;
+         }
+ 
+-        function isNodeDescendentOf(node: Node, ancestor: Node): boolean {
+-            while (node) {
+-                if (node === ancestor) return true;
+-                node = node.parent;
+-            }
+-            return false;
+-        }
+ 
+         function isUniqueLocalName(name: string, container: Node): boolean {
+             for (let node = container; isNodeDescendentOf(node, container); node = node.nextContainer) {
