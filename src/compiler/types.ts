@@ -1758,6 +1758,8 @@ namespace ts {
         /* @internal */ parent?: Symbol;        // Parent symbol
         /* @internal */ exportSymbol?: Symbol;  // Exported symbol associated with this symbol
         /* @internal */ constEnumOnlyModule?: boolean; // True if module contains only const enums or other modules with only const enums
+        // [ConcreteTypeScript] set for .prototype properties
+        brandType?: BrandTypeDeclaration;
     }
 
     /* @internal */
@@ -1925,17 +1927,6 @@ namespace ts {
         declaredConstructSignatures: Signature[];  // Declared construct signatures
         declaredStringIndexType: Type;             // Declared string index type
         declaredNumberIndexType: Type;             // Declared numeric index type
-    }
-
-    // [ConcreteTypeScript] Brand types
-    export interface BrandType extends Type {
-        //TODO: Use this field
-        monomorphicProperties: Symbol[];  // Which fields are guaranteed to be in a fixed place in the object?
-    }
-
-    // [ConcreteTypeScript] Concrete types
-    export interface ConcreteType extends Type {
-        baseType: IntrinsicType | ObjectType | UnionType;
     }
 
     // [ConcreteTypeScript] Brand types

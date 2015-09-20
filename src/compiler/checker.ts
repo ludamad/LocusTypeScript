@@ -2373,7 +2373,7 @@ namespace ts {
         function getUnionOverExpressions(propAnalysis:FlowTypeAnalysis): Type {
             let types: Type[] = [];
             for (let i = 0; i < propAnalysis.assignments.length; i++) {
-                let type = checkAndMarkExpression(propAnalysis.assignments[i]);
+                let type = checkExpressionCached(propAnalysis.assignments[i]);
                 // If we are possibly uninitialized, remove guarantees about concreteness.
                 if (!propAnalysis.definitelyAssigned) type = stripConcreteType(type);
                 types.push(type);
@@ -2385,7 +2385,7 @@ namespace ts {
         function getTypeOfBrandProperty(declaration: BrandPropertyDeclaration): Type {
             // We wish to give a type to the brand property that is a union over all declaration-scope assignments.
             if (declaration.resolvedType) return declaration.resolvedType;
-            declaration.resolvedType = getUnionOverExpressions(declaration.bindingAssignments);
+            declaration.resolvedType = getUnionOverExpressions(nodeToFlowTypeAnalysis.get(declaration));
             return declaration.resolvedType;
         }
 
@@ -2397,8 +2397,8 @@ namespace ts {
             //    Otherwise, consider the list of assignments, before the current code location:
             //      1. If the last assignment is in the context scope, use it as the type.
             //      2. If the 
-            let type = checkAndMarkExpression(declaration.initializer);
-            let assignments = declaration.bindingAssignments;
+            let type = checkExpressionCached(declaration.initializer);
+            let assignments = nodeToFlowTypeAnalysis.get(declaration);
             return type;
         }
 
@@ -3075,9 +3075,9 @@ namespace ts {
                     brandTypeDecl.extendedTypeResolved = getTypeFromTypeNode(brandTypeDecl.extendedType);
                 }
                 Debug.assert(!!brandTypeDecl, "Not a BrandTypeDeclaration!");
-                let type = <InterfaceType>createObjectType(TypeFlags.Brand, symbol);
+                let type = <InterfaceTypeWithDeclaredMembers>createObjectType(TypeFlags.Brand, symbol);
                 type.declaredProperties = map(Object.keys(symbol.members), key => symbol.members[key]);
-                let baseTypes:Type[] = type.baseTypes = [];
+                let baseTypes:Type[] = type.resolvedBaseTypes = [];
                 type.declaredCallSignatures = emptyArray;
                 type.declaredConstructSignatures = emptyArray;
                 type.declaredStringIndexType = getIndexTypeOfSymbol(symbol, IndexKind.String);
@@ -3088,7 +3088,7 @@ namespace ts {
                 let initializer = brandTypeDecl.variableDeclaration && brandTypeDecl.variableDeclaration.initializer;
                 if (initializer) {
                     if (initializer.kind !== SyntaxKind.ObjectLiteralExpression) {
-                        let initType = stripConcreteType(checkAndMarkExpression(initializer));
+                        let initType = stripConcreteType(checkExpressionCached(initializer));
                         baseTypes.push(initType);
                     }
                 } else {
@@ -3508,12 +3508,11 @@ namespace ts {
             }
         }
 
-        function getPropertiesOfUnionOrIntersectionType(type: UnionOrIntersectionType): Symbol[] {
-            // [ConcreteTypeScript] In terms of member access, properties of
-            // concrete types are the properties of their non-concrete
-            // equivalent
-            type = stripConcreteType(type);
-            // [/ConcreteTypeScript]
+        function getPropertiesOfUnionOrIntersectionType(_type: UnionOrIntersectionType): Symbol[] {
+            // [ConcreteTypeScript] In terms of member access, properties of            // concrete types are the properties of their non-concrete
+            // equivalent
+            var type = <UnionOrIntersectionType> stripConcreteType(type);
+            // [/ConcreteTypeScript]
 
             for (let current of type.types) {
                 for (let prop of getPropertiesOfType(current)) {
@@ -4444,7 +4443,7 @@ namespace ts {
             return links.resolvedType;
         }
 
-        function getStringLiteralType(node: StringLiteral): StringLiteralType {
+        function getStringLiteralType(node: StringLiteral): Type {
             // [ConcreteTypeScript] Made concrete
             if (hasProperty(stringLiteralTypes, node.text)) {
                 return createConcreteType(stringLiteralTypes[node.text]);
@@ -4463,24 +4462,22 @@ namespace ts {
             return links.resolvedType;
         }
 
-+        // [ConcreteTypeScript] Modified to support concrete
+        // [ConcreteTypeScript] Modified to support concrete
         function getTypeFromTypeNode(node: TypeNode): Type {
             let type = getTypeFromTypeNodePrime(node);
-            if ((<TypeNode> node).isConcrete) {
-                let ctype = createConcreteType(type);
-                if (ctype || (<TypeNode> node).specifiedConcrete) {
-                    type = ctype;
-                } else {
-                    // Forget about concreteness
-                    (<TypeNode> node).isConcrete = false;
-                }
-            }
-            if (!type) return unknownType;
-            return type;
-        }
+            if ((<TypeNode> node).isConcrete) {                let ctype = createConcreteType(type);
+                if (ctype || (<TypeNode> node).specifiedConcrete) {
+                    type = ctype;
+                } else {
+                    // Forget about concreteness
+                    (<TypeNode> node).isConcrete = false;
+                }
+            }
+            if (!type) return unknownType;
+            return type;
+        }
 
-        function getTypeFromTypeNodePrime(node: TypeNode): Type {
-        // [/ConcreteTypeScript]
+        function getTypeFromTypeNodePrime(node: TypeNode): Type {        // [/ConcreteTypeScript]
             switch (node.kind) {
                 case SyntaxKind.AnyKeyword:
                     return anyType;
@@ -6401,11 +6398,11 @@ namespace ts {
             // until the end of scope, or inside a return statement.
             if (node.kind == SyntaxKind.Identifier && (<Identifier>node).downgradeToBaseClass) {
                 if (type.flags & TypeFlags.Concrete) {
-                    type = (<InterfaceType>stripConcreteType(type)).baseTypes[0];
+                    type = (<InterfaceType>stripConcreteType(type)).resolvedBaseTypes[0];
                     type = createConcreteType(type) || type;
                 } else {
                     // Should never really happen:
-                    type = (<InterfaceType>type).baseTypes[0];
+                    type = (<InterfaceType>type).resolvedBaseTypes[0];
                 }
             }
  
@@ -12981,6 +12978,12 @@ namespace ts {
                             checkTypeAssignableTo(exprType, returnType, node.expression);
                         }
                     }
+
+                    // [ConcreteTypeScript]
+                    // If we took advantage of return-assignability to sneak in a non-concrete or non-float, check it
+                    var expType = checkExpression(node.expression); // FIXME: rechecking
+                    checkCTSCoercion(node.expression, expType, returnType);
+                    // [/ConcreteTypeScript]
                 }
             }
         }
@@ -13095,12 +13098,6 @@ namespace ts {
                                 grammarErrorOnNode(localSymbol.valueDeclaration, Diagnostics.Cannot_redeclare_identifier_0_in_catch_clause, identifierName);
                             }
                         }
-
-                        // [ConcreteTypeScript]
-                        // If we took advantage of return-assignability to sneak in a non-concrete or non-float, check it
-                        let expType = checkExpression(node.expression); // FIXME: rechecking
-                        checkCTSCoercion(node.expression, expType, returnType);
-                        // [/ConcreteTypeScript]
                     }
                 }
 
