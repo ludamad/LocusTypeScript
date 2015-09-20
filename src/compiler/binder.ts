@@ -398,15 +398,16 @@ namespace ts {
         }
         
         function bindBrandTypeDeclaration(node: BrandTypeDeclaration) {
+            console.log("HAPENNING IBTHCES");
             var scope = getModuleOrSourceFile(container);
             // The parent of the declaration is expected to be the containing scope:
             node.scope = scope;
             var symbolKind = SymbolFlags.Brand | SymbolFlags.ExportType, symbolExcludes = SymbolFlags.BrandTypeExcludes;
 
             if (scope.symbol && scope.symbol.flags & SymbolFlags.HasExports) {
-                declareSymbol(scope.symbol.exports, undefined, node, symbolKind, symbolExcludes);
+                var retSymbol = declareSymbol(scope.symbol.exports, undefined, node, symbolKind, symbolExcludes);
             } else {
-                declareSymbol(scope.locals, undefined, node, symbolKind, symbolExcludes);
+                var retSymbol = declareSymbol(scope.locals, undefined, node, symbolKind, symbolExcludes);
             }
             var parent = node.parent;
             while (parent.kind !== SyntaxKind.VariableDeclaration) {
@@ -428,6 +429,7 @@ namespace ts {
                 proto.ownerBrandDeclaration = node;
                 declareSymbol(node.symbol.exports, node.symbol, proto, symbolKind, symbolExcludes);
             }
+            return retSymbol;
         }
 
         function addToContainerChain(next: Node) {
@@ -472,16 +474,25 @@ namespace ts {
         }
 
         function declareSymbolAndAddToSymbolTableWorker(node: Declaration, symbolFlags: SymbolFlags, symbolExcludes: SymbolFlags): Symbol {
+            ts.printNodeDeep(node)
             switch (container.kind) {
                 // Modules, source files, and classes need specialized handling for how their
                 // members are declared (for example, a member of a class will go into a specific
                 // symbol table depending on if it is static or not). We defer to specialized
                 // handlers to take care of declaring these child members.
                 case SyntaxKind.ModuleDeclaration:
-                    return declareModuleMember(node, symbolFlags, symbolExcludes);
+                    if (node.kind === SyntaxKind.BrandTypeDeclaration) {
+                        return bindBrandTypeDeclaration(<BrandTypeDeclaration>node);
+                    } else {
+                        return declareModuleMember(node, symbolFlags, symbolExcludes);
+                    }
 
                 case SyntaxKind.SourceFile:
-                    return declareSourceFileMember(node, symbolFlags, symbolExcludes);
+                    if (node.kind === SyntaxKind.BrandTypeDeclaration) {
+                        return bindBrandTypeDeclaration(<BrandTypeDeclaration>node);
+                    } else {
+                        return declareSourceFileMember(node, symbolFlags, symbolExcludes);
+                    }
 
                 case SyntaxKind.ClassExpression:
                 case SyntaxKind.ClassDeclaration:
@@ -521,8 +532,8 @@ namespace ts {
                     // symbol to the 'locals' of the container.  These symbols can then be found as
                     // the type checker walks up the containers, checking them for matching names.
                     
-                    if (node.kind == SyntaxKind.BrandTypeDeclaration) {
-                        bindBrandTypeDeclaration(<BrandTypeDeclaration>node);
+                    if (node.kind === SyntaxKind.BrandTypeDeclaration) {
+                        return bindBrandTypeDeclaration(<BrandTypeDeclaration>node);
                     } else {
                         return declareSymbol(container.locals, undefined, node, symbolFlags, symbolExcludes);
                     }
@@ -1078,6 +1089,13 @@ namespace ts {
         }
 
         function bindVariableDeclarationOrBindingElement(node: VariableDeclaration | BindingElement) {
+            var typeNode = (<VariableDeclaration>node).type;
+            // [ConcreteTypeScript] Check if we define a brand type in our type specifier
+            if (typeNode && typeNode.brandTypeDeclaration) {
+                typeNode.brandTypeDeclaration.parent = node; // Set parent relationship, normally set in bind()
+                bindBrandTypeDeclaration(typeNode.brandTypeDeclaration);
+            }
+            // [/ConcreteTypeScript]
             if (inStrictMode) {
                 checkStrictModeEvalOrArguments(node, node.name);
             }

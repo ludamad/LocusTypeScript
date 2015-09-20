@@ -223,6 +223,7 @@ var compilerFilename = "tsc.js";
     */
 function compileFile(outFile, sources, prereqs, prefixes, useBuiltCompiler, noOutFile, generateDeclarations, outDir, preserveConstEnums, keepComments, noResolve, stripInternal, callback) {
     file(outFile, prereqs, function() {
+        useBuiltCompiler = false; // [ConcreteTypeScript] TODO wile porting
         var dir = useBuiltCompiler ? builtLocalDirectory : LKGDirectory;
         var options = "--module commonjs --noEmitOnError";
 

@@ -1695,7 +1695,7 @@ namespace ts {
 
         Enum = RegularEnum | ConstEnum,
         Variable = FunctionScopedVariable | BlockScopedVariable,
-        Value = Variable | Property | EnumMember | Function | Class | Brand |  Enum | ValueModule | Method | GetAccessor | SetAccessor,
+        Value = Variable | Property | EnumMember | Function | Class |  Enum | ValueModule | Method | GetAccessor | SetAccessor,
         Type = Class | Brand |  Interface | Enum | TypeLiteral | ObjectLiteral | TypeParameter | TypeAlias,
         Namespace = ValueModule | NamespaceModule | Brand,
         Module = ValueModule | NamespaceModule,
