@@ -398,7 +398,6 @@ namespace ts {
         }
         
         function bindBrandTypeDeclaration(node: BrandTypeDeclaration) {
-            console.log("HAPENNING IBTHCES");
             var scope = getModuleOrSourceFile(container);
             // The parent of the declaration is expected to be the containing scope:
             node.scope = scope;

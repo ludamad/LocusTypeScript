@@ -1,6 +1,8 @@
 /// <reference path="binder.ts"/>
-/// <reference path="flowAnalysis.ts"/>
-/// <reference path="brandTypeQueries.ts"/>
+/// <reference path="flowAnalysis.ts"/>
+
+/// <reference path="brandTypeQueries.ts"/>
+
 
 /* @internal */
 namespace ts {
@@ -1673,14 +1675,14 @@ namespace ts {
                         writeTypeReference(<TypeReference>type, flags);
                     }
                     else if (type.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Brand | TypeFlags.Enum | TypeFlags.TypeParameter)) {
-                        if (type.flags & TypeFlags.Brand) {
-                            let brandDecl = <BrandTypeDeclaration>getSymbolDecl(type.symbol, SyntaxKind.BrandTypeDeclaration);
-                            if (brandDecl.parent.kind === SyntaxKind.BrandTypeDeclaration) {
-                                writer.writeSymbol((<BrandTypeDeclaration>brandDecl.parent).name.text, (<BrandTypeDeclaration>brandDecl.parent).symbol);
-                                writer.writeOperator(".prototype");
-                            } else 
-                            buildSymbolDisplay(type.symbol, writer, enclosingDeclaration, SymbolFlags.Type);
-                        } else
+                        if (type.flags & TypeFlags.Brand) {
+                            let brandDecl = <BrandTypeDeclaration>getSymbolDecl(type.symbol, SyntaxKind.BrandTypeDeclaration);
+                            if (brandDecl.parent.kind === SyntaxKind.BrandTypeDeclaration) {
+                                writer.writeSymbol((<BrandTypeDeclaration>brandDecl.parent).name.text, (<BrandTypeDeclaration>brandDecl.parent).symbol);
+                                writer.writeOperator(".prototype");
+                            } else 
+                            buildSymbolDisplay(type.symbol, writer, enclosingDeclaration, SymbolFlags.Type);
+                        } else
                         // The specified symbol flags need to be reinterpreted as type flags
                         buildSymbolDisplay(type.symbol, writer, enclosingDeclaration, SymbolFlags.Type, SymbolFormatFlags.None, flags);
                     }
@@ -3521,7 +3523,8 @@ namespace ts {
         }
 
         function getPropertiesOfUnionOrIntersectionType(_type: UnionOrIntersectionType): Symbol[] {
-            // [ConcreteTypeScript] In terms of member access, properties of            // concrete types are the properties of their non-concrete
+            // [ConcreteTypeScript] In terms of member access, properties of
+            // concrete types are the properties of their non-concrete
             // equivalent
             var type = <UnionOrIntersectionType> stripConcreteType(type);
             // [/ConcreteTypeScript]
@@ -3789,13 +3792,13 @@ namespace ts {
                 let typePredicate: TypePredicate;
                 if (classType) {
                     returnType = classType;
-                    // [ConcreteTypeScript] Constructors return concrete types
-                    returnType = createConcreteType(returnType);
-                    // [/ConcreteTypeScript]
+                    // [ConcreteTypeScript] Constructors return concrete types
+                    returnType = createConcreteType(returnType);
+                    // [/ConcreteTypeScript]
                 }
-                // [ConcreteTypeScript]
-                else if (declaration.type || (<FunctionLikeDeclaration>declaration).declaredTypeOfThis) {
-                    returnType = getTypeFromTypeNode(declaration.type || (<FunctionLikeDeclaration>declaration).declaredTypeOfThis);
+                // [ConcreteTypeScript]
+                else if (declaration.type || (<FunctionLikeDeclaration>declaration).declaredTypeOfThis) {
+                    returnType = getTypeFromTypeNode(declaration.type || (<FunctionLikeDeclaration>declaration).declaredTypeOfThis);
                     if (declaration.type.kind === SyntaxKind.TypePredicate) {
                         let typePredicateNode = <TypePredicateNode>declaration.type;
                         typePredicate = {
@@ -3855,8 +3858,7 @@ namespace ts {
                                 break;
                             }
                         }
-                        let signature = <SignatureDeclaration>node;
-                        result.push(getSignatureFromDeclaration(signature));
+                        result.push(getSignatureFromDeclaration(<SignatureDeclaration>node));
                 }
             }
             return result;
@@ -4344,22 +4346,23 @@ namespace ts {
                 }
             }
         }
-        // [ConcreteTypeScript]
-        function stripConcretesIfNotAllConcrete(types: Type[]):boolean {
-            let allConcrete = true;
-            for (let i = 0; i < types.length; i++) {
-                if (!(types[i].flags & TypeFlags.Concrete)) {
-                    allConcrete = false;
-                    break;
-                }
-            }
-            if (!allConcrete) {
-                for (let i = 0; i < types.length; i++) {
-                    types[i] = stripConcreteType(types[i]);
-                }
-            }
-            return allConcrete;
-        }
+        // [ConcreteTypeScript]
+        function stripConcretesIfNotAllConcrete(types: Type[]):boolean {
+            let allConcrete = true;
+            for (let i = 0; i < types.length; i++) {
+                if (!(types[i].flags & TypeFlags.Concrete)) {
+                    allConcrete = false;
+                    break;
+                }
+            }
+            if (!allConcrete) {
+                for (let i = 0; i < types.length; i++) {
+                    types[i] = stripConcreteType(types[i]);
+                }
+            }
+            return allConcrete;
+        }
+
 
         // We reduce the constituent type set to only include types that aren't subtypes of other types, unless
         // the noSubtypeReduction flag is specified, in which case we perform a simple deduplication based on
@@ -4372,7 +4375,8 @@ namespace ts {
             if (types.length === 0) {
                 return emptyObjectType;
             }
-            let typesCopy = [].concat(types);
+            let typesCopy = [].concat(types);
+
             let unionOfConcrete = stripConcretesIfNotAllConcrete(typesCopy); // [ConcreteTypeScript]
             let typeSet: Type[] = [];
             addTypesToSet(typeSet, typesCopy, TypeFlags.Union);
@@ -4386,7 +4390,8 @@ namespace ts {
                 }
             }
             else {
-                Debug.assert(!noNullOrUndefinedReduction);
+                Debug.assert(!noNullOrUndefinedReduction);
+
                 removeSubtypes(typeSet);
             }
             if (typeSet.length === 1) {
@@ -4397,23 +4402,22 @@ namespace ts {
             if (!type) {
                 type = unionTypes[id] = <UnionType>createObjectType(TypeFlags.Union | getPropagatingFlagsOfTypes(typeSet));
                 type.types = typeSet;
-                type.isRuntimeCheckable = unionOfConcrete || areAllRuntimeCheckable(type.types);
-
-                // [ConcreteTypeScript]
-                if (unionOfConcrete) {
-                    type.flags |= TypeFlags.Concrete;
-                    // Make sure we have our baseType set
-                    // so that we can access it in emit code:
-                    let strippedTypes = map(type.types, (concreteType) => stripConcreteType(concreteType));
-                    let baseType = (<any>type).baseType = getUnionType(strippedTypes, true, /*Don't collapse !null|!string: */ true);
-                    console.log("BASE BASE BASE")
-                    console.log(typeToString(baseType))
-                    
-                    // We cast our UnionType into a concrete type, 
-                    // since we have set 'baseType' on it above.
-                    baseType.concreteType = <any>type;
-                }
- 
+                type.isRuntimeCheckable = unionOfConcrete || areAllRuntimeCheckable(type.types);
+
+                // [ConcreteTypeScript]
+                if (unionOfConcrete) {
+                    type.flags |= TypeFlags.Concrete;
+                    // Make sure we have our baseType set
+                    // so that we can access it in emit code:
+                    let strippedTypes = map(type.types, (concreteType) => stripConcreteType(concreteType));
+                    let baseType = (<any>type).baseType = getUnionType(strippedTypes, true, /*Don't collapse !null|!string: */ true);
+                    console.log("BASE BASE BASE")
+                    console.log(typeToString(baseType))
+                    
+                    // We cast our UnionType into a concrete type, 
+                    // since we have set 'baseType' on it above.
+                    baseType.concreteType = <any>type;
+                }
             }
             return type;
         }
@@ -4470,7 +4474,8 @@ namespace ts {
         }
 
         function getStringLiteralType(node: StringLiteral): Type {
-            // [ConcreteTypeScript] Made concrete
+            // [ConcreteTypeScript] Made concrete
+
             if (hasProperty(stringLiteralTypes, node.text)) {
                 return createConcreteType(stringLiteralTypes[node.text]);
             }
@@ -4488,10 +4493,13 @@ namespace ts {
             return links.resolvedType;
         }
 
-        // [ConcreteTypeScript] Modified to support concrete
+        // [ConcreteTypeScript] Modified to support concrete
+
         function getTypeFromTypeNode(node: TypeNode): Type {
-            let type = getTypeFromTypeNodePrime(node);
-            if ((<TypeNode> node).isConcrete) {                let ctype = createConcreteType(type);
+            let type = getTypeFromTypeNodePrime(node);
+
+            if ((<TypeNode> node).isConcrete) {
+                let ctype = createConcreteType(type);
                 if (ctype || (<TypeNode> node).specifiedConcrete) {
                     type = ctype;
                 } else {
@@ -4503,7 +4511,8 @@ namespace ts {
             return type;
         }
 
-        function getTypeFromTypeNodePrime(node: TypeNode): Type {        // [/ConcreteTypeScript]
+        function getTypeFromTypeNodePrime(node: TypeNode): Type {
+        // [/ConcreteTypeScript]
             switch (node.kind) {
                 case SyntaxKind.AnyKeyword:
                     return anyType;
@@ -4903,40 +4912,50 @@ namespace ts {
             // Ternary.Maybe if they are related with assumptions of other relationships, or
             // Ternary.False if they are not related.
             function isRelatedTo(source: Type, target: Type, reportErrors?: boolean, headMessage?: DiagnosticMessage): Ternary {
+                let _console = {
+                    log(str) {
+                        if (source.flags & TypeFlags.NumberLike || target.flags & TypeFlags.NumberLike) {
+                            console.log(str)
+                            console.log((<any>new Error()).stack)
+                        }
+                    }
+                }
                 let result: Ternary;
                 // both types are the same - covers 'they are the same primitive type or both are Any' or the same type parameter cases
                 if (source === target) return Ternary.True;
                 if (relation === identityRelation) {
                     return isIdenticalTo(source, target);
                 }
+                // console.log(`PHFFF 1 ${typeToString(source)} ${typeToString(target)}`)
 
                 if (isTypeAny(target)) return Ternary.True;
                 if (source === undefinedType) return Ternary.True;
                 if (source === nullType && target !== undefinedType) return Ternary.True;
                 if (source.flags & TypeFlags.Enum && target === numberType) return Ternary.True;
 
-                // [ConcreteTypeScript]
-                // Enum types are also related to !number
-                // FIXME: I'm not convinced that this is safe
-                if (source.flags & TypeFlags.Enum &&
-                    target === numberType.concreteType) return Ternary.True;
-                // floatNumber and intNumber are subtypes of number
-                if ((source === floatNumberType || source === intNumberType) && target === numberType) return Ternary.True;
-                // [/ConcreteTypeScript]
-
+                // console.log(`PHFFF 2 ${typeToString(source)} ${typeToString(target)}`)
+                // [ConcreteTypeScript]
+                // Enum types are also related to !number
+                // FIXME: I'm not convinced that this is safe
+                if (source.flags & TypeFlags.Enum &&
+                    target === numberType.concreteType) return Ternary.True;
+                // floatNumber and intNumber are subtypes of number
+                if ((source === floatNumberType || source === intNumberType) && target === numberType) return Ternary.True;
+                // [/ConcreteTypeScript]
 
                 if (source.flags & TypeFlags.StringLiteral && target === stringType) return Ternary.True;
                 if (relation === assignableRelation) {
+                    // console.log(`PHFFF 3a ${typeToString(source)} ${typeToString(target)}`)
                     if (isTypeAny(source)) return Ternary.True;
                     if (source === numberType && target.flags & TypeFlags.Enum) return Ternary.True;
-                        // [ConcreteTypeScript] numbers are assignable to floatNumbers and intNumbers
-                        if (source === numberType && (target === floatNumberType || target === intNumberType)) return Ternary.True;
-                        // [/ConcreteTypeScript]
- 
+                        // [ConcreteTypeScript] numbers are assignable to floatNumbers and intNumbers
+                        if (source === numberType && (target === floatNumberType || target === intNumberType)) return Ternary.True;
+                        // [/ConcreteTypeScript]
                 }
 
                 if (source.flags & TypeFlags.FreshObjectLiteral) {
                     if (hasExcessProperties(<FreshObjectLiteralType>source, target, reportErrors)) {
+                    _console.log(`PHFFF 3b ${typeToString(source)} ${typeToString(target)}`)
                         if (reportErrors) {
                             reportRelationError(headMessage, source, target);
                         }
@@ -4955,28 +4974,33 @@ namespace ts {
 
                 // Note that the "each" checks must precede the "some" checks to produce the correct results
                 if (source.flags & TypeFlags.Union) {
+                    // console.log(`PHFFF 3c ${typeToString(source)} ${typeToString(target)}`)
                     if (result = eachTypeRelatedToType(<UnionType>source, target, reportErrors)) {
                         return result;
                     }
                 }
-                // [ConcreteTypeScript] Support for concrete type relationships
-                else if (source.flags & TypeFlags.Concrete) {
-                    if (result = concreteTypeRelatedToType(<ConcreteType>source, target, reportErrors)) {
-                        return result;
-                    }
-                }
-                else if (target.flags & TypeFlags.Concrete) {
-                    if (result = typeRelatedToConcreteType(source, <ConcreteType>target, reportErrors)) {
-                        return result;
-                    }
-                }
-                // [/ConcreteTypeScript]
+                // [ConcreteTypeScript] Support for concrete type relationships
+                else if (source.flags & TypeFlags.Concrete) {
+                    _console.log(`PHFFF 3d ${typeToString(source)} ${typeToString(target)}`)
+                    if (result = concreteTypeRelatedToType(<ConcreteType>source, target, reportErrors)) {
+                        return result;
+                    }
+                }
+                else if (target.flags & TypeFlags.Concrete) {
+                    _console.log(`PHFFF 3e ${typeToString(source)} ${typeToString(target)}`)
+                    if (result = typeRelatedToConcreteType(source, <ConcreteType>target, reportErrors)) {
+                        return result;
+                    }
+                }
+                // [/ConcreteTypeScript]
                 else if (target.flags & TypeFlags.Intersection) {
+                    _console.log(`PHFFF 3f ${typeToString(source)} ${typeToString(target)}`)
                     if (result = typeRelatedToEachType(source, <IntersectionType>target, reportErrors)) {
                         return result;
                     }
                 }
                 else {
+                    _console.log(`PHFFF 3g ${typeToString(source)} ${typeToString(target)}`)
                     // It is necessary to try "some" checks on both sides because there may be nested "each" checks
                     // on either side that need to be prioritized. For example, A | B = (A | B) & (C | D) or
                     // A & B = (A & B) | (C & D).
@@ -4986,6 +5010,7 @@ namespace ts {
                             return result;
                         }
                     }
+                    _console.log(`PHFFF 3h ${typeToString(source)} ${typeToString(target)}`)
                     if (target.flags & TypeFlags.Union) {
                         if (result = typeRelatedToSomeType(source, <UnionType>target, reportErrors)) {
                             return result;
@@ -4994,24 +5019,29 @@ namespace ts {
                 }
 
                 if (source.flags & TypeFlags.TypeParameter) {
+                    _console.log(`PHFFF 3j ${typeToString(source)} ${typeToString(target)}`)
                     let constraint = getConstraintOfTypeParameter(<TypeParameter>source);
                     if (!constraint || constraint.flags & TypeFlags.Any) {
                         constraint = emptyObjectType;
                     }
+                    _console.log(`PHFFF 3k ${typeToString(source)} ${typeToString(target)}`)
                     // Report constraint errors only if the constraint is not the empty object type
                     let reportConstraintErrors = reportErrors && constraint !== emptyObjectType;
                     if (result = isRelatedTo(constraint, target, reportConstraintErrors)) {
                         errorInfo = saveErrorInfo;
                         return result;
                     }
+                    _console.log(`PHFFF 3q ${typeToString(source)} ${typeToString(target)}`)
                 }
                 else {
+                    _console.log(`PHFFF 4 ${typeToString(source)} ${typeToString(target)}`)
                     if (source.flags & TypeFlags.Reference && target.flags & TypeFlags.Reference && (<TypeReference>source).target === (<TypeReference>target).target) {
                         // We have type references to same target type, see if relationship holds for all type arguments
                         if (result = typesRelatedTo((<TypeReference>source).typeArguments, (<TypeReference>target).typeArguments, reportErrors)) {
                             return result;
                         }
                     }
+                    _console.log(`PHFFF 5 ${typeToString(source)} ${typeToString(target)}`)
                     // Even if relationship doesn't hold for unions, intersections, or generic type references,
                     // it may hold in a structural comparison.
                     let apparentType = getApparentType(source);
@@ -5026,6 +5056,7 @@ namespace ts {
                             return result;
                         }
                     }
+                    _console.log(`PHFFF 6 ${typeToString(source)} ${typeToString(target)}`)
                 }
 
                 if (reportErrors) {
@@ -6304,11 +6335,11 @@ namespace ts {
         function removeTypesFromUnionType(type: Type, typeKind: TypeFlags, isOfTypeKind: boolean, allowEmptyUnionResult: boolean): Type {
             if (type.flags & TypeFlags.Union) {
                 let types = (<UnionType>type).types;
-                // [ConcreteTypeScript]
-                // Also remove concrete equivalents
-                if (forEach(types, t => ((t.flags & typeKind) || (t.flags & TypeFlags.Concrete && (<ConcreteType>t).baseType.flags & typeKind)))) {
-                    let narrowedType = getUnionType(filter(types, t => !((t.flags & typeKind) || (t.flags & TypeFlags.Concrete && (<ConcreteType>t).baseType.flags & typeKind))));
-                // [/ConcreteTypeScript]
+                // [ConcreteTypeScript]
+                // Also remove concrete equivalents
+                if (forEach(types, t => ((t.flags & typeKind) || (t.flags & TypeFlags.Concrete && (<ConcreteType>t).baseType.flags & typeKind)))) {
+                    let narrowedType = getUnionType(filter(types, t => !((t.flags & typeKind) || (t.flags & TypeFlags.Concrete && (<ConcreteType>t).baseType.flags & typeKind))));
+                // [/ConcreteTypeScript]
                     if (allowEmptyUnionResult || narrowedType !== emptyObjectType) {
                         return narrowedType;
                     }
@@ -6420,18 +6451,17 @@ namespace ts {
         // Get the narrowed type of a given symbol at a given location
         function getNarrowedTypeOfSymbol(symbol: Symbol, node: Node) {
             let type = getTypeOfSymbol(symbol);
-            // [ConcreteTypeScript] Brand variable declarations evaluate to their subtype
-            // until the end of scope, or inside a return statement.
-            if (node.kind == SyntaxKind.Identifier && (<Identifier>node).downgradeToBaseClass) {
-                if (type.flags & TypeFlags.Concrete) {
-                    type = (<InterfaceType>stripConcreteType(type)).resolvedBaseTypes[0];
-                    type = createConcreteType(type) || type;
-                } else {
-                    // Should never really happen:
-                    type = (<InterfaceType>type).resolvedBaseTypes[0];
-                }
-            }
- 
+            // [ConcreteTypeScript] Brand variable declarations evaluate to their subtype
+            // until the end of scope, or inside a return statement.
+            if (node.kind == SyntaxKind.Identifier && (<Identifier>node).downgradeToBaseClass) {
+                if (type.flags & TypeFlags.Concrete) {
+                    type = (<InterfaceType>stripConcreteType(type)).resolvedBaseTypes[0];
+                    type = createConcreteType(type) || type;
+                } else {
+                    // Should never really happen:
+                    type = (<InterfaceType>type).resolvedBaseTypes[0];
+                }
+            }
             // Only narrow when symbol is variable of type any or an object, union, or type parameter type
             if (node && symbol.flags & SymbolFlags.Variable) {
                 if (isTypeAny(type) || type.flags & (TypeFlags.ObjectType | TypeFlags.Union | TypeFlags.TypeParameter)) {
@@ -6494,7 +6524,8 @@ namespace ts {
                 }
                 let left = <TypeOfExpression>expr.left;
                 let right = <LiteralExpression>expr.right;
-                // [ConcreteTypeScript] TODO look into expanding logic here
+                // [ConcreteTypeScript] TODO look into expanding logic here
+
                 if (left.expression.kind !== SyntaxKind.Identifier || getResolvedSymbol(<Identifier>left.expression) !== symbol) {
                     return type;
                 }
@@ -6504,10 +6535,10 @@ namespace ts {
                 }
                 if (assumeTrue) {
                     let checkType = typeInfo.type;
-                    // [ConcreteTypeScript]
-                    // We can safely assume that the type is concrete here
-                    if (checkType !== emptyObjectType) checkType = createConcreteType(checkType);
-                    // [/ConcreteTypeScript]
+                    // [ConcreteTypeScript]
+                    // We can safely assume that the type is concrete here
+                    if (checkType !== emptyObjectType) checkType = createConcreteType(checkType);
+                    // [/ConcreteTypeScript]
 
                     // Assumed result is true. If check was not for a primitive type, remove all primitive types
                     if (!typeInfo) {
@@ -6818,19 +6849,22 @@ namespace ts {
                 captureLexicalThis(node, container);
             }
 
-            if ((<FunctionLikeDeclaration>container).declaredTypeOfThis && !withoutBrand && !node.downgradeToBaseClass) {
-                return getTypeFromTypeNode((<FunctionLikeDeclaration>container).declaredTypeOfThis);
-            }
+            if ((<FunctionLikeDeclaration>container).declaredTypeOfThis && !withoutBrand && !node.downgradeToBaseClass) {
+                return getTypeFromTypeNode((<FunctionLikeDeclaration>container).declaredTypeOfThis);
+            }
+
 
             if (isClassLike(container.parent)) {
                 let symbol = getSymbolOfNode(container.parent);
-                // [ConcreteTypeScript] Need to assure 'this' is concrete
-                if (container.flags & NodeFlags.Static) {
-                    return getTypeOfSymbol(symbol);
-                } else {
-                    return createConcreteType(getDeclaredTypeOfSymbol(symbol));
-                }
-                // [/ConcreteTypeScript]
+                // [ConcreteTypeScript] Need to assure 'this' is concrete
+
+                if (container.flags & NodeFlags.Static) {
+                    return getTypeOfSymbol(symbol);
+                } else {
+                    return createConcreteType(getDeclaredTypeOfSymbol(symbol));
+                }
+                // [/ConcreteTypeScript]
+
             }
             return anyType;
         }
@@ -8203,38 +8237,41 @@ namespace ts {
             return checkPropertyAccessExpressionOrQualifiedName(node, node.left, node.right);
         }
 
-        // [ConcreteTypeScript]
-        function getNarrowedTypeOfBrandPropertyAccess(access:PropertyAccessExpression) {
-            // BUG FIX: Make sure resolvedType is always set.
-            let declaration = access.brandAnalysis.getDeclaration();
-            getTypeOfBrandProperty(declaration);
-            return getUnionOverExpressions(access.brandAnalysis);
-        }
-
+        // [ConcreteTypeScript]
+        function getNarrowedTypeOfBrandPropertyAccess(access:PropertyAccessExpression) {
+            // BUG FIX: Make sure resolvedType is always set.
+            let declaration = access.brandAnalysis.getDeclaration();
+            getTypeOfBrandProperty(declaration);
+            return getUnionOverExpressions(access.brandAnalysis);
+        }
+
+
         function checkPropertyAccessExpressionOrQualifiedName(node: PropertyAccessExpression | QualifiedName, left: Expression | QualifiedName, right: Identifier) {
-            // [ConcreteTypeScript] types for .prototype:
-            if ((<PropertyAccessExpression>node).brandTypeDeclForPrototypeProperty) {
-                let brandDecl = (<PropertyAccessExpression>node).brandTypeDeclForPrototypeProperty.prototypeBrandDeclaration;
-                Debug.assert(!!brandDecl);
-                let type:Type;
-                if (node.downgradeToBaseClass) {
-                    let extended:Type = brandDecl.extendedType && getTypeFromTypeNode(brandDecl.extendedType);
-                    if (extended) {
-                        let brandTypeExtension:BrandTypeDeclaration = <BrandTypeDeclaration>getSymbolDecl(extended.symbol, SyntaxKind.BrandTypeDeclaration);
-                        type = getDeclaredTypeOfSymbol(brandTypeExtension.symbol);
-                    } else {
-                        let baseExtended = brandDecl.ownerBrandDeclaration && brandDecl.ownerBrandDeclaration.extendedType && getTypeFromTypeNode(brandDecl.ownerBrandDeclaration.extendedType);
-                        if (baseExtended) {
-                            let brandTypeExtension:BrandTypeDeclaration = <BrandTypeDeclaration>getSymbolDecl(baseExtended.symbol, SyntaxKind.BrandTypeDeclaration);
-                            type = getDeclaredTypeOfSymbol(brandTypeExtension.prototypeBrandDeclaration.symbol);
-                        } else {
-                            type = emptyObjectType;
-                        }
-                    }
-                } else {
-                    type = getDeclaredTypeOfSymbol(brandDecl.symbol);
-                }
-                return type;
+            // [ConcreteTypeScript] types for .prototype:
+            if ((<PropertyAccessExpression>node).brandTypeDeclForPrototypeProperty) {
+                let brandDecl = (<PropertyAccessExpression>node).brandTypeDeclForPrototypeProperty.prototypeBrandDeclaration;
+                Debug.assert(!!brandDecl);
+                let type:Type;
+                if (node.downgradeToBaseClass) {
+                    let extended:Type = brandDecl.extendedType && getTypeFromTypeNode(brandDecl.extendedType);
+                    if (extended) {
+
+                        let brandTypeExtension:BrandTypeDeclaration = <BrandTypeDeclaration>getSymbolDecl(extended.symbol, SyntaxKind.BrandTypeDeclaration);
+                        type = getDeclaredTypeOfSymbol(brandTypeExtension.symbol);
+
+                    } else {
+                        let baseExtended = brandDecl.ownerBrandDeclaration && brandDecl.ownerBrandDeclaration.extendedType && getTypeFromTypeNode(brandDecl.ownerBrandDeclaration.extendedType);
+                        if (baseExtended) {
+                            let brandTypeExtension:BrandTypeDeclaration = <BrandTypeDeclaration>getSymbolDecl(baseExtended.symbol, SyntaxKind.BrandTypeDeclaration);
+                            type = getDeclaredTypeOfSymbol(brandTypeExtension.prototypeBrandDeclaration.symbol);
+                        } else {
+                            type = emptyObjectType;
+                        }
+                    }
+                } else {
+                    type = getDeclaredTypeOfSymbol(brandDecl.symbol);
+                }
+                return type;
             }
             // [/ConcreteTypeScript]
             let type:Type = checkExpression(left);
@@ -8261,45 +8298,45 @@ namespace ts {
                 checkClassPropertyAccess(node, left, type, prop);
             }
 
-            // [ConcreteTypeScript] Enact special logic for Brand types.
-            let ptype:Type = getTypeOfSymbol(prop);
-            if (node.kind == SyntaxKind.PropertyAccessExpression) {
-                // if (prop.declarations && prop.declarations[0].kind == SyntaxKind.BrandProperty) {
-                if ((<PropertyAccessExpression>node).brandAnalysis != null) {
-                    ptype = getNarrowedTypeOfBrandPropertyAccess(<PropertyAccessExpression>node);
-                }
-            }
-            // Must check if the member is concrete but it is being accessed on a non-concrete type
-            if ((ptype.flags & TypeFlags.Concrete) &&
-                !(type.flags & TypeFlags.Concrete)) {
-                node.mustCheck = ptype;
-            }
-
-            // And may use direct access if the target object is concrete
-            if (type.flags & TypeFlags.Concrete &&
-                (<ConcreteType>type).baseType.flags & (TypeFlags.Class | TypeFlags.Brand)) {
-                node.direct = true;
-
-                // As well as name-mangled access if the target value is concrete, or a method being called
-                if (ptype.flags & TypeFlags.Concrete ||
-                    (prop.flags & SymbolFlags.Method && node.parent.kind === SyntaxKind.CallExpression &&
-                     (<CallExpression>node.parent).expression === <any>node)) {
-                    node.mangled = true;
-                }
-            }
-
-            // And float/intness
-            if (ptype.flags & TypeFlags.Concrete &&
-                (<ConcreteType>ptype).baseType.flags & TypeFlags.FloatHint) {
-                node.assertFloat = true;
-            }
-            if (ptype.flags & TypeFlags.Concrete &&
-                (<ConcreteType>ptype).baseType.flags & TypeFlags.IntHint) {
-                node.assertInt = true;
-            }
-
-            return ptype;
-            // [/ConcreteTypeScript]
+            // [ConcreteTypeScript] Enact special logic for Brand types.
+
+            let ptype:Type = getTypeOfSymbol(prop);
+            if (node.kind == SyntaxKind.PropertyAccessExpression) {
+                // if (prop.declarations && prop.declarations[0].kind == SyntaxKind.BrandProperty) {
+                if ((<PropertyAccessExpression>node).brandAnalysis != null) {
+                    ptype = getNarrowedTypeOfBrandPropertyAccess(<PropertyAccessExpression>node);
+                }
+            }
+            // Must check if the member is concrete but it is being accessed on a non-concrete type
+            if ((ptype.flags & TypeFlags.Concrete) &&
+                !(type.flags & TypeFlags.Concrete)) {
+                node.mustCheck = ptype;
+            }
+
+            // And may use direct access if the target object is concrete
+            if (type.flags & TypeFlags.Concrete &&
+                (<ConcreteType>type).baseType.flags & (TypeFlags.Class | TypeFlags.Brand)) {
+                node.direct = true;
+                // As well as name-mangled access if the target value is concrete, or a method being called
+                if (ptype.flags & TypeFlags.Concrete ||
+                    (prop.flags & SymbolFlags.Method && node.parent.kind === SyntaxKind.CallExpression &&
+                     (<CallExpression>node.parent).expression === <any>node)) {
+                    node.mangled = true;
+                }
+            }
+
+            // And float/intness
+            if (ptype.flags & TypeFlags.Concrete &&
+                (<ConcreteType>ptype).baseType.flags & TypeFlags.FloatHint) {
+                node.assertFloat = true;
+            }
+            if (ptype.flags & TypeFlags.Concrete &&
+                (<ConcreteType>ptype).baseType.flags & TypeFlags.IntHint) {
+                node.assertInt = true;
+            }
+
+            return ptype;
+            // [/ConcreteTypeScript]
         }
 
         function isValidPropertyAccess(node: PropertyAccessExpression | QualifiedName, propertyName: string): boolean {
@@ -8317,17 +8354,19 @@ namespace ts {
             return true;
         }
 
-        // [ConcreteTypeScript] Must check index access if it returns a concrete type
+        // [ConcreteTypeScript] Must check index access if it returns a concrete type
+
         function checkIndexedAccess(node: ElementAccessExpression): Type {
-            let type = checkIndexedAccessPrime(node);
-            if (type.flags & TypeFlags.Concrete) {
-                node.mustCheck = type;
-            }
-            return type;
+            let type = checkIndexedAccessPrime(node);
+            if (type.flags & TypeFlags.Concrete) {
+                node.mustCheck = type;
+            }
+            return type;
         }
 
         function checkIndexedAccessPrime(node: ElementAccessExpression): Type {
-        // [/ConcreteTypeScript]
+        // [/ConcreteTypeScript]
+
             // Grammar checking
             if (!node.argumentExpression) {
                 let sourceFile = getSourceFile(node);
@@ -8346,11 +8385,12 @@ namespace ts {
             // Obtain base constraint such that we can bail out if the constraint is an unknown type
             let objectType = getApparentType(checkExpression(node.expression));
             let indexType = node.argumentExpression ? checkExpression(node.argumentExpression) : unknownType;
-
-            // [ConcreteTypeScript] Allow concrete indexes
-            objectType = stripConcreteType(objectType);
-            indexType = stripConcreteType(indexType);
-            // [/ConcreteTypeScript]
+
+            // [ConcreteTypeScript] Allow concrete indexes
+            objectType = stripConcreteType(objectType);
+            indexType = stripConcreteType(indexType);
+            // [/ConcreteTypeScript]
+
 
             if (objectType === unknownType) {
                 return unknownType;
@@ -10048,7 +10088,8 @@ namespace ts {
 
         function checkArithmeticOperandType(operand: Node, type: Type, diagnostic: DiagnosticMessage): boolean {
             if (!isTypeAnyOrAllConstituentTypesHaveKind(type, TypeFlags.NumberLike)) {
-                console.log(typeToString(type));
+                console.log(typeToString(type));
+
                 error(operand, diagnostic);
                 return false;
             }
@@ -10135,17 +10176,20 @@ namespace ts {
 
         function checkDeleteExpression(node: DeleteExpression): Type {
             checkExpression(node.expression);
-            return createConcreteType(booleanType); // [ConcreteTypeScript] Always concrete
+            return createConcreteType(booleanType); // [ConcreteTypeScript] Always concrete
+
         }
 
         function checkTypeOfExpression(node: TypeOfExpression): Type {
             checkExpression(node.expression);
-            return createConcreteType(stringType); // [ConcreteTypeScript] Always concrete
+            return createConcreteType(stringType); // [ConcreteTypeScript] Always concrete
+
         }
 
         function checkVoidExpression(node: VoidExpression): Type {
             checkExpression(node.expression);
-            return createConcreteType(undefinedType); // [ConcreteTypeScript] Always concrete
+            return createConcreteType(undefinedType); // [ConcreteTypeScript] Always concrete
+
         }
 
         function checkAwaitExpression(node: AwaitExpression): Type {
@@ -10173,12 +10217,15 @@ namespace ts {
                     if (someConstituentTypeHasKind(operandType, TypeFlags.ESSymbol)) {
                         error(node.operand, Diagnostics.The_0_operator_cannot_be_applied_to_type_symbol, tokenToString(node.operator));
                     }
-                    return createConcreteType(numberType); // [ConcreteTypeScript] Always concrete
+                    return createConcreteType(numberType); // [ConcreteTypeScript] Always concrete
+
                 case SyntaxKind.ExclamationToken:
-                    return createConcreteType(booleanType); // [ConcreteTypeScript] Always concrete
+                    return createConcreteType(booleanType); // [ConcreteTypeScript] Always concrete
+
                 case SyntaxKind.PlusPlusToken:
                 case SyntaxKind.MinusMinusToken:
-                    operandType = stripConcreteType(operandType); // [ConcreteTypeScript] Concreteness irrelevant for us
+                    operandType = stripConcreteType(operandType); // [ConcreteTypeScript] Concreteness irrelevant for us
+
                     let ok = checkArithmeticOperandType(node.operand, operandType, Diagnostics.An_arithmetic_operand_must_be_of_type_any_number_or_an_enum_type);
                     if (ok) {
                         // run check only if former checks succeeded to avoid reporting cascading errors
@@ -10264,11 +10311,13 @@ namespace ts {
         }
 
         function checkInstanceOfExpression(node: BinaryExpression, leftType: Type, rightType: Type): Type {
-            // [ConcreteTypeScript] Either side may of course be concrete
+            // [ConcreteTypeScript] Either side may of course be concrete
+
             leftType = stripConcreteType(leftType);
             rightType = stripConcreteType(rightType);
                 // TODO make sure floatNum and intNum are Primitive
-            // [/ConcreteTypeScript]
+            // [/ConcreteTypeScript]
+
             // TypeScript 1.0 spec (April 2014): 4.15.4
             // The instanceof operator requires the left operand to be of type Any, an object type, or a type parameter type,
             // and the right operand to be of type Any or a subtype of the 'Function' interface type.
@@ -10448,7 +10497,8 @@ namespace ts {
                         let leftOk = checkArithmeticOperandType(node.left, leftType, Diagnostics.The_left_hand_side_of_an_arithmetic_operation_must_be_of_type_any_number_or_an_enum_type);
                         let rightOk = checkArithmeticOperandType(node.right, rightType, Diagnostics.The_right_hand_side_of_an_arithmetic_operation_must_be_of_type_any_number_or_an_enum_type);
                         if (leftOk && rightOk) {
-+                            checkAssignmentOperator(createConcreteType(numberType)); // [ConcreteTypeScript] Result is concrete
+                            checkAssignmentOperator(createConcreteType(numberType)); // [ConcreteTypeScript] Result is concrete
+
                         }
                     }
 
@@ -10807,7 +10857,8 @@ namespace ts {
         function checkNumericLiteral(node: LiteralExpression): Type {
             // Grammar checking
             checkGrammarNumericLiteral(node);
-            return createConcreteType(numberType); // [ConcreteTypeScript]
+            return createConcreteType(numberType); // [ConcreteTypeScript]
+
         }
 
         function checkExpressionWorker(node: Expression, contextualMapper: TypeMapper): Type {
@@ -10822,14 +10873,16 @@ namespace ts {
                     return nullType;
                 case SyntaxKind.TrueKeyword:
                 case SyntaxKind.FalseKeyword:
-                    return createConcreteType(booleanType); // [ConcreteTypeScript]
+                    return createConcreteType(booleanType); // [ConcreteTypeScript]
+
                 case SyntaxKind.NumericLiteral:
                     return checkNumericLiteral(<LiteralExpression>node);
                 case SyntaxKind.TemplateExpression:
                     return checkTemplateExpression(<TemplateExpression>node);
                 case SyntaxKind.StringLiteral:
                 case SyntaxKind.NoSubstitutionTemplateLiteral:
-                    return createConcreteType(stringType); // [ConcreteTypeScript]
+                    return createConcreteType(stringType); // [ConcreteTypeScript]
+
                 case SyntaxKind.RegularExpressionLiteral:
                     return globalRegExpType;
                 case SyntaxKind.ArrayLiteralExpression:
@@ -11320,9 +11373,21 @@ namespace ts {
         function checkTypeReferenceNode(node: TypeReferenceNode | ExpressionWithTypeArguments) {
             checkGrammarTypeArguments(node, node.typeArguments);
             let type = getTypeFromTypeReference(node);
-            // [ConcreteTypeScript]            if (node.brandTypeDeclaration) {
+            // [ConcreteTypeScript]
+            if (node.brandTypeDeclaration) {
                 let bdecl = node.brandTypeDeclaration;
-                for (let key of Object.keys(bdecl.symbol.members)) {                    // Make sure resolvedType is set for emit                    getTypeOfBrandProperty(<BrandPropertyDeclaration> getSymbolDecl(bdecl.symbol.members[key], SyntaxKind.BrandProperty));                }                if (bdecl = bdecl.prototypeBrandDeclaration) {                    for (let key of Object.keys(bdecl.symbol.members)) {                        // Make sure resolvedType is set for emit                        getTypeOfBrandProperty(<BrandPropertyDeclaration> getSymbolDecl(bdecl.symbol.members[key], SyntaxKind.BrandProperty));                    }                }            }            // [/ConcreteTypeScript]
+                for (let key of Object.keys(bdecl.symbol.members)) {
+                    // Make sure resolvedType is set for emit
+                    getTypeOfBrandProperty(<BrandPropertyDeclaration> getSymbolDecl(bdecl.symbol.members[key], SyntaxKind.BrandProperty));
+                }
+                if (bdecl = bdecl.prototypeBrandDeclaration) {
+                    for (let key of Object.keys(bdecl.symbol.members)) {
+                        // Make sure resolvedType is set for emit
+                        getTypeOfBrandProperty(<BrandPropertyDeclaration> getSymbolDecl(bdecl.symbol.members[key], SyntaxKind.BrandProperty));
+                    }
+                }
+            }
+            // [/ConcreteTypeScript]
  
             if (type !== unknownType && node.typeArguments) {
                 // Do type argument local checks only if referenced type is successfully resolved
@@ -12484,7 +12549,8 @@ namespace ts {
                 // Node is the primary declaration of the symbol, just validate the initializer
                 if (node.initializer) {
                     checkTypeAssignableTo(checkExpressionCached(node.initializer), type, node, /*headMessage*/ undefined);
-                    let brandTypeDecl:BrandTypeDeclaration = null;                    if (node.type && node.kind == SyntaxKind.VariableDeclaration) {
+                    let brandTypeDecl:BrandTypeDeclaration = null;
+                    if (node.type && node.kind == SyntaxKind.VariableDeclaration) {
                         brandTypeDecl = (<VariableDeclaration>node).type.brandTypeDeclaration;
                     }
                     // Brand type declarations get a free pass
@@ -12500,7 +12566,8 @@ namespace ts {
                             let initType = checkExpressionCached(node.initializer); // FIXME: rechecking
                             checkCTSCoercion(node.initializer, initType, type);
                             // [/ConcreteTypeScript]
-                        }                    } else {
+                        }
+                    } else {
                         // Use default messages
                         checkTypeAssignableTo(checkExpressionCached(node.initializer), type, node, /*headMessage*/ undefined);
                         // [ConcreteTypeScript]
@@ -14565,18 +14632,30 @@ namespace ts {
                             }
                             break;
                     // TODO Remove this post refactor
-                    // case SyntaxKind.FunctionType:
-                    // case SyntaxKind.ConstructorType:
-                    // case SyntaxKind.CallSignature:
-                    // case SyntaxKind.ConstructSignature:
-                    // case SyntaxKind.IndexSignature:
-                    // case SyntaxKind.Method:
-                    // case SyntaxKind.Constructor:
-                    // case SyntaxKind.GetAccessor:
-                    // case SyntaxKind.SetAccessor:
-                    // case SyntaxKind.FunctionDeclaration:
-                    // case SyntaxKind.ArrowFunction:
-                    //     copySymbols(getSymbolOfNode(location).exports, meaning & SymbolFlags.Brand);
+                    // case SyntaxKind.FunctionType:
+
+                    // case SyntaxKind.ConstructorType:
+
+                    // case SyntaxKind.CallSignature:
+
+                    // case SyntaxKind.ConstructSignature:
+
+                    // case SyntaxKind.IndexSignature:
+
+                    // case SyntaxKind.Method:
+
+                    // case SyntaxKind.Constructor:
+
+                    // case SyntaxKind.GetAccessor:
+
+                    // case SyntaxKind.SetAccessor:
+
+                    // case SyntaxKind.FunctionDeclaration:
+
+                    // case SyntaxKind.ArrowFunction:
+
+                    //     copySymbols(getSymbolOfNode(location).exports, meaning & SymbolFlags.Brand);
+
                     //     break;
                     }
                     

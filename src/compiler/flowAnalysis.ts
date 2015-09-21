@@ -344,23 +344,23 @@ module ts {
         }
         scanInitializer(initializer:Expression, prev:BrandPropertyTypes):BrandPropertyTypes {
             if (initializer.kind === SyntaxKind.ObjectLiteralExpression) {
-                forEach((<ObjectLiteralExpression>initializer).properties, (propAccess:ObjectLiteralElement) => {
-                    if (propAccess.kind === SyntaxKind.PropertyAssignment && propAccess.name.kind === SyntaxKind.Identifier){
-                        var propName:Identifier = <Identifier>propAccess.name;
+                for (var objectLit of (<ObjectLiteralExpression>initializer).properties) {
+                    if (objectLit.kind === SyntaxKind.PropertyAssignment && objectLit.name.kind === SyntaxKind.Identifier){
+                        var propName:Identifier = <Identifier>objectLit.name;
                         // Create a property declaration for the brand-type symbol list:
                         var propertyNode = <BrandPropertyDeclaration> new (objectAllocator.getNodeConstructor(SyntaxKind.BrandProperty))();
-                        propertyNode.name = propAccess.name; // Right-hand <identifier>
-                        propertyNode.pos = propAccess.pos;
-                        propertyNode.end = propAccess.end;
+                        propertyNode.name = objectLit.name; // Right-hand <identifier>
+                        propertyNode.pos = objectLit.pos;
+                        propertyNode.end = objectLit.end;
                         propertyNode.parent = this.declarationScope;
                         propertyNode.brandTypeDeclaration = this.brandTypeDecl;
                         this.declareSymbol(this.brandTypeDecl.symbol.members, this.brandTypeDecl.symbol, propertyNode, SymbolFlags.Property, 0);
                         var propId = this.getPropId(propName.text);
-                        prev = prev.addAssignedValue(propId, (<PropertyAssignment> propAccess).initializer);
+                        prev = prev.addAssignedValue(propId, (<PropertyAssignment> objectLit).initializer);
                         this.fillProp(propertyNode);
-                        objLiteralToBrandPropertyDeclaration.set(propAccess, propertyNode);
+                        objLiteralToBrandPropertyDeclaration.set(objectLit, propertyNode);
                     }
-                });
+                }
             }
             return prev;
         }

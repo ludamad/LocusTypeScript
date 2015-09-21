@@ -1009,7 +1009,7 @@ namespace ts {
         label?: Identifier;
     }
 
-    export interface ReturnStatement extends Statement {
+    export interface ReturnStatement extends BlockExitStatement {
         expression?: Expression;
         breakingContainer?: Node;
     }

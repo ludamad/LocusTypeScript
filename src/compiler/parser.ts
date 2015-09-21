@@ -2395,12 +2395,13 @@ namespace ts {
                 switch (token) {
                     // [ConcreteTypeScript] Specifications for concreteness
                     case SyntaxKind.ExclamationToken:
-                        console.log("BEE")
                     case SyntaxKind.LikeKeyword:
-                        nextToken();
-                        if (specifiedConcrete) return undefined; // FIXME
+                        if (specifiedConcrete) {
+                            throw new Error("TODO ConcreteTypeScript does not expect a type that specifies both concrete and non-concrete")
+                        }
                         specifiedConcrete = true;
                         isConcrete = (token === SyntaxKind.ExclamationToken);
+                        nextToken();
                         break;
                     // [/ConcreteTypeScript]
                     case SyntaxKind.NullKeyword: // [ConcreteTypeScript] Let 'null' be a concrete type
@@ -2457,7 +2458,6 @@ namespace ts {
         function isStartOfType(): boolean {
             switch (token) {
                 case SyntaxKind.ExclamationToken: // [ConcreteTypeScript]
-                    console.log("START OF TYPE BRAH")
                     return lookAhead(isIdentifier);
                 case SyntaxKind.AnyKeyword:
                 case SyntaxKind.StringKeyword:
@@ -4438,7 +4438,6 @@ namespace ts {
                 case SyntaxKind.InterfaceKeyword:
                     return parseInterfaceDeclaration(fullStart, decorators, modifiers);
                 case SyntaxKind.DeclareKeyword:
-
                     return parseBrandTypeDeclaration(fullStart, modifiers);
 
                 case SyntaxKind.TypeKeyword:
