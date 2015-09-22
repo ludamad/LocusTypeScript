@@ -4346,18 +4346,19 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 }
             }
 
-            function emitFunctionBody(node: FunctionLikeDeclaration) {
+            function emitFunctionBody(node: FunctionLikeDeclaration, doEmitProtectors: boolean = true, realBodyIfProtectors?: string /* [ConcreteTypeScript] */):boolean /* [ConcreteTypeScript] */{
                 if (!node.body) {
                     // There can be no body when there are parse errors.  Just emit an empty block
                     // in that case.
                     write(" { }");
+                    return true;
                 }
                 else {
                     if (node.body.kind === SyntaxKind.Block) {
-                        emitBlockFunctionBody(node, <Block>node.body);
+                        return emitBlockFunctionBody(node, <Block>node.body, doEmitProtectors, realBodyIfProtectors);
                     }
                     else {
-                        emitExpressionFunctionBody(node, <Expression>node.body);
+                        return emitExpressionFunctionBody(node, <Expression>node.body, doEmitProtectors, realBodyIfProtectors);
                     }
                 }
             }
@@ -4379,29 +4380,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 else {
                     emitSignatureParameters(node);
                 }
-
-                // [ConcreteTypeScript] Protect arguments
-                if (doEmitProtectors && emitArgumentProtectors(node) && realBodyIfProtectors) {
-                    // Just the protection shell
-                    writeLine();
-                    write("return " + realBodyIfProtectors + ".apply(this, arguments);");
-                    // decreaseIndent();
-                    writeLine();
-                    write("}");
-                    tempFlags = saveTempFlags;
-                    tempVariables = saveTempVariables;
-                    tempParameters = saveTempParameters;
-                    return false; // false means "I didn't write a body"
-                }
-                // [/ConcreteTypeScript]
-
  
                 let isAsync = isAsyncFunctionLike(node);
                 if (isAsync && languageVersion === ScriptTarget.ES6) {
                     emitAsyncFunctionBodyForES6(node);
                 }
                 else {
-                    emitFunctionBody(node);
+                    emitFunctionBody(node, doEmitProtectors, realBodyIfProtectors);
                 }
 
                 if (!isES6ExportedDeclaration(node)) {
@@ -4415,18 +4400,31 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             }
 
             // Returns true if any preamble code was emitted.
-            function emitFunctionBodyPreamble(node: FunctionLikeDeclaration): void {
+            function emitFunctionBodyPreamble(node: FunctionLikeDeclaration, doEmitProtectors: boolean = true, realBodyIfProtectors?: string /* [ConcreteTypeScript] */) : boolean {
                 emitCaptureThisForNodeIfNecessary(node);
                 emitDefaultValueAssignments(node);
                 emitRestParameter(node);
+                // [ConcreteTypeScript] Brand type declarations and prototype protectors
                 emitBrandTypesAtBlockStart(node);
                 emitBrandPrototypeAsserts(node);
+                // [/ConcreteTypeScript]
+                
+                // [ConcreteTypeScript] Protect arguments
+                if (doEmitProtectors && emitArgumentProtectors(node) && realBodyIfProtectors) {
+                    // Just the protection shell
+                    writeLine();
+                    write("return " + realBodyIfProtectors + ".apply(this, arguments);");
+                    // decreaseIndent();
+                    writeLine();
+                    return false; // false means "I didn't write a body"
+                }
+                // [/ConcreteTypeScript]
+                return true;
             }
 
-            function emitExpressionFunctionBody(node: FunctionLikeDeclaration, body: Expression) {
+            function emitExpressionFunctionBody(node: FunctionLikeDeclaration, body: Expression, doEmitProtectors: boolean = true, realBodyIfProtectors?: string /* [ConcreteTypeScript] */):boolean/* [ConcreteTypeScript] */ {
                 if (languageVersion < ScriptTarget.ES6 || node.flags & NodeFlags.Async) {
-                    emitDownLevelExpressionFunctionBody(node, body);
-                    return;
+                    return emitDownLevelExpressionFunctionBody(node, body, doEmitProtectors, realBodyIfProtectors);
                 }
 
                 // For es6 and higher we can emit the expression as is.  However, in the case
@@ -4442,16 +4440,24 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 }
 
                 emitParenthesizedIf(body, current.kind === SyntaxKind.ObjectLiteralExpression);
+                // TODO handle es6 emit [ConcreteTypeScript]
+                return true;
             }
 
-            function emitDownLevelExpressionFunctionBody(node: FunctionLikeDeclaration, body: Expression) {
+            function emitDownLevelExpressionFunctionBody(node: FunctionLikeDeclaration, body: Expression, doEmitProtectors: boolean = true, realBodyIfProtectors?: string /* [ConcreteTypeScript] */):boolean /* [ConcreteTypeScript] */{
                 write(" {");
                 scopeEmitStart(node);
 
                 increaseIndent();
                 let outPos = writer.getTextPos();
                 emitDetachedComments(node.body);
-                emitFunctionBodyPreamble(node);
+                // [ConcreteTypeScript]
+                if (!emitFunctionBodyPreamble(node, doEmitProtectors, realBodyIfProtectors)) {
+                    write("}");
+                    scopeEmitEnd();
+                    return false;
+                }
+                // [/ConcreteTypeScript]
                 let preambleEmitted = writer.getTextPos() !== outPos;
                 decreaseIndent();
 
@@ -4488,7 +4494,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 scopeEmitEnd();
             }
 
-            function emitBlockFunctionBody(node: FunctionLikeDeclaration, body: Block) {
+            function emitBlockFunctionBody(node: FunctionLikeDeclaration, body: Block, doEmitProtectors: boolean = true, realBodyIfProtectors?: string /* [ConcreteTypeScript] */):boolean {
                 write(" {");
                 scopeEmitStart(node);
 
@@ -4500,7 +4506,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 // Emit all the directive prologues (like "use strict").  These have to come before
                 // any other preamble code we write (like parameter initializers).
                 let startIndex = emitDirectivePrologues(body.statements, /*startWithNewLine*/ true);
-                emitFunctionBodyPreamble(node);
+                // [ConcreteTypeScript]
+                if (!emitFunctionBodyPreamble(node, doEmitProtectors, realBodyIfProtectors)) {
+                    write("}");
+                    scopeEmitEnd();
+                    return false;
+                }
+                // [/ConcreteTypeScript]
                 decreaseIndent();
 
                 let preambleEmitted = writer.getTextPos() !== initialTextPos;
@@ -4543,6 +4555,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
 
                 emitToken(SyntaxKind.CloseBraceToken, body.statements.end);
                 scopeEmitEnd();
+                // [ConcreteTypeScript] True means "I did write a body"
+                return true;
+                // [/ConcreteTypeScript]
             }
 
             function findInitialSuperCall(ctor: ConstructorDeclaration): ExpressionStatement {
@@ -4556,8 +4571,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                                 return <ExpressionStatement>statement;
                             }
                         }
-                    }
                 }
+                    }
             }
 
             function emitParameterPropertyAssignments(node: ConstructorDeclaration) {

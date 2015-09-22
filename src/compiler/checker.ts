@@ -7265,6 +7265,11 @@ console.log((<any> new Error()).stack)
                 case SyntaxKind.AsExpression:
                     return getTypeFromTypeNode((<AssertionExpression>parent).type);
                 case SyntaxKind.BinaryExpression:
+                    // [ConcreteTypeScript] Don't use contextual information on members derived for brand types
+                    if ((<BinaryExpression>parent).operatorToken.kind === SyntaxKind.EqualsToken && nodeToFlowTypeAnalysis.get(<PropertyAccessExpression>(<BinaryExpression>parent).left)) {
+                        return undefined;
+                    }
+                    // [/ConcreteTypeScript]
                     return getContextualTypeForBinaryOperand(node);
                 case SyntaxKind.PropertyAssignment:
                     return getContextualTypeForObjectLiteralElement(<ObjectLiteralElement>parent);
@@ -8210,14 +8215,13 @@ console.log((<any> new Error()).stack)
             return checkPropertyAccessExpressionOrQualifiedName(node, node.left, node.right);
         }
 
-        // [ConcreteTypeScript]
+        // [ConcreteTypeScript] Get narrowed types for brand property, or proto-property accesses
         function getNarrowedTypeOfBrandPropertyAccess(access:PropertyAccessExpression) {
             // BUG FIX: Make sure resolvedType is always set.
             let declaration = nodeToFlowTypeAnalysis.get(access).getDeclaration();
             getTypeOfBrandProperty(declaration);
             return getUnionOverExpressions(nodeToFlowTypeAnalysis.get(access));
         }
-
 
         function checkPropertyAccessExpressionOrQualifiedName(node: PropertyAccessExpression | QualifiedName, left: Expression | QualifiedName, right: Identifier) {
             // [ConcreteTypeScript] types for .prototype:

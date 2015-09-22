@@ -479,8 +479,6 @@ namespace ts {
         assertFloat?: boolean;        // If set, can assert that this value is always a float instead of generic number
         assertInt?: boolean;          // If set, can assert that this value is always an int instead of generic number
         downgradeToBaseClass?: boolean;
-        // HACK Used during flowAnalysis to decide chronological order
-        tempNumbering?: number;
         // Set in flowAnalysis.ts
         brandsToEmitAfterwards?: BrandTypeDeclaration[];
         // [/ConcreteTypeScript]
