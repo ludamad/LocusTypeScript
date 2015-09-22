@@ -85,7 +85,7 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         // We consider the concreteness of !(a | b) to be and reinterpret it as !a | !b.
         function UnionType() {
             // Copy arguments object as an array:
-            this.types = [].slice.call(arguments);
+            this.types = [].slice.call(arguments).sort();
         }
         cement(this, "UnionType", UnionType);
         cement(this.UnionType, "prototype", this.UnionType.prototype); 

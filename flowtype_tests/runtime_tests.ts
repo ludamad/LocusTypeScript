@@ -19,7 +19,7 @@ describe("Branding semantics", () => {
         var a : declare BrandObjectLiteral = {b: 0};
         cts_test.assertType(a, "b", Number);
     })
-    it("should declare after scope break", () => {
+    it("should brand after scope break", () => {
         var leakedA;
         while (true) {
             // Note, we need es6 emit for the 'let' statement to work
@@ -31,7 +31,7 @@ describe("Branding semantics", () => {
         }
         cts_test.assertBranded(leakedA);
     });
-    it("should declare before return", () => {
+    it("should brand before return", () => {
         (function() {
             var a : declare BeforeReturn = {};
             cts_test.assertNotBranded(a);
@@ -39,7 +39,7 @@ describe("Branding semantics", () => {
             return cts_test.assertBranded(a);
         })();
     });
-    it("should declare after function exit", () => {
+    it("should brand after function exit", () => {
         var tester;
         (function() {
             var a : declare FunctionExit = {};
@@ -49,7 +49,7 @@ describe("Branding semantics", () => {
         })();
         tester();
     });
-    it("should declare after scope exit", () => {
+    it("should brand after scope exit", () => {
         var tester;
         {
             let a : declare ScopeExit = {};

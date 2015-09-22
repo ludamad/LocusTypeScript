@@ -60,7 +60,7 @@ namespace ts {
 
     export function getBrandTypeVarDeclarations(block:Node):VariableDeclaration[] {
         var isBrandVarDecl = (node:Declaration) => {
-            if (node.kind == SyntaxKind.VariableDeclaration) {
+            if (node.kind === SyntaxKind.VariableDeclaration) {
                 var typeNode = (<VariableDeclaration>node).type;
                 return !!(typeNode && typeNode.brandTypeDeclaration);
             }

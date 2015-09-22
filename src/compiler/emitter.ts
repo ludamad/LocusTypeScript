@@ -2029,8 +2029,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             }
 
             function emitPropertyAssignment(node: PropertyDeclaration) {
-                emit(node.name);
-                write(": ");
                 // This is to ensure that we emit comment in the following case:
                 //      For example:
                 //          obj = {
@@ -2042,12 +2040,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 if (!isConcreteObjectLiteralElement(<ObjectLiteralElement><any>node)) {
                     emit(node.name);
                     write(": ");
+                    emitTrailingCommentsOfPosition(node.initializer.pos);
                     emit(node.initializer);
                 }
- 
-                emitTrailingCommentsOfPosition(node.initializer.pos);
-                emit(node.initializer);
-            }
+             }
 
             // Return true if identifier resolves to an exported member of a namespace
             function isNamespaceExportReference(node: Identifier) {
@@ -2694,15 +2690,15 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
 
             // [ConcreteTypeScript]
             function emitConcreteAssignment(node:BinaryExpression, expression:Expression, propAccess:PropertyAccessExpression):boolean {
-                let declaration: BrandPropertyDeclaration = propAccess.brandAnalysis.getDeclaration();
+                let declaration: BrandPropertyDeclaration = nodeToFlowTypeAnalysis.get(propAccess).getDeclaration();
                 let brandDecl = declaration.brandTypeDeclaration;
                 let resolvedToConcrete = (declaration.resolvedType.flags & TypeFlags.Concrete);
-                let assignmentValues = propAccess.brandAnalysis.assignments;
+                let assignmentValues = nodeToFlowTypeAnalysis.get(propAccess).assignments;
                 // console.log("Here with ", propAccess.name.text,  assignmentValues.length, resolvedToConcrete);
                 if (resolvedToConcrete && assignmentValues.length === 1 && assignmentValues[0] === node.right) {
                     // Emit protection if this is a binding-relevant assignment:
                     // console.log("Here with ", propAccess.name.text, propAccess.brandAnalysis.isPrototypeProperty());
-                    if (propAccess.brandAnalysis.isPrototypeProperty()) {
+                    if (nodeToFlowTypeAnalysis.get(propAccess).isPrototypeProperty()) {
                         emitCTSRT("protectProtoAssignment(");
                         emitCTSType((<ConcreteType>declaration.resolvedType).baseType);
                         let extendedPrototypeStr = "undefined";
@@ -2735,7 +2731,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 if (isPropertyAssignment(node)) {
                     let propAccess:PropertyAccessExpression = <PropertyAccessExpression>node.left;
                     // console.log("Here with ", propAccess.name.text);
-                    if (propAccess.brandAnalysis) {
+                    if (nodeToFlowTypeAnalysis.get(propAccess)) {
                         if (emitConcreteAssignment(node, propAccess.expression, propAccess)) {
                             return;
                         }
@@ -2798,12 +2794,14 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 let varDecls = getBrandTypeVarDeclarations(block);
                 forEach(varDecls, (varDecl:VariableDeclaration) => {
                     let brandTypeDecl = varDecl.type.brandTypeDeclaration;
+                        printNodeDeep(varDecl);
                     let brandProto = brandTypeDecl.prototypeBrandDeclaration;
                     if (brandProto) {
+                        writeLine();
                         emitCTSRT("cast(");
                         write("$$cts$$brandTypes.");
-                        emit(brandProto.name);
-                        write(".prototype, this.prototype");
+                        write(brandTypeDecl.name.text);
+                        write(".prototype, Object.getPrototypeOf(this));");
                         
                     }
                 });
@@ -2812,7 +2810,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             function emitBrandTypesAtBlockStart(block:Node) {
                 let brandTypes = getBrandTypesInScope(block);
                 if (brandTypes.length > 0) {
-                    write("let $$cts$$brandTypes = {};"); writeLine();
+                    write("var $$cts$$brandTypes = {};"); writeLine();
                 }
                 forEach(brandTypes, (brandTypeDeclaration:BrandTypeDeclaration) => {
                     let brandName:Identifier = brandTypeDeclaration.name;
@@ -2845,6 +2843,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     writeLine();
                 });
                 forEach(getFunctionDeclarationsWithThisBrand(block), (funcDecl) => {
+                    console.log("EMITTING IT MAKE ENCI")
                     let brandDecl = funcDecl.declaredTypeOfThis.brandTypeDeclaration;
                     let brandProto = brandDecl.prototypeBrandDeclaration;
                     if (brandProto) {
@@ -4420,6 +4419,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 emitCaptureThisForNodeIfNecessary(node);
                 emitDefaultValueAssignments(node);
                 emitRestParameter(node);
+                emitBrandTypesAtBlockStart(node);
+                emitBrandPrototypeAsserts(node);
             }
 
             function emitExpressionFunctionBody(node: FunctionLikeDeclaration, body: Expression) {
@@ -4519,6 +4520,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         emitCTSRT("cast($$cts$$brandTypes.");
                         write(node.declaredTypeOfThis.brandTypeDeclaration.name.text)
                         write(".prototype, Object.getPrototypeOf(this))")
+                        
                     }
                     // [/ConcreteTypeScript]
 
@@ -7415,7 +7417,60 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
 
             function emitNodeWithoutSourceMap(node: Node): void {
                 if (node) {
+                // [ConcreteTypeScript] Emit type check if necessary
+                    if (node.mustFloat && compilerOptions.emitV8Intrinsics) {
+                        write("%_ToFloat(");
+                    }
+
+                    if (node.mustInt) {
+                        write("(~~(");
+                    }
+
+                    if (node.mustCheck) {
+                        emitCastPre(node.mustCheck);
+                    }
+
+                    if (node.forceFalseyCoercion) {
+                        emitFalseyCoercionPre(node.forceFalseyCoercion);
+                    }
+                    
                     emitJavaScriptWorker(node);
+
+                    if (node.forceFalseyCoercion) {
+                        emitFalseyCoercionPost(node.forceFalseyCoercion);
+                    }
+
+                    if (node.mustCheck) {
+                        emitCastPost(node.mustCheck);
+                    }
+
+                    if (node.mustInt) {
+                        write("))");
+                    }
+                    if (node.mustFloat && compilerOptions.emitV8Intrinsics) {
+                        write(")");
+                    }
+                    if (node.brandsToEmitAfterwards) {
+                        forEach(node.brandsToEmitAfterwards, (brandProto) => {
+                            var owner = brandProto.ownerBrandDeclaration;
+                            if (owner) writeLine(); 
+                            write("$$cts$$runtime.brand($$cts$$brandTypes.");
+                            writeTextOfNode(currentSourceFile, (owner || brandProto).name);
+                            if (owner) {
+                                write(".prototype")
+                                write(", ");
+                                writeTextOfNode(currentSourceFile, owner.functionDeclaration.name);
+                                write(".prototype);");
+                                writeLine();
+                            } else {
+                                write(", ");
+                                writeTextOfNode(currentSourceFile, brandProto.variableDeclaration.name);
+                                write(");");
+                                writeLine();
+                            }
+                        });
+                    }
+
                 }
             }
 

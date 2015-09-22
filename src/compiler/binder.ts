@@ -425,6 +425,7 @@ namespace ts {
                 // Set to parent of FunctionDeclaration:
                 proto.parent = node;
                 node.prototypeBrandDeclaration = proto;
+                console.log("PROTO", proto);
                 proto.ownerBrandDeclaration = node;
                 declareSymbol(node.symbol.exports, node.symbol, proto, symbolKind, symbolExcludes);
             }
@@ -912,6 +913,11 @@ namespace ts {
         }
 
         function bindWorker(node: Node) {
+            // [ConcreteTypeScript] Keep a breakingContainer property around for convenience
+            if (node.kind === SyntaxKind.BreakStatement || node.kind === SyntaxKind.ContinueStatement || node.kind === SyntaxKind.ReturnStatement) {
+               (<BreakOrContinueStatement>node).breakingContainer = findBreakingScope(node);
+            }
+            // [/ConcreteTypeScript]
             switch (node.kind) {
                 case SyntaxKind.Identifier:
                     return checkStrictModeIdentifier(<Identifier>node);
@@ -1091,6 +1097,13 @@ namespace ts {
             // [ConcreteTypeScript] Check if we define a brand type in our type specifier
             if (typeNode && typeNode.brandTypeDeclaration) {
                 typeNode.brandTypeDeclaration.parent = node; // Set parent relationship, normally set in bind()
+                // Handle 'this' declarations:
+                if ((<Identifier>node.name).text === "this") {
+                    var funcDecl = (<FunctionLikeDeclaration>getThisContainer(node, false));
+                    Debug.assert(isFunctionLike(funcDecl))
+                    funcDecl.thisType = (<VariableDeclaration>node).type;
+                    funcDecl.thisType.brandTypeDeclaration.functionDeclaration = funcDecl;
+                }
                 bindBrandTypeDeclaration(typeNode.brandTypeDeclaration);
             }
             // [/ConcreteTypeScript]

@@ -857,8 +857,6 @@ namespace ts {
         // [ConcreteTypeScript] Accesses to a brand type property within the 
         // same scope, we collect a relevant list of expressions for determining 
         // the narrowed type of the expression.
-        brandAnalysis?: FlowTypeAnalysis;
-        brandTypeDeclForPrototypeProperty?: BrandTypeDeclaration;
         useProtoBrand?: boolean;
     }
 

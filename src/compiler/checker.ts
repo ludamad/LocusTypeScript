@@ -2391,19 +2391,6 @@ namespace ts {
             return declaration.resolvedType;
         }
 
-        // [ConcreteTypeScript]
-        function getContextualTypeOfBrandProperty(declaration: BrandPropertyDeclaration): Type {
-            // We wish to give a type to the brand property that is based on code location.
-            // The following rules apply:
-            //    If the context scope is not a subscope of the declaration scope, use the resolved type.
-            //    Otherwise, consider the list of assignments, before the current code location:
-            //      1. If the last assignment is in the context scope, use it as the type.
-            //      2. If the 
-            let type = checkExpressionCached(declaration.initializer);
-            let assignments = nodeToFlowTypeAnalysis.get(declaration);
-            return type;
-        }
-
         // Return the type of the given property in the given type, or undefined if no such property exists
         function getTypeOfPropertyOfType(type: Type, name: string): Type {
             let prop = getPropertyOfType(type, name);
@@ -2477,6 +2464,9 @@ namespace ts {
 
         // Return the inferred type for a variable, parameter, or property declaration
         function getTypeForVariableLikeDeclaration(declaration: VariableLikeDeclaration): Type {
+            if (declaration.kind === SyntaxKind.BrandProperty) {
+                return getTypeOfBrandProperty(<BrandPropertyDeclaration> declaration);
+            }
             // A variable declared in a for..in statement is always of type any
             if (declaration.parent.parent.kind === SyntaxKind.ForInStatement) {
                 return anyType;
@@ -4894,7 +4884,10 @@ namespace ts {
             return result !== Ternary.False;
 
             function reportError(message: DiagnosticMessage, arg0?: string, arg1?: string, arg2?: string): void {
+                
                 errorInfo = chainDiagnosticMessages(errorInfo, message, arg0, arg1, arg2);
+                                                console.log(errorInfo.messageText)
+console.log((<any> new Error()).stack)
             }
 
             function reportRelationError(message: DiagnosticMessage, source: Type, target: Type) {
@@ -4912,14 +4905,6 @@ namespace ts {
             // Ternary.Maybe if they are related with assumptions of other relationships, or
             // Ternary.False if they are not related.
             function isRelatedTo(source: Type, target: Type, reportErrors?: boolean, headMessage?: DiagnosticMessage): Ternary {
-                let _console = {
-                    log(str) {
-                        if (source.flags & TypeFlags.NumberLike || target.flags & TypeFlags.NumberLike) {
-                            console.log(str)
-                            console.log((<any>new Error()).stack)
-                        }
-                    }
-                }
                 let result: Ternary;
                 // both types are the same - covers 'they are the same primitive type or both are Any' or the same type parameter cases
                 if (source === target) return Ternary.True;
@@ -4955,7 +4940,6 @@ namespace ts {
 
                 if (source.flags & TypeFlags.FreshObjectLiteral) {
                     if (hasExcessProperties(<FreshObjectLiteralType>source, target, reportErrors)) {
-                    _console.log(`PHFFF 3b ${typeToString(source)} ${typeToString(target)}`)
                         if (reportErrors) {
                             reportRelationError(headMessage, source, target);
                         }
@@ -4981,26 +4965,22 @@ namespace ts {
                 }
                 // [ConcreteTypeScript] Support for concrete type relationships
                 else if (source.flags & TypeFlags.Concrete) {
-                    _console.log(`PHFFF 3d ${typeToString(source)} ${typeToString(target)}`)
                     if (result = concreteTypeRelatedToType(<ConcreteType>source, target, reportErrors)) {
                         return result;
                     }
                 }
                 else if (target.flags & TypeFlags.Concrete) {
-                    _console.log(`PHFFF 3e ${typeToString(source)} ${typeToString(target)}`)
                     if (result = typeRelatedToConcreteType(source, <ConcreteType>target, reportErrors)) {
                         return result;
                     }
                 }
                 // [/ConcreteTypeScript]
                 else if (target.flags & TypeFlags.Intersection) {
-                    _console.log(`PHFFF 3f ${typeToString(source)} ${typeToString(target)}`)
                     if (result = typeRelatedToEachType(source, <IntersectionType>target, reportErrors)) {
                         return result;
                     }
                 }
                 else {
-                    _console.log(`PHFFF 3g ${typeToString(source)} ${typeToString(target)}`)
                     // It is necessary to try "some" checks on both sides because there may be nested "each" checks
                     // on either side that need to be prioritized. For example, A | B = (A | B) & (C | D) or
                     // A & B = (A & B) | (C & D).
@@ -5010,7 +4990,6 @@ namespace ts {
                             return result;
                         }
                     }
-                    _console.log(`PHFFF 3h ${typeToString(source)} ${typeToString(target)}`)
                     if (target.flags & TypeFlags.Union) {
                         if (result = typeRelatedToSomeType(source, <UnionType>target, reportErrors)) {
                             return result;
@@ -5019,29 +4998,24 @@ namespace ts {
                 }
 
                 if (source.flags & TypeFlags.TypeParameter) {
-                    _console.log(`PHFFF 3j ${typeToString(source)} ${typeToString(target)}`)
                     let constraint = getConstraintOfTypeParameter(<TypeParameter>source);
                     if (!constraint || constraint.flags & TypeFlags.Any) {
                         constraint = emptyObjectType;
                     }
-                    _console.log(`PHFFF 3k ${typeToString(source)} ${typeToString(target)}`)
                     // Report constraint errors only if the constraint is not the empty object type
                     let reportConstraintErrors = reportErrors && constraint !== emptyObjectType;
                     if (result = isRelatedTo(constraint, target, reportConstraintErrors)) {
                         errorInfo = saveErrorInfo;
                         return result;
                     }
-                    _console.log(`PHFFF 3q ${typeToString(source)} ${typeToString(target)}`)
                 }
                 else {
-                    _console.log(`PHFFF 4 ${typeToString(source)} ${typeToString(target)}`)
                     if (source.flags & TypeFlags.Reference && target.flags & TypeFlags.Reference && (<TypeReference>source).target === (<TypeReference>target).target) {
                         // We have type references to same target type, see if relationship holds for all type arguments
                         if (result = typesRelatedTo((<TypeReference>source).typeArguments, (<TypeReference>target).typeArguments, reportErrors)) {
                             return result;
                         }
                     }
-                    _console.log(`PHFFF 5 ${typeToString(source)} ${typeToString(target)}`)
                     // Even if relationship doesn't hold for unions, intersections, or generic type references,
                     // it may hold in a structural comparison.
                     let apparentType = getApparentType(source);
@@ -5056,7 +5030,6 @@ namespace ts {
                             return result;
                         }
                     }
-                    _console.log(`PHFFF 6 ${typeToString(source)} ${typeToString(target)}`)
                 }
 
                 if (reportErrors) {
@@ -8240,16 +8213,16 @@ namespace ts {
         // [ConcreteTypeScript]
         function getNarrowedTypeOfBrandPropertyAccess(access:PropertyAccessExpression) {
             // BUG FIX: Make sure resolvedType is always set.
-            let declaration = access.brandAnalysis.getDeclaration();
+            let declaration = nodeToFlowTypeAnalysis.get(access).getDeclaration();
             getTypeOfBrandProperty(declaration);
-            return getUnionOverExpressions(access.brandAnalysis);
+            return getUnionOverExpressions(nodeToFlowTypeAnalysis.get(access));
         }
 
 
         function checkPropertyAccessExpressionOrQualifiedName(node: PropertyAccessExpression | QualifiedName, left: Expression | QualifiedName, right: Identifier) {
             // [ConcreteTypeScript] types for .prototype:
-            if ((<PropertyAccessExpression>node).brandTypeDeclForPrototypeProperty) {
-                let brandDecl = (<PropertyAccessExpression>node).brandTypeDeclForPrototypeProperty.prototypeBrandDeclaration;
+            if (prototypePropToBrandTypeDecl.get(<PropertyAccessExpression>node)) {
+                let brandDecl = prototypePropToBrandTypeDecl.get(<PropertyAccessExpression>node).prototypeBrandDeclaration;
                 Debug.assert(!!brandDecl);
                 let type:Type;
                 if (node.downgradeToBaseClass) {
@@ -8303,7 +8276,7 @@ namespace ts {
             let ptype:Type = getTypeOfSymbol(prop);
             if (node.kind == SyntaxKind.PropertyAccessExpression) {
                 // if (prop.declarations && prop.declarations[0].kind == SyntaxKind.BrandProperty) {
-                if ((<PropertyAccessExpression>node).brandAnalysis != null) {
+                if (nodeToFlowTypeAnalysis.get(<PropertyAccessExpression>node)) {
                     ptype = getNarrowedTypeOfBrandPropertyAccess(<PropertyAccessExpression>node);
                 }
             }
@@ -12548,7 +12521,6 @@ namespace ts {
             if (node === symbol.valueDeclaration) {
                 // Node is the primary declaration of the symbol, just validate the initializer
                 if (node.initializer) {
-                    checkTypeAssignableTo(checkExpressionCached(node.initializer), type, node, /*headMessage*/ undefined);
                     let brandTypeDecl:BrandTypeDeclaration = null;
                     if (node.type && node.kind == SyntaxKind.VariableDeclaration) {
                         brandTypeDecl = (<VariableDeclaration>node).type.brandTypeDeclaration;
