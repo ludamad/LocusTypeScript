@@ -4,12 +4,22 @@ enum E { a, b }
 >a : E
 >b : E
 
+enum F { c, d }
+>F : F
+>c : F
+>d : F
+
 var a: number;
 >a : number
 
 var b: E;
 >b : E
 >E : E
+
+var c: E | F;
+>c : E | F
+>E : E
+>F : F
 
 var r1 = a + a;
 >r1 : number
@@ -38,6 +48,7 @@ var r4 = b + b;
 var r5 = 0 + a;
 >r5 : number
 >0 + a : number
+>0 : number
 >a : number
 
 var r6 = E.a + 0;
@@ -46,6 +57,7 @@ var r6 = E.a + 0;
 >E.a : E
 >E : typeof E
 >a : E
+>0 : number
 
 var r7 = E.a + E.b;
 >r7 : number
@@ -62,6 +74,48 @@ var r8 = E['a'] + E['b'];
 >E['a'] + E['b'] : number
 >E['a'] : E
 >E : typeof E
+>'a' : string
 >E['b'] : E
 >E : typeof E
+>'b' : string
+
+var r9 = E['a'] + F['c'];
+>r9 : number
+>E['a'] + F['c'] : number
+>E['a'] : E
+>E : typeof E
+>'a' : string
+>F['c'] : F
+>F : typeof F
+>'c' : string
+
+var r10 = a + c;
+>r10 : number
+>a + c : number
+>a : number
+>c : E | F
+
+var r11 = c + a;
+>r11 : number
+>c + a : number
+>c : E | F
+>a : number
+
+var r12 = b + c;
+>r12 : number
+>b + c : number
+>b : E
+>c : E | F
+
+var r13 = c + b;
+>r13 : number
+>c + b : number
+>c : E | F
+>b : E
+
+var r14 = c + c;
+>r14 : number
+>c + c : number
+>c : E | F
+>c : E | F
 

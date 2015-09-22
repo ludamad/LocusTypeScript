@@ -1,10 +1,9 @@
-/// <reference path='harness.ts' />
-/// <reference path='runnerbase.ts' />
-/// <reference path='syntacticCleaner.ts' />
+/// <reference path="harness.ts" />
+/// <reference path="runnerbase.ts" />
 
 class Test262BaselineRunner extends RunnerBase {
-    private static basePath = 'tests/cases/test262';
-    private static helpersFilePath = 'tests/cases/test262-harness/helpers.d.ts';
+    private static basePath = "internal/cases/test262";
+    private static helpersFilePath = "tests/cases/test262-harness/helpers.d.ts";
     private static helperFile = {
         unitName: Test262BaselineRunner.helpersFilePath,
         content: Harness.IO.readFile(Test262BaselineRunner.helpersFilePath)
@@ -15,152 +14,32 @@ class Test262BaselineRunner extends RunnerBase {
         target: ts.ScriptTarget.Latest,
         module: ts.ModuleKind.CommonJS
     };
-    private static baselineOptions: Harness.Baseline.BaselineOptions = { Subfolder: 'test262' };
+    private static baselineOptions: Harness.Baseline.BaselineOptions = {
+        Subfolder: "test262",
+        Baselinefolder: "internal/baselines"
+    };
 
     private static getTestFilePath(filename: string): string {
         return Test262BaselineRunner.basePath + "/" + filename;
     }
 
-    private static checkInvariants(node: ts.Node, parent: ts.Node): void {
-        if (node) {
-            if (node.pos < 0) {
-                throw new Error("node.pos < 0");
-            }
-            if (node.end < 0) {
-                throw new Error("node.end < 0");
-            }
-            if (node.end < node.pos) {
-                throw new Error("node.end < node.pos");
-            }
-            if (node.parent !== parent) {
-                throw new Error("node.parent !== parent");
-            }
-            ts.forEachChild(node, child => {
-                Test262BaselineRunner.checkInvariants(child, node);
-            });
-
-            var childNodesAndArrays: any[] = [];
-            ts.forEachChild(node, child => { childNodesAndArrays.push(child) }, array => { childNodesAndArrays.push(array) });
-
-            for (var childName in node) {
-                var child = (<any>node)[childName];
-                if (Test262BaselineRunner.isNodeOrArray(child)) {
-                    if (childNodesAndArrays.indexOf(child) < 0) {
-                        throw new Error("Child when forEach'ing over node. " + (<any>ts).SyntaxKind[node.kind] + "-" + childName);
-                    }
-                }
-            }
-        }
-    }
-
-    private static serializeSourceFile(file: ts.SourceFile): string {
-        function getKindName(k: number): string {
-            return (<any>ts).SyntaxKind[k]
-        }
-
-        function getFlagName(flags: any, f: number): any {
-            if (f === 0) {
-                return 0;
-            }
-
-            var result = "";
-            ts.forEach(Object.getOwnPropertyNames(flags), (v: any) => {
-                if (isFinite(v)) {
-                    v = +v;
-                    if (f === +v) {
-                        result = flags[v];
-                        return true;
-                    }
-                    else if ((f & v) > 0) {
-                        if (result.length)
-                            result += " | ";
-                        result += flags[v];
-                        return false;
-                    }
-                }
-            });
-            return result;
-        }
-
-        function getNodeFlagName(f: number) { return getFlagName((<any>ts).NodeFlags, f); }
-        function getParserContextFlagName(f: number) { return getFlagName((<any>ts).ParserContextFlags, f); }
-
-        function serializeNode(n: ts.Node): any {
-            var o: any = { kind: getKindName(n.kind) };
-
-            ts.forEach(Object.getOwnPropertyNames(n), propertyName => {
-                switch (propertyName) {
-                    case "parent":
-                    case "symbol":
-                    case "locals":
-                    case "localSymbol":
-                    case "kind":
-                    case "semanticDiagnostics":
-                    case "id":
-                    case "nodeCount":
-                    case "symbolCount":
-                    case "identifierCount":
-                        // Blacklist of items we never put in the baseline file.
-                        break;
-
-                    case "flags":
-                        // Print out flags with their enum names.
-                        o[propertyName] = getNodeFlagName(n.flags);
-                        break;
-
-                    case "parserContextFlags":
-                        o[propertyName] = getParserContextFlagName(n.parserContextFlags);
-                        break;
-
-                    case "nextContainer":
-                        if (n.nextContainer) {
-                            o[propertyName] = { kind: n.nextContainer.kind, pos: n.nextContainer.pos, end: n.nextContainer.end };
-                        }
-                        break;
-
-                    case "text":
-                        // Include 'text' field for identifiers/literals, but not for source files.
-                        if (n.kind !== ts.SyntaxKind.SourceFile) {
-                            o[propertyName] = (<any>n)[propertyName];
-                        }
-                        break;
-
-                    default:
-                        o[propertyName] = (<any>n)[propertyName];
-                }
-
-                return undefined;
-            });
-
-            return o;
-        }
-
-        return JSON.stringify(file, (k, v) => {
-            return Test262BaselineRunner.isNodeOrArray(v) ? serializeNode(v) : v;
-        }, "    ");
-    }
-
-    private static isNodeOrArray(a: any): boolean {
-        return a !== undefined && typeof a.pos === "number";
-    }
-
     private runTest(filePath: string) {
-        describe('test262 test for ' + filePath, () => {
+        describe("test262 test for " + filePath, () => {
             // Mocha holds onto the closure environment of the describe callback even after the test is done.
             // Everything declared here should be cleared out in the "after" callback.
-            var testState: {
+            let testState: {
                 filename: string;
                 compilerResult: Harness.Compiler.CompilerResult;
                 inputFiles: { unitName: string; content: string }[];
-                checker: ts.TypeChecker;
+                program: ts.Program;
             };
 
             before(() => {
-                var content = Harness.IO.readFile(filePath);
-                var testFilename = ts.removeFileExtension(filePath).replace(/\//g, '_') + ".test";
-                var testCaseContent = Harness.TestCaseParser.makeUnitsFromTest(content, testFilename);
+                let content = Harness.IO.readFile(filePath);
+                let testFilename = ts.removeFileExtension(filePath).replace(/\//g, "_") + ".test";
+                let testCaseContent = Harness.TestCaseParser.makeUnitsFromTest(content, testFilename);
 
-                var inputFiles = testCaseContent.testUnitData.map(unit => {
+                let inputFiles = testCaseContent.testUnitData.map(unit => {
                     return { unitName: Test262BaselineRunner.getTestFilePath(unit.name), content: unit.content };
                 });
 
@@ -169,12 +48,12 @@ class Test262BaselineRunner extends RunnerBase {
                     filename: testFilename,
                     inputFiles: inputFiles,
                     compilerResult: undefined,
-                    checker: undefined,
+                    program: undefined,
                 };
 
-                Harness.Compiler.getCompiler().compileFiles([Test262BaselineRunner.helperFile].concat(inputFiles), /*otherFiles*/ [], (compilerResult, checker) => {
+                Harness.Compiler.getCompiler().compileFiles([Test262BaselineRunner.helperFile].concat(inputFiles), /*otherFiles*/ [], (compilerResult, program) => {
                     testState.compilerResult = compilerResult;
-                    testState.checker = checker;
+                    testState.program = program;
                 }, /*settingsCallback*/ undefined, Test262BaselineRunner.options);
             });
 
@@ -182,16 +61,16 @@ class Test262BaselineRunner extends RunnerBase {
                 testState = undefined;
             });
 
-            it('has the expected emitted code', () => {
-                Harness.Baseline.runBaseline('has the expected emitted code', testState.filename + '.output.js', () => {
-                    var files = testState.compilerResult.files.filter(f=> f.fileName !== Test262BaselineRunner.helpersFilePath);
-                    return Harness.Compiler.collateOutputs(files, s => SyntacticCleaner.clean(s));
+            it("has the expected emitted code", () => {
+                Harness.Baseline.runBaseline("has the expected emitted code", testState.filename + ".output.js", () => {
+                    let files = testState.compilerResult.files.filter(f => f.fileName !== Test262BaselineRunner.helpersFilePath);
+                    return Harness.Compiler.collateOutputs(files);
                 }, false, Test262BaselineRunner.baselineOptions);
             });
 
-            it('has the expected errors', () => {
-                Harness.Baseline.runBaseline('has the expected errors', testState.filename + '.errors.txt', () => {
-                    var errors = testState.compilerResult.errors;
+            it("has the expected errors", () => {
+                Harness.Baseline.runBaseline("has the expected errors", testState.filename + ".errors.txt", () => {
+                    let errors = testState.compilerResult.errors;
                     if (errors.length === 0) {
                         return null;
                     }
@@ -200,15 +79,15 @@ class Test262BaselineRunner extends RunnerBase {
                 }, false, Test262BaselineRunner.baselineOptions);
             });
 
-            it('satisfies invariants', () => {
-                var sourceFile = testState.checker.getProgram().getSourceFile(Test262BaselineRunner.getTestFilePath(testState.filename));
-                Test262BaselineRunner.checkInvariants(sourceFile, /*parent:*/ undefined);
+            it("satisfies inletiants", () => {
+                let sourceFile = testState.program.getSourceFile(Test262BaselineRunner.getTestFilePath(testState.filename));
+                Utils.assertInvariants(sourceFile, /*parent:*/ undefined);
             });
 
-            it('has the expected AST',() => {
-                Harness.Baseline.runBaseline('has the expected AST', testState.filename + '.AST.txt',() => {
-                    var sourceFile = testState.checker.getProgram().getSourceFile(Test262BaselineRunner.getTestFilePath(testState.filename));
-                    return Test262BaselineRunner.serializeSourceFile(sourceFile);
+            it("has the expected AST", () => {
+                Harness.Baseline.runBaseline("has the expected AST", testState.filename + ".AST.txt", () => {
+                    let sourceFile = testState.program.getSourceFile(Test262BaselineRunner.getTestFilePath(testState.filename));
+                    return Utils.sourceFileToJSON(sourceFile);
                 }, false, Test262BaselineRunner.baselineOptions);
             });
         });
@@ -217,7 +96,7 @@ class Test262BaselineRunner extends RunnerBase {
     public initializeTests() {
         // this will set up a series of describe/it blocks to run between the setup and cleanup phases
         if (this.tests.length === 0) {
-            var testFiles = this.enumerateFiles(Test262BaselineRunner.basePath, Test262BaselineRunner.testFileExtensionRegex, { recursive: true });
+            let testFiles = this.enumerateFiles(Test262BaselineRunner.basePath, Test262BaselineRunner.testFileExtensionRegex, { recursive: true });
             testFiles.forEach(fn => {
                 this.runTest(ts.normalizePath(fn));
             });
@@ -226,4 +105,4 @@ class Test262BaselineRunner extends RunnerBase {
             this.tests.forEach(test => this.runTest(test));
         }
     }
-}  
+}

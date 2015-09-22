@@ -37,11 +37,11 @@ describe("Branding semantics", function () {
         $$cts$$runtime.protectAssignment(Number, "b", a, 0);$$cts$$runtime.brand($$cts$$brandTypes.BrandObjectLiteral, a);
         cts_test.assertType(a, "b", Number);
     });
-    it("should declare after scope break", function () {
+    it("should brand after scope break", function () {
         var leakedA;
         while (true) {
             // Note, we need es6 emit for the 'let' statement to work
-            let a = {};
+            var a = {};
             leakedA = a;
             cts_test.assertNotBranded(a);
             $$cts$$runtime.protectAssignment(Number, "b", a, 0);;$$cts$$runtime.brand($$cts$$brandTypes.BlockExit, a);
@@ -50,7 +50,7 @@ describe("Branding semantics", function () {
         }
         cts_test.assertBranded(leakedA);
     });
-    it("should declare before return", function () {
+    it("should brand before return", function () {
         (function () {
             var a = {};
             cts_test.assertNotBranded(a);
@@ -59,7 +59,7 @@ describe("Branding semantics", function () {
             return cts_test.assertBranded(a);
         })();
     });
-    it("should declare after function exit", function () {
+    it("should brand after function exit", function () {
         var tester;
         (function () {
             var a = {};
@@ -69,10 +69,10 @@ describe("Branding semantics", function () {
         })();
         tester();
     });
-    it("should declare after scope exit", function () {
+    it("should brand after scope exit", function () {
         var tester;
         {
-            let a = {};
+            var a = {};
             tester = function () { return cts_test.assertBranded(a); };
             cts_test.assertNotBranded(a);
             $$cts$$runtime.protectAssignment(Number, "b", a, 0);;$$cts$$runtime.brand($$cts$$brandTypes.ScopeExit, a);
@@ -82,20 +82,24 @@ describe("Branding semantics", function () {
 });
 describe("This branding semantics", function () {
     it("should brand prototype object", function () {
-        /*this-branded*/function ShouldBrandProto() {$$cts$$runtime.cast($$cts$$brandTypes.ShouldBrandProto.prototype, Object.getPrototypeOf(this))
+        function ShouldBrandProto() {
+            $$cts$$runtime.cast($$cts$$brandTypes.ShouldBrandProto.prototype, Object.getPrototypeOf(this));
             $$cts$$runtime.brand($$cts$$brandTypes.ShouldBrandProto, this);
             cts_test.assertBranded(this);
         }
-        $$cts$$runtime.protectProtoAssignment(Number, undefined, $$cts$$brandTypes.ShouldBrandProto.prototype, "x", ShouldBrandProto, 1);;$$cts$$runtime.brand($$cts$$brandTypes.ShouldBrandProto.prototype, ShouldBrandProto.prototype);
+        $$cts$$runtime.protectProtoAssignment(Number, undefined, $$cts$$brandTypes.ShouldBrandProto.prototype, "x", ShouldBrandProto, 1);;
+        $$cts$$runtime.brand($$cts$$brandTypes.ShouldBrandProto.prototype, ShouldBrandProto.prototype);
         cts_test.assertBranded(ShouldBrandProto.prototype);
         var val = new ShouldBrandProto();
     });
     it("should check prototype of this", function () {
-        /*this-branded*/function ShouldCheckThisProto() {$$cts$$runtime.cast($$cts$$brandTypes.ShouldCheckThisProto.prototype, Object.getPrototypeOf(this))
+        function ShouldCheckThisProto() {
+            $$cts$$runtime.cast($$cts$$brandTypes.ShouldCheckThisProto.prototype, Object.getPrototypeOf(this));
             $$cts$$runtime.brand($$cts$$brandTypes.ShouldCheckThisProto, this);
             cts_test.assertBranded(this);
         }
-        $$cts$$runtime.protectProtoAssignment(Number, undefined, $$cts$$brandTypes.ShouldCheckThisProto.prototype, "x", ShouldCheckThisProto, 1);;$$cts$$runtime.brand($$cts$$brandTypes.ShouldCheckThisProto.prototype, ShouldCheckThisProto.prototype);
+        $$cts$$runtime.protectProtoAssignment(Number, undefined, $$cts$$brandTypes.ShouldCheckThisProto.prototype, "x", ShouldCheckThisProto, 1);;
+        $$cts$$runtime.brand($$cts$$brandTypes.ShouldCheckThisProto.prototype, ShouldCheckThisProto.prototype);
         var failedLikeShould = true;
         try {
             ShouldCheckThisProto.call({});
@@ -114,11 +118,11 @@ describe("If statement runtime semantics", function () {
     it("branching", function () {
         var a = {};
         if (BRANCH) {
-            $$cts$$runtime.protectAssignment((new $$cts$$runtime.UnionType(String, Number)), "b", a, 1);;
+            $$cts$$runtime.protectAssignment((new $$cts$$runtime.UnionType(Number, String)), "b", a, 1);;
             cts_test.assertType(a, "b", [String, Number]);
         }
         else {
-            $$cts$$runtime.protectAssignment((new $$cts$$runtime.UnionType(String, Number)), "b", a, "Hello");;
+            $$cts$$runtime.protectAssignment((new $$cts$$runtime.UnionType(Number, String)), "b", a, "Hello");;
             cts_test.assertType(a, "b", [String, Number]);
         }$$cts$$runtime.brand($$cts$$brandTypes.IfBranch, a);
     });

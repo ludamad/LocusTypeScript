@@ -7,7 +7,7 @@ export class B {
 
 //// [importDeclarationUsedAsTypeQuery_1.ts]
 ///<reference path='importDeclarationUsedAsTypeQuery_require.ts'/>
-import a = require('importDeclarationUsedAsTypeQuery_require');
+import a = require('./importDeclarationUsedAsTypeQuery_require');
 export var x: typeof a;
 
 
@@ -19,7 +19,6 @@ var B = (function () {
 })();
 exports.B = B;
 //// [importDeclarationUsedAsTypeQuery_1.js]
-exports.x;
 
 
 //// [importDeclarationUsedAsTypeQuery_require.d.ts]
@@ -28,5 +27,5 @@ export declare class B {
 }
 //// [importDeclarationUsedAsTypeQuery_1.d.ts]
 /// <reference path="importDeclarationUsedAsTypeQuery_require.d.ts" />
-import a = require('importDeclarationUsedAsTypeQuery_require');
+import a = require('./importDeclarationUsedAsTypeQuery_require');
 export declare var x: typeof a;

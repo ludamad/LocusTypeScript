@@ -5,7 +5,7 @@ module f { export class c { } }
 export = f;
 
 //// [declarationEmit_nameConflicts_0.ts]
-import im = require('declarationEmit_nameConflicts_1');
+import im = require('./declarationEmit_nameConflicts_1');
 export module M {
     export function f() { }
     export class C { }
@@ -61,11 +61,10 @@ var f;
 })(f || (f = {}));
 module.exports = f;
 //// [declarationEmit_nameConflicts_0.js]
-var im = require('declarationEmit_nameConflicts_1');
+var im = require('./declarationEmit_nameConflicts_1');
 var M;
 (function (M) {
-    function f() {
-    }
+    function f() { }
     M.f = f;
     var C = (function () {
         function C() {
@@ -75,8 +74,7 @@ var M;
     M.C = C;
     var N;
     (function (N) {
-        function g() {
-        }
+        function g() { }
         N.g = g;
         ;
     })(N = M.N || (M.N = {}));
@@ -89,8 +87,7 @@ var M;
 (function (M) {
     var P;
     (function (P) {
-        function f() {
-        }
+        function f() { }
         P.f = f;
         var C = (function () {
             function C() {
@@ -100,8 +97,7 @@ var M;
         P.C = C;
         var N;
         (function (N) {
-            function g() {
-            }
+            function g() { }
             N.g = g;
             ;
         })(N = P.N || (P.N = {}));
@@ -117,8 +113,7 @@ var M;
 (function (M) {
     var Q;
     (function (Q) {
-        function f() {
-        }
+        function f() { }
         Q.f = f;
         var C = (function () {
             function C() {
@@ -128,8 +123,7 @@ var M;
         Q.C = C;
         var N;
         (function (N) {
-            function g() {
-            }
+            function g() { }
             N.g = g;
             ;
         })(N = Q.N || (Q.N = {}));
@@ -144,7 +138,7 @@ declare module f {
 }
 export = f;
 //// [declarationEmit_nameConflicts_0.d.ts]
-import im = require('declarationEmit_nameConflicts_1');
+import im = require('./declarationEmit_nameConflicts_1');
 export declare module M {
     function f(): void;
     class C {

@@ -13,9 +13,7 @@ function test(testBody, testFunc) {
     fs.writeFileSync("temp.ts", "\n        var a : declare A = {};\n        " + testBody + "\n    ");
     var stdoutString = execSync("./compile.sh").toString();
     var js = fs.readFileSync("temp.js", "utf8");
-    describe("<TEST>\n" + testBody + "</TEST>", function () {
-        testFunc(js, stdoutString);
-    });
+    describe("<TEST>\n" + testBody + "</TEST>", function () { testFunc(js, stdoutString); });
 }
 function testForErrors(testBody, errorRegexes) {
     test(testBody, function (js, stdout) {

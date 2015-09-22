@@ -54,7 +54,7 @@ var myvar2 = new m4.m2.c();
 
 //// [commentsExternalModules_1.ts]
 /**This is on import declaration*/
-import extMod = require("commentsExternalModules2_0"); // trailing comment 1
+import extMod = require("./commentsExternalModules2_0"); // trailing comment 1
 extMod.m1.fooExport();
 export var newVar = new extMod.m1.m2.c();
 extMod.m4.fooExport();
@@ -65,8 +65,6 @@ export var newVar2 = new extMod.m4.m2.c();
 /** Module comment*/
 var m1;
 (function (m1) {
-    /** b's comment*/
-    m1.b;
     /** foo's comment*/
     function foo() {
         return m1.b;
@@ -96,8 +94,6 @@ var myvar = new m1.m2.c();
 /** Module comment */
 var m4;
 (function (m4) {
-    /** b's comment */
-    m4.b;
     /** foo's comment
     */
     function foo() {
@@ -128,7 +124,7 @@ m4.fooExport();
 var myvar2 = new m4.m2.c();
 //// [commentsExternalModules_1.js]
 /**This is on import declaration*/
-var extMod = require("commentsExternalModules2_0"); // trailing comment 1
+var extMod = require("./commentsExternalModules2_0"); // trailing comment 1
 extMod.m1.fooExport();
 exports.newVar = new extMod.m1.m2.c();
 extMod.m4.fooExport();
@@ -169,6 +165,6 @@ export declare module m4 {
 }
 //// [commentsExternalModules_1.d.ts]
 /**This is on import declaration*/
-import extMod = require("commentsExternalModules2_0");
+import extMod = require("./commentsExternalModules2_0");
 export declare var newVar: extMod.m1.m2.c;
 export declare var newVar2: extMod.m4.m2.c;

@@ -69,11 +69,11 @@ module ts {
         }
         merge(other:BrandPropertyTypes, kind:MergeKind = MergeKind.ALL):BrandPropertyTypes {
             var merged = new BrandPropertyTypes(this.binder);
-            var criteria = (i) => true;
+            var criteria = (i:number) => true;
             if (kind === MergeKind.NORMAL_PROPS) {
-                criteria = (i) => !this.binder.propIdIsPrototype[i];
+                criteria = (i:number) => !this.binder.propIdIsPrototype[i];
             } else if (kind === MergeKind.PROTO_PROPS) {
-                criteria = (i) => this.binder.propIdIsPrototype[i];;
+                criteria = (i:number) => this.binder.propIdIsPrototype[i];;
             }
             for (var i = 0; i < merged.assignmentSets.length; i++) {
                 if (criteria(i)) {
@@ -187,12 +187,12 @@ module ts {
         mark(node:Node, binder:BrandTypeBinder) {
             var propId = binder.getBrandPropertyId(node);
             if (propId !== null) {
-                (<PropertyAccessExpression>node).brandAnalysis = this.get(binder.getPropId((<PropertyAccessExpression>node).name.text));
+                nodeToFlowTypeAnalysis.set(node, this.get(binder.getPropId((<PropertyAccessExpression>node).name.text)));
             }
             propId = binder.getBrandProtoPropertyId(node);
             if (propId !== null) {
-                (<PropertyAccessExpression>node).brandAnalysis = this.get(binder.getProtoPropId((<PropertyAccessExpression>node).name.text));
-                (<PropertyAccessExpression>node).useProtoBrand = true;
+                nodeToFlowTypeAnalysis.set(node, this.get(binder.getProtoPropId((<PropertyAccessExpression>node).name.text)));
+                propAccessUsesProtoBrand.set((<PropertyAccessExpression>node), true);
             }
         }
     }
@@ -218,19 +218,18 @@ module ts {
         brandPoint:Node = null;
         protoBrandPoint:Node = null;
         _findBrandPoints():void {
-            var lastNode =  null;
-            var lastProtoNode =  null;
+            var lastNode:Node =  null;
+            var lastProtoNode:Node =  null;
             var numbering = 0;
             var iter = (node:Node) => {
                 if (!node) {
                     return;
                 }
-                node.tempNumbering = numbering++;
                 
-                if (isFunctionDeclarationCheckThisBrand(node, this.brandTypeDecl)) {
+                if (isFunctionLikeDeclarationCheckThisBrand(node, this.brandTypeDecl)) {
                     lastProtoNode = node;
                 }
-                if (node.kind === SyntaxKind.BinaryExpression && (<BinaryExpression>node).operator === SyntaxKind.EqualsToken) {
+                if (node.kind === SyntaxKind.BinaryExpression && (<BinaryExpression>node).operatorToken.kind === SyntaxKind.EqualsToken) {
                     if (this.getBrandProtoPropertyId((<BinaryExpression>node).left) !== null) 
                         lastProtoNode = node;
                     if (this.getBrandPropertyId((<BinaryExpression>node).left) !== null) {
@@ -313,7 +312,7 @@ module ts {
             return this.getPropId(propAccess.name.text);
         }
 
-        isBrandPrototypeAccess(node:Node) {
+        isBrandPrototypeAccess(node:Node):boolean {
             if (!isPrototypeAccess(node)) {
                 return false;
             }
@@ -329,10 +328,7 @@ module ts {
 
             // Search for an associated VariableDeclaration with "var <identifier> : brand <identifier".
             var funcDecl = findFunctionDeclarationForName(propAccess, name);
-            if (!funcDecl || !funcDecl.declaredTypeOfThis || funcDecl.declaredTypeOfThis.brandTypeDeclaration !== this.brandTypeDecl) {
-                return false;
-            }
-            return true;
+            return isFunctionLikeDeclarationWithThisBrand(funcDecl);
         }
 
         getBrandProtoPropertyId(node:Node):number {
@@ -345,23 +341,23 @@ module ts {
         }
         scanInitializer(initializer:Expression, prev:BrandPropertyTypes):BrandPropertyTypes {
             if (initializer.kind === SyntaxKind.ObjectLiteralExpression) {
-                forEach((<ObjectLiteralExpression>initializer).properties, (propAccess:ObjectLiteralElement) => {
-                    if (propAccess.kind === SyntaxKind.PropertyAssignment && propAccess.name.kind === SyntaxKind.Identifier){
-                        var propName:Identifier = <Identifier>propAccess.name;
+                for (var objectLit of (<ObjectLiteralExpression>initializer).properties) {
+                    if (objectLit.kind === SyntaxKind.PropertyAssignment && objectLit.name.kind === SyntaxKind.Identifier){
+                        var propName:Identifier = <Identifier>objectLit.name;
                         // Create a property declaration for the brand-type symbol list:
                         var propertyNode = <BrandPropertyDeclaration> new (objectAllocator.getNodeConstructor(SyntaxKind.BrandProperty))();
-                        propertyNode.name = propAccess.name; // Right-hand <identifier>
-                        propertyNode.pos = propAccess.pos;
-                        propertyNode.end = propAccess.end;
+                        propertyNode.name = objectLit.name; // Right-hand <identifier>
+                        propertyNode.pos = objectLit.pos;
+                        propertyNode.end = objectLit.end;
                         propertyNode.parent = this.declarationScope;
                         propertyNode.brandTypeDeclaration = this.brandTypeDecl;
                         this.declareSymbol(this.brandTypeDecl.symbol.members, this.brandTypeDecl.symbol, propertyNode, SymbolFlags.Property, 0);
                         var propId = this.getPropId(propName.text);
-                        prev = prev.addAssignedValue(propId, (<PropertyAssignment> propAccess).initializer);
+                        prev = prev.addAssignedValue(propId, (<PropertyAssignment> objectLit).initializer);
                         this.fillProp(propertyNode);
-                        propAccess.brandPropertyDeclaration = propertyNode;
+                        objLiteralToBrandPropertyDeclaration.set(objectLit, propertyNode);
                     }
-                });
+                }
             }
             return prev;
         }
@@ -390,11 +386,11 @@ module ts {
                     }
                     if (downgrade) {
                         // Don't downgrade if after last property assignment:
-                        if (node.tempNumbering < this.protoBrandPoint.tempNumbering || isNodeDescendentOf(node, this.protoBrandPoint)) {
-                            node.downgradeToBaseClass = true;
+                        if (getNodeId(node) < getNodeId(this.protoBrandPoint) || isNodeDescendentOf(node, this.protoBrandPoint)) {
+                            nodeDowngradeToBaseClass.set(node, true);
                         }
                     }
-                    (<PropertyAccessExpression>node).brandTypeDeclForPrototypeProperty = this.brandTypeDecl;
+                    prototypePropToBrandTypeDecl.set(<PropertyAccessExpression>node, this.brandTypeDecl);
                     break;
                 case SyntaxKind.ThisKeyword:
                 case SyntaxKind.Identifier:
@@ -422,9 +418,8 @@ module ts {
                         }
                         if (downgrade) {
                             // Don't downgrade if after last property assignment:
-                            if (node.tempNumbering < this.brandPoint.tempNumbering || isNodeDescendentOf(node, this.brandPoint)) {
-
-                                node.downgradeToBaseClass = true;
+                            if (getNodeId(node) < getNodeId(this.brandPoint) || isNodeDescendentOf(node, this.brandPoint)) {
+                                nodeDowngradeToBaseClass.set(node, true);
                             }
                         }
                     }
@@ -449,7 +444,7 @@ module ts {
                     prev = this.scan((<SwitchStatement>node).expression, prev);
                     var beforeCases = prev;
                     // Flow analysis: Merge the result of every case
-                    forEach((<SwitchStatement>node).clauses, (clause) => {
+                    forEach((<SwitchStatement>node).caseBlock.clauses, (clause) => {
                         prev = prev.merge(this.scan(clause, beforeCases.passConditionalBarrier()));
                     });
                     break;
@@ -463,12 +458,12 @@ module ts {
                     break;
                 case SyntaxKind.BinaryExpression:
                     /* Check if we have a relevant binding assignment: */
-                    if ((<BinaryExpression>node).operator === SyntaxKind.EqualsToken) {
+                    if ((<BinaryExpression>node).operatorToken.kind === SyntaxKind.EqualsToken) {
                         prev = prev.scanAssignment(<BinaryExpression>node);
                     }
                     // Consider the shortcircuting behaviour of && or ||
-                    if ((<BinaryExpression>node).operator === SyntaxKind.AmpersandAmpersandToken ||
-                        (<BinaryExpression>node).operator === SyntaxKind.BarBarToken) {
+                    if ((<BinaryExpression>node).operatorToken.kind === SyntaxKind.AmpersandAmpersandToken ||
+                        (<BinaryExpression>node).operatorToken.kind === SyntaxKind.BarBarToken) {
                         // Flow analysis: Merge the result of the left and of the left-then-right
                         var left = this.scan((<BinaryExpression>node).left, prev);
                         var right = this.scan((<BinaryExpression>node).right, left);
@@ -479,20 +474,22 @@ module ts {
                     }
                     break;
                 case SyntaxKind.ForStatement:
-                    forEach((<ForStatement>node).declarations, (decl) => {
-                        prev = this.scan(decl, prev);
-                    });
+                    // forEach((<ForStatement>node).declarations, (decl) => {
+                    //     prev = this.scan(decl, prev);
+                    // });
                     prev = this.scan((<ForStatement>node).initializer, prev);
                     prev = this.scan((<ForStatement>node).condition, prev);
                     // Flow analysis: Merge the result of entering the loop and of not
                     prev = this.scan((<ForStatement>node).statement, prev).merge(prev);
                     break;
-                case SyntaxKind.ForInStatement:
-                    forEach((<ForInStatement>node).declarations, (decl) => {
+                case SyntaxKind.VariableDeclarationList:
+                    forEach((<VariableDeclarationList>node).declarations, (decl) => {
                         prev = this.scan(decl, prev);
                     });
+                    break;
+                case SyntaxKind.ForInStatement:
+                    prev = this.scan((<ForInStatement>node).initializer, prev);
                     prev = this.scan((<ForInStatement>node).expression, prev);
-                    prev = this.scan((<ForInStatement>node).variable, prev);
                     // Flow analysis: Merge the result of entering the loop and of not
                     prev = this.scan((<ForInStatement>node).statement, prev).merge(prev);
                     break;
@@ -589,7 +586,7 @@ module ts {
         brandTypeBinder.brandTypeDecl = brandTypeDecl;
         brandTypeBinder.declarationScope = scope;
         // Search starting from the parent scope if we are a FunctionDeclaration with a 'var this : declare T' declaration.
-        var isFuncDeclWithThisBrand = isFunctionDeclarationCheckThisBrand(scope, brandTypeDecl);
+        var isFuncDeclWithThisBrand = isFunctionLikeDeclarationCheckThisBrand(scope, brandTypeDecl);
         brandTypeBinder.containerScope = isFuncDeclWithThisBrand ? getThisContainer(scope, true) : scope;
         brandTypeBinder.declareSymbol = declareSymbol;
 
@@ -611,18 +608,18 @@ module ts {
         // Set the binding assignments for each property:
         forEach(brandTypeBinder.props, (brandPropDecl:BrandPropertyDeclaration) => {
             var name = (<Identifier>brandPropDecl.name).text;
-            var assignments = assignmentResults.get(brandTypeBinder.getPropId(name));
-            if (assignments == null) {console.log((<any>assignmentResults).assignmentSets); throw new Error("WWWEEERE");}
-            brandPropDecl.bindingAssignments = assignments;
+            var flowTypeAnalysis:FlowTypeAnalysis = assignmentResults.get(brandTypeBinder.getPropId(name));                
+            Debug.assert(!!flowTypeAnalysis)
+            nodeToFlowTypeAnalysis.set(brandPropDecl, flowTypeAnalysis);
         });
         
         // Set the binding assignments for each prototype property:
         if (brandTypeDecl.prototypeBrandDeclaration) {
             forEach(brandTypeBinder.protoProps, (brandPropDecl:BrandPropertyDeclaration) => {
                 var name = (<Identifier>brandPropDecl.name).text;
-                var assignments = assignmentResults.get(brandTypeBinder.getProtoPropId(name));
-                if (assignments == null) {console.log((<any>assignmentResults).assignmentSets); throw new Error("WWWEEERE");}
-                brandPropDecl.bindingAssignments = assignments;
+                var flowTypeAnalysis:FlowTypeAnalysis = assignmentResults.get(brandTypeBinder.getProtoPropId(name));
+                Debug.assert(!!flowTypeAnalysis)
+                nodeToFlowTypeAnalysis.set(brandPropDecl, flowTypeAnalysis);
             });
         }
     }

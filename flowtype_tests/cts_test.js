@@ -21,6 +21,9 @@ module.exports = {
        assert.ok(setter, "Setter should be installed!");
        if (Array.isArray(type)) {
            assert.ok(setter.$$cts$$type instanceof $$cts$$runtime.UnionType, "Union type not installed!");
+           // FIX: Make sure type order doesn't matter. It changed from 1.4 to 1.6
+           type.sort()
+           setter.$$cts$$type.types.sort();
            for (var i = 0; i < type.length; i++) {
                assert.equal(setter.$$cts$$type.types[i], type[i]);
            }

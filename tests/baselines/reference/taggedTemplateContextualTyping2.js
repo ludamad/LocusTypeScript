@@ -18,29 +18,13 @@ tempTag2 `${ x => { x<number, string>(undefined); return x; } }${ y => { y<strin
 tempTag2 `${ x => { x<number, string>(undefined); return x; } }${ undefined }${ "hello" }`;
 
 //// [taggedTemplateContextualTyping2.js]
-function tempTag2() {
-    var rest = [];
-    for (var _i = 0; _i < arguments.length; _i++) {
-        rest[_i - 0] = arguments[_i];
-    }
+function tempTag2(...rest) {
     return undefined;
 }
 // If contextual typing takes place, these functions should work.
 // Otherwise, the arrow functions' parameters will be typed as 'any',
 // and it is an error to invoke an any-typed value with type arguments,
 // so this test will error.
-tempTag2 `${function (x) {
-    x(undefined);
-    return x;
-}}${0}`;
-tempTag2 `${function (x) {
-    x(undefined);
-    return x;
-}}${function (y) {
-    y(null);
-    return y;
-}}${"hello"}`;
-tempTag2 `${function (x) {
-    x(undefined);
-    return x;
-}}${undefined}${"hello"}`;
+tempTag2 `${x => { x(undefined); return x; }}${0}`;
+tempTag2 `${x => { x(undefined); return x; }}${y => { y(null); return y; }}${"hello"}`;
+tempTag2 `${x => { x(undefined); return x; }}${undefined}${"hello"}`;

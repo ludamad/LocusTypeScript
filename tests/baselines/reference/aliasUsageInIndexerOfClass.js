@@ -6,14 +6,14 @@ export class Model {
 }
 
 //// [aliasUsageInIndexerOfClass_moduleA.ts]
-import Backbone = require("aliasUsageInIndexerOfClass_backbone");
+import Backbone = require("./aliasUsageInIndexerOfClass_backbone");
 export class VisualizationModel extends Backbone.Model {
     // interesting stuff here
 }
 
 //// [aliasUsageInIndexerOfClass_main.ts]
-import Backbone = require("aliasUsageInIndexerOfClass_backbone");
-import moduleA = require("aliasUsageInIndexerOfClass_moduleA");
+import Backbone = require("./aliasUsageInIndexerOfClass_backbone");
+import moduleA = require("./aliasUsageInIndexerOfClass_moduleA");
 interface IHasVisualizationModel {
     VisualizationModel: typeof Backbone.Model;
 }
@@ -34,13 +34,12 @@ var Model = (function () {
 })();
 exports.Model = Model;
 //// [aliasUsageInIndexerOfClass_moduleA.js]
-var __extends = this.__extends || function (d, b) {
+var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
-    __.prototype = b.prototype;
-    d.prototype = new __();
+    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
-var Backbone = require("aliasUsageInIndexerOfClass_backbone");
+var Backbone = require("./aliasUsageInIndexerOfClass_backbone");
 var VisualizationModel = (function (_super) {
     __extends(VisualizationModel, _super);
     function VisualizationModel() {
@@ -50,7 +49,7 @@ var VisualizationModel = (function (_super) {
 })(Backbone.Model);
 exports.VisualizationModel = VisualizationModel;
 //// [aliasUsageInIndexerOfClass_main.js]
-var moduleA = require("aliasUsageInIndexerOfClass_moduleA");
+var moduleA = require("./aliasUsageInIndexerOfClass_moduleA");
 var N = (function () {
     function N() {
         this.x = moduleA;

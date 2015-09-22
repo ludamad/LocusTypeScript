@@ -10,36 +10,25 @@ sourceFile:sourceMapValidationExportAssignmentCommonjs.ts
 -------------------------------------------------------------------
 >>>var a = (function () {
 1 >
-2 >^^^^
-3 >    ^
-4 >     ^^^^^^^^^^^^^^->
+2 >^^^^^^^^^^^^^^^^^^^->
 1 >
-2 >class 
-3 >    a
 1 >Emitted(1, 1) Source(1, 1) + SourceIndex(0)
-2 >Emitted(1, 5) Source(1, 7) + SourceIndex(0)
-3 >Emitted(1, 6) Source(1, 8) + SourceIndex(0)
 ---
 >>>    function a() {
 1->^^^^
-2 >    ^^^^^^^^^
-3 >             ^
+2 >    ^^->
 1->
-2 >    class 
-3 >             a
 1->Emitted(2, 5) Source(1, 1) + SourceIndex(0) name (a)
-2 >Emitted(2, 14) Source(1, 7) + SourceIndex(0) name (a)
-3 >Emitted(2, 15) Source(1, 8) + SourceIndex(0) name (a)
 ---
 >>>    }
-1 >^^^^
+1->^^^^
 2 >    ^
 3 >     ^^^^^^^^^->
-1 > {
+1->class a {
   >    public c;
   >
 2 >    }
-1 >Emitted(3, 5) Source(3, 1) + SourceIndex(0) name (a.constructor)
+1->Emitted(3, 5) Source(3, 1) + SourceIndex(0) name (a.constructor)
 2 >Emitted(3, 6) Source(3, 2) + SourceIndex(0) name (a.constructor)
 ---
 >>>    return a;
@@ -69,21 +58,18 @@ sourceFile:sourceMapValidationExportAssignmentCommonjs.ts
 ---
 >>>module.exports = a;
 1->
-2 >
-3 >^^^^^^^^^^^^^^^^^
-4 >                 ^
-5 >                  ^
-6 >                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^->
+2 >^^^^^^^^^^^^^^^^^
+3 >                 ^
+4 >                  ^
+5 >                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^->
 1->
-  >export = a;
-2 >
-3 >export = 
-4 >                 a
-5 >                  ;
-1->Emitted(6, 1) Source(4, 12) + SourceIndex(0)
-2 >Emitted(6, 1) Source(4, 1) + SourceIndex(0)
-3 >Emitted(6, 18) Source(4, 10) + SourceIndex(0)
-4 >Emitted(6, 19) Source(4, 11) + SourceIndex(0)
-5 >Emitted(6, 20) Source(4, 12) + SourceIndex(0)
+  >
+2 >export = 
+3 >                 a
+4 >                  ;
+1->Emitted(6, 1) Source(4, 1) + SourceIndex(0)
+2 >Emitted(6, 18) Source(4, 10) + SourceIndex(0)
+3 >Emitted(6, 19) Source(4, 11) + SourceIndex(0)
+4 >Emitted(6, 20) Source(4, 12) + SourceIndex(0)
 ---
 >>>//# sourceMappingURL=sourceMapValidationExportAssignmentCommonjs.js.map

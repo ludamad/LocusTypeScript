@@ -8,9 +8,9 @@
 // tool recognizes the specific Word styles used in the TypeScript Language Specification.
 var sys = (function () {
     var fileStream = new ActiveXObject("ADODB.Stream");
-    fileStream.Type = 2;
+    fileStream.Type = 2 /*text*/;
     var binaryStream = new ActiveXObject("ADODB.Stream");
-    binaryStream.Type = 1;
+    binaryStream.Type = 1 /*binary*/;
     var args = [];
     for (var i = 0; i < WScript.Arguments.length; i++) {
         args[i] = WScript.Arguments.Item(i);
@@ -25,11 +25,13 @@ var sys = (function () {
             fileStream.Open();
             binaryStream.Open();
             try {
+                // Write characters in UTF-8 encoding
                 fileStream.Charset = "utf-8";
                 fileStream.WriteText(data);
+                // We don't want the BOM, skip it by setting the starting location to 3 (size of BOM).
                 fileStream.Position = 3;
                 fileStream.CopyTo(binaryStream);
-                binaryStream.SaveToFile(fileName, 2);
+                binaryStream.SaveToFile(fileName, 2 /*overwrite*/);
             }
             finally {
                 binaryStream.Close();
@@ -66,6 +68,17 @@ function convertDocumentToMarkdown(doc) {
         replace.clearFormatting();
         setProperties(replace, replaceOptions);
         find.execute(findText, false, false, false, false, false, true, 0, true, replaceText, 2);
+    }
+    function fixHyperlinks() {
+        var count = doc.hyperlinks.count;
+        for (var i = 0; i < count; i++) {
+            var hyperlink = doc.hyperlinks.item(i + 1);
+            var address = hyperlink.address;
+            if (address && address.length > 0) {
+                var textToDisplay = hyperlink.textToDisplay;
+                hyperlink.textToDisplay = "[" + textToDisplay + "](" + address + ")";
+            }
+        }
     }
     function write(s) {
         result += s;
@@ -192,14 +205,15 @@ function convertDocumentToMarkdown(doc) {
     findReplace("&lt;", { style: "Code Fragment" }, "<", {});
     findReplace("&lt;", { style: "Terminal" }, "<", {});
     findReplace("", { font: { subscript: true } }, "<sub>^&</sub>", { font: { subscript: false } });
-    findReplace("", { style: "Code Fragment" }, "`^&`", { style: -66 });
-    findReplace("", { style: "Production" }, "*^&*", { style: -66 });
-    findReplace("", { style: "Terminal" }, "`^&`", { style: -66 });
+    findReplace("", { style: "Code Fragment" }, "`^&`", { style: -66 /* default font */ });
+    findReplace("", { style: "Production" }, "*^&*", { style: -66 /* default font */ });
+    findReplace("", { style: "Terminal" }, "`^&`", { style: -66 /* default font */ });
     findReplace("", { font: { bold: true, italic: true } }, "***^&***", { font: { bold: false, italic: false } });
     findReplace("", { font: { italic: true } }, "*^&*", { font: { italic: false } });
     doc.fields.toggleShowCodes();
     findReplace("^19 REF", {}, "[^&](#^&)", {});
     doc.fields.toggleShowCodes();
+    fixHyperlinks();
     writeDocument();
     result = result.replace(/\x85/g, "\u2026");
     result = result.replace(/\x96/g, "\u2013");
@@ -218,3 +232,4 @@ function main(args) {
     app.quit();
 }
 main(sys.args);
+//# sourceMappingURL=file:///c:/ts/scripts/word2md.js.map

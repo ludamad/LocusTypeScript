@@ -21,11 +21,8 @@
 ////var val = foo(["myString1", "myString2"]);
 /////*1*/val;
 
-diagnostics.setEditValidation(IncrementalEditValidation.None);
-
-// Do resolve without typeCheck
 goTo.marker('1');
-verify.quickInfoIs("(var) val: string");
+verify.quickInfoIs("var val: string");
 
 // TypeCheck
 verify.numberOfErrorsInCurrentFile(1);

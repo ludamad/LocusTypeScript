@@ -2,20 +2,22 @@
 // Also note that it is possible to defeat a type guard by calling a function that changes the 
 // type of the guarded variable.
 function foo(x: number | string) {
->foo : (x: string | number) => number
->x : string | number
+>foo : (x: number | string) => number
+>x : number | string
 
     function f() {
 >f : () => void
 
         x = 10;
 >x = 10 : number
->x : string | number
+>x : number | string
+>10 : number
     }
     if (typeof x === "string") {
 >typeof x === "string" : boolean
 >typeof x : string
->x : string | number
+>x : number | string
+>"string" : string
 
         f();
 >f() : void
@@ -33,13 +35,14 @@ function foo(x: number | string) {
     }
 }
 function foo2(x: number | string) {
->foo2 : (x: string | number) => number
->x : string | number
+>foo2 : (x: number | string) => number
+>x : number | string
 
     if (typeof x === "string") {
 >typeof x === "string" : boolean
 >typeof x : string
->x : string | number
+>x : number | string
+>"string" : string
 
         return x.length; // string
 >x.length : number
@@ -60,20 +63,22 @@ function foo2(x: number | string) {
     }
     x = "hello";
 >x = "hello" : string
->x : string | number
+>x : number | string
+>"hello" : string
 
     f();
 >f() : number
 >f : () => number
 }
 function foo3(x: number | string) {
->foo3 : (x: string | number) => number
->x : string | number
+>foo3 : (x: number | string) => number
+>x : number | string
 
     if (typeof x === "string") {
 >typeof x === "string" : boolean
 >typeof x : string
->x : string | number
+>x : number | string
+>"string" : string
 
         return x.length; // string
 >x.length : number
@@ -90,7 +95,8 @@ function foo3(x: number | string) {
     }
     x = "hello";
 >x = "hello" : string
->x : string | number
+>x : number | string
+>"hello" : string
 
     f();
 >f() : number

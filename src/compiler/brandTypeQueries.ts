@@ -6,10 +6,10 @@
 /// <reference path="emitter.ts"/>
 /// <reference path="utilities.ts"/>
 
-module ts {
+namespace ts {
     // Is this an expression of type <identifier>.<identifier> = <expression>?
     export function isPropertyAssignment(node:Node) {
-        if (node.kind === SyntaxKind.BinaryExpression && (<BinaryExpression>node).operator === SyntaxKind.EqualsToken) {
+        if (node.kind === SyntaxKind.BinaryExpression && (<BinaryExpression>node).operatorToken.kind === SyntaxKind.EqualsToken) {
             var binNode = <BinaryExpression> node;
             if (binNode.left.kind === SyntaxKind.PropertyAccessExpression) {
                 return true;
@@ -55,12 +55,12 @@ module ts {
     }
     
     export function getFunctionDeclarationsWithThisBrand(block:Node):FunctionDeclaration[] {
-        return <FunctionDeclaration[]> getDeclarations(block, isFunctionDeclarationWithThisBrand);
+        return <FunctionDeclaration[]> getDeclarations(block, isFunctionLikeDeclarationWithThisBrand);
     }
 
     export function getBrandTypeVarDeclarations(block:Node):VariableDeclaration[] {
-        var isBrandVarDecl = (node) => {
-            if (node.kind == SyntaxKind.VariableDeclaration) {
+        var isBrandVarDecl = (node:Declaration) => {
+            if (node.kind === SyntaxKind.VariableDeclaration) {
                 var typeNode = (<VariableDeclaration>node).type;
                 return !!(typeNode && typeNode.brandTypeDeclaration);
             }
@@ -166,16 +166,19 @@ module ts {
               }
           }
       }
-      export function isFunctionDeclarationWithThisBrand(scope:Node):boolean {
-          if (scope.kind === SyntaxKind.FunctionDeclaration) {
-              return !!(<FunctionDeclaration>scope).declaredTypeOfThis;
+      export function isFunctionLikeDeclarationWithThisBrand(scope:Node): scope is FunctionLikeDeclaration {
+          if (isFunctionLike(scope)) {
+              let thisType = scope.parameters.thisType;
+              return !!(thisType && thisType.brandTypeDeclaration);
           }
           return false;
       }
     
-      export function isFunctionDeclarationCheckThisBrand(scope:Node, brandTypeDecl: BrandTypeDeclaration):boolean {
-          if (!isFunctionDeclarationWithThisBrand(scope)) return false;
-          return (<FunctionDeclaration>scope).declaredTypeOfThis.brandTypeDeclaration === brandTypeDecl;
+      export function isFunctionLikeDeclarationCheckThisBrand(scope:Node, brandTypeDecl: BrandTypeDeclaration):scope is FunctionLikeDeclaration {
+          if (isFunctionLikeDeclarationWithThisBrand(scope)) {
+              return (<FunctionDeclaration>scope).parameters.thisType.brandTypeDeclaration === brandTypeDecl;
+          }
+          return false;
       }
       
       export function getModuleOrSourceFile(scope:Node) {

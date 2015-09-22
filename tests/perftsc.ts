@@ -10,17 +10,17 @@ if (perftest.hasLogIOFlag()) {
             var content = perftest.readFile(s);
             return content !== undefined ? ts.createSourceFile(s, content, v) : undefined;
         },
-        getDefaultLibFilename: () => ts.combinePaths(ts.getDirectoryPath(ts.normalizePath(perftest.getExecutingFilePath())), "lib.d.ts"),
+        getDefaultLibFileName: () => ts.combinePaths(ts.getDirectoryPath(ts.normalizePath(perftest.getExecutingFilePath())), "lib.d.ts"),
         writeFile: (f: string, content: string) => { throw new Error("Unexpected operation: writeFile"); },
         getCurrentDirectory: () => perftest.getCurrentDirectory(),
-        getCanonicalFileName: ts.getCanonicalFileName,
-        useCaseSensitiveFileNames: () => sys.useCaseSensitiveFileNames,
-        getNewLine: () => sys.newLine
+        getCanonicalFileName: (f: string) => ts.sys.useCaseSensitiveFileNames ? f : f.toLowerCase(),
+        useCaseSensitiveFileNames: () => ts.sys.useCaseSensitiveFileNames,
+        getNewLine: () => ts.sys.newLine
     };
 
     var commandLine = ts.parseCommandLine(perftest.getArgsWithoutLogIOFlag());
-    var program = ts.createProgram(commandLine.filenames, commandLine.options, compilerHost);
-    var fileNames = program.getSourceFiles().map(f => f.filename);
+    var program = ts.createProgram(commandLine.fileNames, commandLine.options, compilerHost);
+    var fileNames = program.getSourceFiles().map(f => f.fileName);
     perftest.writeIOLog(fileNames);
 }
 else {

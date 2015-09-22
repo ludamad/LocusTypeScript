@@ -7,7 +7,7 @@
 /// <reference path="utilities.ts"/>
 
 module ts {
-    function printRecursor(node:Node, print) {
+    function printRecursor(node:Node, print:any) {
     switch (node.kind) {
         case SyntaxKind.BrandTypeDeclaration: return print(node, "BrandTypeDeclaration");
         case SyntaxKind.Identifier: return print(node, "Identifier");
@@ -52,8 +52,7 @@ module ts {
         case SyntaxKind.ConditionalExpression: return print(node, "ConditionalExpression");
         case SyntaxKind.OmittedExpression: return print(node, "OmittedExpression");
         case SyntaxKind.Block: return print(node, "Block");
-        case SyntaxKind.TryBlock: return print(node, "TryBlock");
-        case SyntaxKind.FinallyBlock: return print(node, "FinallyBlock");
+        case SyntaxKind.TryStatement: return print(node, "TryBlock");
         case SyntaxKind.ModuleBlock: return print(node, "ModuleBlock");
         case SyntaxKind.VariableStatement: return print(node, "VariableStatement");
         case SyntaxKind.EmptyStatement: return print(node, "EmptyStatement");
@@ -105,7 +104,7 @@ module ts {
             }
             console.log(`${indentStr}${name} (${addendum.join(', ')})`);
         }
-        function printSwitch(node) {
+        function printSwitch(node:any) {
             printRecursor(node, print)
         }
         printSwitch(parent);
@@ -129,10 +128,9 @@ module ts {
             forEachChild(node, printSwitch);
             indent--;
         }
-        function printSwitch(node) {
+        function printSwitch(node:any) {
             printRecursor(node, print)
         }
         printSwitch(parent);
     }
-
 }  

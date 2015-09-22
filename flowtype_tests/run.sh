@@ -6,7 +6,7 @@ cd error_cases
 cd ..
 
 # Uses let statement:
-node ../built/local/tsc.js -t es6 runtime_tests.ts 
+node ../built/local/tsc.js runtime_tests.ts 
 #Fun use-strict hack:
 echo -e '0a\n"use strict";\n.\nw' | ed runtime_tests.js
 ../bin/tsc error_tests.ts 

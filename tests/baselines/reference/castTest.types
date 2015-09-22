@@ -2,6 +2,7 @@
 
 var x : any = 0;
 >x : any
+>0 : number
 
 var z = <number> x;
 >z : number
@@ -17,23 +18,28 @@ var y = x + z;
 var a = <any>0;
 >a : any
 ><any>0 : any
+>0 : number
 
 var b = <boolean>true;
 >b : boolean
 ><boolean>true : boolean
+>true : boolean
 
 var s = <string>"";
 >s : string
 ><string>"" : string
+>"" : string
 
 var ar = <any[]>null;
 >ar : any[]
 ><any[]>null : any[]
+>null : null
 
 var f = <(res : number) => void>null;
 >f : (res: number) => void
 ><(res : number) => void>null : (res: number) => void
 >res : number
+>null : null
 
 declare class Point
 >Point : Point
@@ -65,20 +71,22 @@ var p_cast = <Point> ({
 >p_cast : Point
 ><Point> ({    x: 0,    y: 0,    add: function(dx, dy) {        return new Point(this.x + dx, this.y + dy);    },    mult: function(p) { return p; }}) : Point
 >Point : Point
->({    x: 0,    y: 0,    add: function(dx, dy) {        return new Point(this.x + dx, this.y + dy);    },    mult: function(p) { return p; }}) : { x: number; y: number; add: (dx: any, dy: any) => Point; mult: (p: any) => any; }
->{    x: 0,    y: 0,    add: function(dx, dy) {        return new Point(this.x + dx, this.y + dy);    },    mult: function(p) { return p; }} : { x: number; y: number; add: (dx: any, dy: any) => Point; mult: (p: any) => any; }
+>({    x: 0,    y: 0,    add: function(dx, dy) {        return new Point(this.x + dx, this.y + dy);    },    mult: function(p) { return p; }}) : { x: number; y: number; add: (dx: number, dy: number) => Point; mult: (p: Point) => Point; }
+>{    x: 0,    y: 0,    add: function(dx, dy) {        return new Point(this.x + dx, this.y + dy);    },    mult: function(p) { return p; }} : { x: number; y: number; add: (dx: number, dy: number) => Point; mult: (p: Point) => Point; }
 
     x: 0,
 >x : number
+>0 : number
 
     y: 0,
 >y : number
+>0 : number
 
     add: function(dx, dy) {
->add : (dx: any, dy: any) => Point
->function(dx, dy) {        return new Point(this.x + dx, this.y + dy);    } : (dx: any, dy: any) => Point
->dx : any
->dy : any
+>add : (dx: number, dy: number) => Point
+>function(dx, dy) {        return new Point(this.x + dx, this.y + dy);    } : (dx: number, dy: number) => Point
+>dx : number
+>dy : number
 
         return new Point(this.x + dx, this.y + dy);
 >new Point(this.x + dx, this.y + dy) : Point
@@ -87,19 +95,19 @@ var p_cast = <Point> ({
 >this.x : any
 >this : any
 >x : any
->dx : any
+>dx : number
 >this.y + dy : any
 >this.y : any
 >this : any
 >y : any
->dy : any
+>dy : number
 
     },
     mult: function(p) { return p; }
->mult : (p: any) => any
->function(p) { return p; } : (p: any) => any
->p : any
->p : any
+>mult : (p: Point) => Point
+>function(p) { return p; } : (p: Point) => Point
+>p : Point
+>p : Point
 
 })
 

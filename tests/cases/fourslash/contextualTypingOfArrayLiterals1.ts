@@ -24,26 +24,32 @@
 ////var x4: I = [a, b, c];
 ////var /*4*/r4 = x4[1];
 
-////var /*5*/x5 = [a, b, c, d];
+////var /*5*/x5 = [a, b];
 ////var /*6*/r5 = x5[1];
 
 // the above code should have a couple errors that will need to be updated with appropriate new (non-error) code and quick info checks
 verify.not.errorExistsBetweenMarkers('1', '6');
 
 goTo.marker('1');
-verify.quickInfoIs('(var) x: any[]');
+verify.quickInfoIs('var x: any[]');
 
 goTo.marker('2');
-verify.quickInfoIs('(var) r: C');
+verify.quickInfoIs('var r: C');
 
 goTo.marker('3');
-verify.quickInfoIs('(var) r3: C');
+verify.quickInfoIs('var r3: C');
 
 goTo.marker('4');
-verify.quickInfoIs('(var) r4: C');
+verify.quickInfoIs('var r4: C');
 
 goTo.marker('5');
-verify.quickInfoIs('(var) x5: C[]');
+verify.quickInfoIs('var x5: {\n\
+    name: string;\n\
+    age: number;\n\
+}[]');
 
 goTo.marker('6');
-verify.quickInfoIs('(var) r5: C');
+verify.quickInfoIs('var r5: {\n\
+    name: string;\n\
+    age: number;\n\
+}');
