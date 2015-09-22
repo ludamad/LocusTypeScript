@@ -2794,7 +2794,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 let varDecls = getBrandTypeVarDeclarations(block);
                 forEach(varDecls, (varDecl:VariableDeclaration) => {
                     let brandTypeDecl = varDecl.type.brandTypeDeclaration;
-                        printNodeDeep(varDecl);
                     let brandProto = brandTypeDecl.prototypeBrandDeclaration;
                     if (brandProto) {
                         writeLine();
@@ -2844,7 +2843,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 });
                 forEach(getFunctionDeclarationsWithThisBrand(block), (funcDecl) => {
                     console.log("EMITTING IT MAKE ENCI")
-                    let brandDecl = funcDecl.declaredTypeOfThis.brandTypeDeclaration;
+                    let brandDecl = funcDecl.parameters.thisType.brandTypeDeclaration;
                     let brandProto = brandDecl.prototypeBrandDeclaration;
                     if (brandProto) {
                         let brandName:Identifier = brandProto.name;
@@ -4119,7 +4118,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             }
 
             function emitFunctionDeclaration(node: FunctionLikeDeclaration, name?: string, doEmitProtectors: boolean = true, realBodyIfProtectors?: string /* [ConcreteTypeScript] */) {
-                if (node.declaredTypeOfThis) {
+                if (node.parameters.thisType) {
                     write("/*this-branded*/");
                 }
  
@@ -4528,9 +4527,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 }
                 else {
                     // [ConcreteTypeScript]
-                    if (node.declaredTypeOfThis) {
+                    if (isFunctionLikeDeclarationWithThisBrand(node)) {
                         emitCTSRT("cast($$cts$$brandTypes.");
-                        write(node.declaredTypeOfThis.brandTypeDeclaration.name.text)
+                        write(node.parameters.thisType.brandTypeDeclaration.name.text)
                         write(".prototype, Object.getPrototypeOf(this))")
                         
                     }

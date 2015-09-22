@@ -3,10 +3,11 @@
 namespace ts {
 
     export interface BrandTypeDeclaration extends Declaration, Statement {
+        parent?: TypeReferenceNode | BrandTypeDeclaration;
         name: Identifier;
         scope: Node;
         // Set in checkerHelper.ts, null if a prototype-inferred brand
-        variableDeclaration?: VariableDeclaration;
+        variableDeclaration?: VariableLikeDeclaration;
         // Defaults to the 'any' type.
         // TODO should parallel extension relationship for brand types.
         extendedType?: TypeNode;

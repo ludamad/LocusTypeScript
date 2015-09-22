@@ -226,7 +226,7 @@ module ts {
                     return;
                 }
                 
-                if (isFunctionDeclarationCheckThisBrand(node, this.brandTypeDecl)) {
+                if (isFunctionLikeDeclarationCheckThisBrand(node, this.brandTypeDecl)) {
                     lastProtoNode = node;
                 }
                 if (node.kind === SyntaxKind.BinaryExpression && (<BinaryExpression>node).operatorToken.kind === SyntaxKind.EqualsToken) {
@@ -312,7 +312,7 @@ module ts {
             return this.getPropId(propAccess.name.text);
         }
 
-        isBrandPrototypeAccess(node:Node) {
+        isBrandPrototypeAccess(node:Node):boolean {
             if (!isPrototypeAccess(node)) {
                 return false;
             }
@@ -328,10 +328,7 @@ module ts {
 
             // Search for an associated VariableDeclaration with "var <identifier> : brand <identifier".
             var funcDecl = findFunctionDeclarationForName(propAccess, name);
-            if (!funcDecl || !funcDecl.thisType || funcDecl.thisType.brandTypeDeclaration !== this.brandTypeDecl) {
-                return false;
-            }
-            return true;
+            return isFunctionLikeDeclarationWithThisBrand(funcDecl);
         }
 
         getBrandProtoPropertyId(node:Node):number {
@@ -589,7 +586,7 @@ module ts {
         brandTypeBinder.brandTypeDecl = brandTypeDecl;
         brandTypeBinder.declarationScope = scope;
         // Search starting from the parent scope if we are a FunctionDeclaration with a 'var this : declare T' declaration.
-        var isFuncDeclWithThisBrand = isFunctionDeclarationCheckThisBrand(scope, brandTypeDecl);
+        var isFuncDeclWithThisBrand = isFunctionLikeDeclarationCheckThisBrand(scope, brandTypeDecl);
         brandTypeBinder.containerScope = isFuncDeclWithThisBrand ? getThisContainer(scope, true) : scope;
         brandTypeBinder.declareSymbol = declareSymbol;
 

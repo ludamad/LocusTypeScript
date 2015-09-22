@@ -397,6 +397,7 @@ namespace ts {
             return ContainerFlags.None;
         }
         
+        // [ConcreteTypeScript]
         function bindBrandTypeDeclaration(node: BrandTypeDeclaration) {
             var scope = getModuleOrSourceFile(container);
             // The parent of the declaration is expected to be the containing scope:
@@ -408,26 +409,39 @@ namespace ts {
             } else {
                 var retSymbol = declareSymbol(scope.locals, undefined, node, symbolKind, symbolExcludes);
             }
-            var parent = node.parent;
-            while (parent.kind !== SyntaxKind.VariableDeclaration) {
-                Debug.assert(!!parent);
-                parent = parent.parent;
+
+            var contextNode = node.parent.parent;
+            let hasPrototypeBrand = false;
+            if (isVariableLike(contextNode)) {
+                // Handle 'this' declarations syntax 1:
+                if ((<Identifier>contextNode.name).text === "this") {
+                    var funcDecl = (<FunctionLikeDeclaration>getThisContainer(node, false));
+                    Debug.assert(isFunctionLike(funcDecl))
+                    funcDecl.parameters.thisType = contextNode.type;
+                    node.functionDeclaration = funcDecl;
+                    node.variableDeclaration = contextNode;
+                    hasPrototypeBrand = true;
+                }
+            } else if (isFunctionLike(contextNode)) {
+                // Handle 'this' declarations syntax 2:
+                Debug.assert(contextNode.parameters.thisType === <any>node.parent)
+                node.functionDeclaration = contextNode;
+                hasPrototypeBrand = true;
+            } else {
+                Debug.assert(false);
             }
-            node.variableDeclaration = <VariableDeclaration>parent;
-            if (!node.variableDeclaration.name || (<Identifier>node.variableDeclaration.name).text === "this") {
+
+            if (hasPrototypeBrand) {
                 // Create the prototype brand type:
-                var proto = <BrandTypeDeclaration> new (objectAllocator.getNodeConstructor(SyntaxKind.BrandTypeDeclaration))();
-                proto.name = <Identifier> new (objectAllocator.getNodeConstructor(SyntaxKind.Identifier))();
-                proto.name.text = "prototype";
-                proto.name.parent = proto;
-                proto.pos = proto.name.pos = node.pos;
-                proto.end = proto.name.end = node.end;
-                // Set to parent of FunctionDeclaration:
-                proto.parent = node;
-                node.prototypeBrandDeclaration = proto;
-                console.log("PROTO", proto);
-                proto.ownerBrandDeclaration = node;
-                declareSymbol(node.symbol.exports, node.symbol, proto, symbolKind, symbolExcludes);
+                let protoBrandDecl = <BrandTypeDeclaration>createSynthesizedNode(SyntaxKind.BrandTypeDeclaration);
+                let synthProtoIdentifier = <Identifier>createSynthesizedNode(SyntaxKind.Identifier);
+                synthProtoIdentifier.text = "prototype";
+                synthProtoIdentifier.parent = protoBrandDecl;
+                protoBrandDecl.name = synthProtoIdentifier;
+                protoBrandDecl.parent = node;
+                protoBrandDecl.ownerBrandDeclaration = node;
+                node.prototypeBrandDeclaration = protoBrandDecl;
+                declareSymbol(node.symbol.exports, node.symbol, protoBrandDecl, symbolKind, symbolExcludes);
             }
             return retSymbol;
         }
@@ -912,10 +926,21 @@ namespace ts {
             return nodeText === "\"use strict\"" || nodeText === "'use strict'";
         }
 
+        // [ConcreteTypeScript]
+        function bindTypeReference(node: TypeReferenceNode) {
+            if (node.brandTypeDeclaration) {
+                node.brandTypeDeclaration.parent = node;
+                bindBrandTypeDeclaration(node.brandTypeDeclaration);
+            }
+        }
+
         function bindWorker(node: Node) {
             // [ConcreteTypeScript] Keep a breakingContainer property around for convenience
             if (node.kind === SyntaxKind.BreakStatement || node.kind === SyntaxKind.ContinueStatement || node.kind === SyntaxKind.ReturnStatement) {
                (<BreakOrContinueStatement>node).breakingContainer = findBreakingScope(node);
+            }
+            if (node.kind === SyntaxKind.TypeReference) {
+                bindTypeReference(<TypeReferenceNode> node);
             }
             // [/ConcreteTypeScript]
             switch (node.kind) {
@@ -935,7 +960,6 @@ namespace ts {
                     return checkStrictModePrefixUnaryExpression(<PrefixUnaryExpression>node);
                 case SyntaxKind.WithStatement:
                     return checkStrictModeWithStatement(<WithStatement>node);
-
                 case SyntaxKind.TypeParameter:
                     return declareSymbolAndAddToSymbolTable(<Declaration>node, SymbolFlags.TypeParameter, SymbolFlags.TypeParameterExcludes);
                 case SyntaxKind.Parameter:
@@ -1093,20 +1117,6 @@ namespace ts {
         }
 
         function bindVariableDeclarationOrBindingElement(node: VariableDeclaration | BindingElement) {
-            var typeNode = (<VariableDeclaration>node).type;
-            // [ConcreteTypeScript] Check if we define a brand type in our type specifier
-            if (typeNode && typeNode.brandTypeDeclaration) {
-                typeNode.brandTypeDeclaration.parent = node; // Set parent relationship, normally set in bind()
-                // Handle 'this' declarations:
-                if ((<Identifier>node.name).text === "this") {
-                    var funcDecl = (<FunctionLikeDeclaration>getThisContainer(node, false));
-                    Debug.assert(isFunctionLike(funcDecl))
-                    funcDecl.thisType = (<VariableDeclaration>node).type;
-                    funcDecl.thisType.brandTypeDeclaration.functionDeclaration = funcDecl;
-                }
-                bindBrandTypeDeclaration(typeNode.brandTypeDeclaration);
-            }
-            // [/ConcreteTypeScript]
             if (inStrictMode) {
                 checkStrictModeEvalOrArguments(node, node.name);
             }

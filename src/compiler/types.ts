@@ -528,12 +528,16 @@ namespace ts {
         expression?: Expression;
     }
 
-    export interface SignatureDeclaration extends Declaration {
-        typeParameters?: NodeArray<TypeParameterDeclaration>;
-        parameters: NodeArray<ParameterDeclaration>;
-        type?: TypeNode;
+    export interface ParameterDeclarations extends NodeArray<ParameterDeclaration> {
         // [ConcreteTypeScript] Add support for this types
         thisType?: TypeNode;
+        // [/ConcreteTypeScript] Add support for this types
+    }
+
+    export interface SignatureDeclaration extends Declaration {
+        typeParameters?: NodeArray<TypeParameterDeclaration>;
+        parameters: ParameterDeclarations;
+        type?: TypeNode;
     }
 
     // SyntaxKind.VariableDeclaration
@@ -626,7 +630,6 @@ namespace ts {
         questionToken?: Node;
         body?: Block | Expression;
         //[ConcreteTypeScript]
-        declaredTypeOfThis?: TypeNode;
         prototypeSymbol?: Symbol;
     }
 
@@ -2011,6 +2014,8 @@ namespace ts {
         typeParameters: TypeParameter[];    // Type parameters (undefined if non-generic)
         parameters: Symbol[];               // Parameters
         typePredicate?: TypePredicate;      // Type predicate
+        /* [ConcreteTypeScript] */
+        resolvedThisType: Type;           // Resolved return type
         /* @internal */
         resolvedReturnType: Type;           // Resolved return type
         /* @internal */

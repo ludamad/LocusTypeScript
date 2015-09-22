@@ -97,6 +97,7 @@ namespace ts {
                     visitNode(cbNode, (<FunctionLikeDeclaration>node).questionToken) ||
                     visitNodes(cbNodes, (<FunctionLikeDeclaration>node).typeParameters) ||
                     visitNodes(cbNodes, (<FunctionLikeDeclaration>node).parameters) ||
+                    visitNode(cbNode, (<FunctionLikeDeclaration>node).parameters.thisType) ||
                     visitNode(cbNode, (<FunctionLikeDeclaration>node).type) ||
                     visitNode(cbNode, (<ArrowFunction>node).equalsGreaterThanToken) ||
                     visitNode(cbNode, (<FunctionLikeDeclaration>node).body);
@@ -813,6 +814,7 @@ namespace ts {
             let lastError = lastOrUndefined(parseDiagnostics);
             // throw new Error(JSON.stringify([start, length, createFileDiagnostic(sourceFile, start, length, message, arg0).messageText]));
             if (!lastError || start !== lastError.start) {
+                console.log((<any> new Error).stack);
                 parseDiagnostics.push(createFileDiagnostic(sourceFile, start, length, message, arg0));
             }
             
@@ -2037,7 +2039,7 @@ namespace ts {
             //      BindingElement[?Yield,?Await]
 
             node.name = parseIdentifierOrPattern();
-
+    
             if (getFullWidth(node.name) === 0 && node.flags === 0 && isModifier(token)) {
                 // in cases like
                 // 'use strict'
@@ -2108,13 +2110,25 @@ namespace ts {
             // SingleNameBinding [Yield,Await]:
             //      BindingIdentifier[?Yield,?Await]Initializer [In, ?Yield,?Await] opt
             if (parseExpected(SyntaxKind.OpenParenToken)) {
+                let thisType:TypeNode;
+                // [ConcreteTypeScript] Support this types
+                if (token === SyntaxKind.ThisKeyword) {
+                    nextToken();
+                    parseExpected(SyntaxKind.ColonToken);
+                    thisType = parseType();
+                    if (token !== SyntaxKind.CloseParenToken) {
+                        parseExpected(SyntaxKind.SemicolonToken);
+                    }
+                }
+                // [/ConcreteTypeScript]
                 let savedYieldContext = inYieldContext();
                 let savedAwaitContext = inAwaitContext();
 
                 setYieldContext(yieldContext);
                 setAwaitContext(awaitContext);
 
-                let result = parseDelimitedList(ParsingContext.Parameters, parseParameter);
+                let result = <ParameterDeclarations>parseDelimitedList(ParsingContext.Parameters, parseParameter);
+                result.thisType = thisType;
 
                 setYieldContext(savedYieldContext);
                 setAwaitContext(savedAwaitContext);
@@ -2457,6 +2471,7 @@ namespace ts {
 
         function isStartOfType(): boolean {
             switch (token) {
+                case SyntaxKind.LikeKeyword: // [ConcreteTypeScript]
                 case SyntaxKind.ExclamationToken: // [ConcreteTypeScript]
                     return lookAhead(isIdentifier);
                 case SyntaxKind.AnyKeyword:
@@ -2478,6 +2493,7 @@ namespace ts {
                 case SyntaxKind.OpenParenToken:
                     // Only consider '(' the start of a type if followed by ')', '...', an identifier, a modifier,
                     // or something that starts a type. We don't want to consider things like '(1)' a type.
+                    console.log("WHAT")
                     return lookAhead(isStartOfParenthesizedOrFunctionType);
                 default:
                     return isIdentifier();
@@ -2486,7 +2502,9 @@ namespace ts {
 
         function isStartOfParenthesizedOrFunctionType() {
             nextToken();
-            return token === SyntaxKind.CloseParenToken || isStartOfParameter() || isStartOfType();
+            if (token === SyntaxKind.ThisKeyword) console.log("BRAINBARF")
+            console.log(token)
+            return token === SyntaxKind.CloseParenToken  || /* [ConcreteTypeScript]: */ token === SyntaxKind.ThisKeyword || isStartOfParameter() || isStartOfType();
         }
 
         function parseArrayTypeOrHigher(): TypeNode {
@@ -2539,7 +2557,7 @@ namespace ts {
                 // ( ...
                 return true;
             }
-            if (isIdentifier() || isModifier(token)) {
+            if (/*[ConcreteTypeScript]*/ token === SyntaxKind.ThisKeyword || isIdentifier() || isModifier(token)) {
                 nextToken();
                 if (token === SyntaxKind.ColonToken || token === SyntaxKind.CommaToken ||
                     token === SyntaxKind.QuestionToken || token === SyntaxKind.EqualsToken ||

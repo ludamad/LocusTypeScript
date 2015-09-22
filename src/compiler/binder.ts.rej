@@ -5,8 +5,8 @@
                  case SyntaxKind.VariableDeclaration:
 +                    if ((<VariableDeclaration>node).name.text === "this") {
 +                        var funcDecl = (<FunctionLikeDeclaration>getThisContainer(node, false));
-+                        funcDecl.declaredTypeOfThis = (<VariableDeclaration>node).type;
-+                        funcDecl.declaredTypeOfThis.brandTypeDeclaration.functionDeclaration = funcDecl;
++                        funcDecl.parameters.thisType = (<VariableDeclaration>node).type;
++                        funcDecl.parameters.thisType.brandTypeDeclaration.functionDeclaration = funcDecl;
 +                    }
                      if (node.flags & NodeFlags.BlockScoped) {
                          bindBlockScopedVariableDeclaration(<Declaration>node);

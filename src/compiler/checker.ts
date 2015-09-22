@@ -3429,10 +3429,10 @@ namespace ts {
                 }
                 if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method)) {
                     let funcDecl = <FunctionDeclaration> getSymbolDecl(symbol, SyntaxKind.FunctionDeclaration);
-                    if (funcDecl && funcDecl.declaredTypeOfThis) {
+                    if (isFunctionLikeDeclarationWithThisBrand(funcDecl)) {
                         constructSignatures = getSignaturesOfSymbol(symbol);
                         let prototypeSymbol = createSymbol(SymbolFlags.Property | SymbolFlags.Prototype, "prototype");
-                        prototypeSymbol.brandType = funcDecl.declaredTypeOfThis.brandTypeDeclaration.prototypeBrandDeclaration;
+                        prototypeSymbol.brandType = funcDecl.parameters.thisType.brandTypeDeclaration.prototypeBrandDeclaration;
                         members = createSymbolTable([prototypeSymbol]);
                     } else {
                         callSignatures = getSignaturesOfSymbol(symbol);
@@ -3787,8 +3787,8 @@ namespace ts {
                     // [/ConcreteTypeScript]
                 }
                 // [ConcreteTypeScript]
-                else if (declaration.type || (<FunctionLikeDeclaration>declaration).declaredTypeOfThis) {
-                    returnType = getTypeFromTypeNode(declaration.type || (<FunctionLikeDeclaration>declaration).declaredTypeOfThis);
+                else if (declaration.type) {
+                    returnType = getTypeFromTypeNode(declaration.type);
                     if (declaration.type.kind === SyntaxKind.TypePredicate) {
                         let typePredicateNode = <TypePredicateNode>declaration.type;
                         typePredicate = {
@@ -3813,6 +3813,10 @@ namespace ts {
 
                 links.resolvedSignature = createSignature(declaration, typeParameters, parameters, returnType, typePredicate,
                     minArgumentCount, hasRestParameter(declaration), hasStringLiterals);
+                
+                if (declaration.parameters.thisType) {
+                    links.resolvedSignature.resolvedThisType = getTypeFromTypeNode(declaration.parameters.thisType);
+                }
             }
             return links.resolvedSignature;
         }
@@ -3836,7 +3840,7 @@ namespace ts {
                     case SyntaxKind.SetAccessor:
                     case SyntaxKind.FunctionExpression:
                     case SyntaxKind.ArrowFunction:
-                        if ((<FunctionLikeDeclaration>node).declaredTypeOfThis) {
+                        if ((<FunctionLikeDeclaration>node).parameters.thisType) {
                             
                         }
                         // Don't include signature if node is the implementation of an overloaded function. A node is considered
@@ -4401,8 +4405,6 @@ namespace ts {
                     // so that we can access it in emit code:
                     let strippedTypes = map(type.types, (concreteType) => stripConcreteType(concreteType));
                     let baseType = (<any>type).baseType = getUnionType(strippedTypes, true, /*Don't collapse !null|!string: */ true);
-                    console.log("BASE BASE BASE")
-                    console.log(typeToString(baseType))
                     
                     // We cast our UnionType into a concrete type, 
                     // since we have set 'baseType' on it above.
@@ -5506,6 +5508,13 @@ console.log((<any> new Error()).stack)
                 if (!target.hasRestParameter && source.minArgumentCount > target.parameters.length) {
                     return Ternary.False;
                 }
+                if (!!source.resolvedThisType !== !!target.resolvedThisType) {
+                    return Ternary.False;
+                }
+                if (source.resolvedThisType && !isRelatedTo(source.resolvedThisType, target.resolvedThisType, reportErrors)) {
+                    return Ternary.False;
+                }
+
                 let sourceMax = source.parameters.length;
                 let targetMax = target.parameters.length;
                 let checkCount: number;
@@ -6822,10 +6831,9 @@ console.log((<any> new Error()).stack)
                 captureLexicalThis(node, container);
             }
 
-            if ((<FunctionLikeDeclaration>container).declaredTypeOfThis && !withoutBrand && !node.downgradeToBaseClass) {
-                return getTypeFromTypeNode((<FunctionLikeDeclaration>container).declaredTypeOfThis);
+            if (isFunctionLikeDeclarationWithThisBrand(container) && !withoutBrand && !node.downgradeToBaseClass) {
+                return getTypeFromTypeNode(container.parameters.thisType);
             }
-
 
             if (isClassLike(container.parent)) {
                 let symbol = getSymbolOfNode(container.parent);
@@ -9399,8 +9407,8 @@ console.log((<any> new Error()).stack)
             // but we are not including call signatures that may have been added to the Object or
             // Function interface, since they have none by default. This is a bit of a leap of faith
             // that the user will not add any.
-            let callSignatures = getSignaturesOfType(apparentType, SignatureKind.Call);
 
+            let callSignatures = getSignaturesOfType(apparentType, SignatureKind.Call);
             let constructSignatures = getSignaturesOfType(apparentType, SignatureKind.Construct);
             // TS 1.0 spec: 4.12
             // If FuncExpr is of type Any, or of an object type that has no call or construct signatures
