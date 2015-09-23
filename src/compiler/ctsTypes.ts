@@ -1,33 +1,7 @@
 /// <reference path="types.ts"/>
+/// <reference path="checker.ts"/>
 
 namespace ts {
-
-    export interface BrandTypeDeclaration extends Declaration, Statement {
-        parent?: TypeReferenceNode | BrandTypeDeclaration;
-        name: Identifier;
-        scope: Node;
-        // Set in checkerHelper.ts, null if a prototype-inferred brand
-        variableDeclaration?: VariableLikeDeclaration;
-        // Defaults to the 'any' type.
-        // TODO should parallel extension relationship for brand types.
-        extendedType?: TypeNode;
-        extendedTypeResolved?: Type;
-        prototypeBrandDeclaration?: BrandTypeDeclaration;
-        // The BrandTypeDeclaration that has us as a prototypeBrandDeclaration
-        ownerBrandDeclaration?: BrandTypeDeclaration;
-        // If the 'this' type of a function
-        functionDeclaration?: FunctionLikeDeclaration;
-    }
-
-    // [ConcreteTypeScript] We resolve the type of a brand property based on
-    // the assignments in its declaration site.
-    export interface BrandPropertyDeclaration extends PropertyDeclaration {
-        brandTypeDeclaration: BrandTypeDeclaration;
-        // Set in checkerHelper.ts during binder.ts
-        // bindingAssignments?: FlowTypeAnalysis;
-        // Set in checker.ts
-        resolvedType?:Type;
-    }
 
     export class NodeMap<N extends Node, T> {
         private values:any = {};

@@ -82,8 +82,8 @@ describe("Branding semantics", function () {
 });
 describe("This branding semantics", function () {
     it("should brand prototype object", function () {
-        function ShouldBrandProto() {
-            $$cts$$runtime.cast($$cts$$brandTypes.ShouldBrandProto.prototype, Object.getPrototypeOf(this));
+        /*this-branded*/function ShouldBrandProto() {
+            $$cts$$runtime.cast($$cts$$brandTypes.ShouldBrandProto.prototype, Object.getPrototypeOf(this));$$cts$$runtime.cast($$cts$$brandTypes.ShouldBrandProto.prototype, Object.getPrototypeOf(this))
             $$cts$$runtime.brand($$cts$$brandTypes.ShouldBrandProto, this);
             cts_test.assertBranded(this);
         }
@@ -93,8 +93,8 @@ describe("This branding semantics", function () {
         var val = new ShouldBrandProto();
     });
     it("should check prototype of this", function () {
-        function ShouldCheckThisProto() {
-            $$cts$$runtime.cast($$cts$$brandTypes.ShouldCheckThisProto.prototype, Object.getPrototypeOf(this));
+        /*this-branded*/function ShouldCheckThisProto() {
+            $$cts$$runtime.cast($$cts$$brandTypes.ShouldCheckThisProto.prototype, Object.getPrototypeOf(this));$$cts$$runtime.cast($$cts$$brandTypes.ShouldCheckThisProto.prototype, Object.getPrototypeOf(this))
             $$cts$$runtime.brand($$cts$$brandTypes.ShouldCheckThisProto, this);
             cts_test.assertBranded(this);
         }

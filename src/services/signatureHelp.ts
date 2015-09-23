@@ -402,7 +402,7 @@ namespace ts.SignatureHelp {
 
         // spanIndex is either the index for a given template span.
         // This does not give appropriate results for a NoSubstitutionTemplateLiteral
-        function getArgumentIndexForTemplatePiece(spanIndex: !number, node: Node): !number {
+        function getArgumentIndexForTemplatePiece(spanIndex: number, node: Node): number {
             // Because the TemplateStringsArray is the first argument, we have to offset each substitution expression by 1.
             // There are three cases we can encounter:
             //      1. We are precisely in the template literal (argIndex = 0).

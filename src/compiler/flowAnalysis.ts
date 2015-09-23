@@ -235,7 +235,7 @@ module ts {
                     if (this.getBrandPropertyId((<BinaryExpression>node).left) !== null) {
                         lastNode = node;
                     }
-                } else if (this.brandTypeDecl.variableDeclaration === node) {
+                } else if (isVariableLike(node) && node.type && node.type.brandTypeDeclaration === this.brandTypeDecl) {
                     lastNode = node;
                 }
                 forEachChild(node, iter);

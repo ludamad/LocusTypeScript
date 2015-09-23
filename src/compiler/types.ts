@@ -1,6 +1,35 @@
-/// <reference path="./ctsTypes.ts"/>
-
 namespace ts {
+
+    // [ConcreteTypeScript]
+    export interface BrandTypeDeclaration extends Declaration, Statement {
+        parent?: TypeReferenceNode | BrandTypeDeclaration;
+        name: Identifier;
+        scope: Node;
+        // Set in checkerHelper.ts, null if a prototype-inferred brand
+        variableDeclaration?: VariableLikeDeclaration;
+        // Defaults to the 'any' type.
+        // TODO should parallel extension relationship for brand types.
+        extendedType?: TypeNode;
+        extendedTypeResolved?: Type;
+        prototypeBrandDeclaration?: BrandTypeDeclaration;
+        // If the 'this' type of a function
+        functionDeclaration?: FunctionLikeDeclaration;
+    }
+
+    // [/ConcreteTypeScript]
+
+    // [ConcreteTypeScript] We resolve the type of a brand property based on
+    // the assignments in its declaration site.
+    export interface BrandPropertyDeclaration extends PropertyDeclaration {
+        brandTypeDeclaration: BrandTypeDeclaration;
+        // Set in checkerHelper.ts during binder.ts
+        // bindingAssignments?: FlowTypeAnalysis;
+        // Set in checker.ts
+        resolvedType?:Type;
+    }
+    // [/ConcreteTypeScript]
+
+
     export interface Map<T> {
         [index: string]: T;
     }
@@ -147,7 +176,6 @@ namespace ts {
         ImplementsKeyword,
         InterfaceKeyword,
         LetKeyword,
-        LikeKeyword, // [ConcreteTypeScript]
         PackageKeyword,
         PrivateKeyword,
         ProtectedKeyword,
@@ -163,7 +191,6 @@ namespace ts {
         BooleanKeyword,
         ConstructorKeyword,
         DeclareKeyword,
-        FloatNumberKeyword, // [ConcreteTypeScript]
         GetKeyword,
         IsKeyword,
         ModuleKeyword,
@@ -581,8 +608,6 @@ namespace ts {
 
     export interface ObjectLiteralElement extends Declaration {
         _objectLiteralBrandBrand: any;
-        // [ConcreteTypeScript] Brand property declaration created during initializer analysis
-        brandPropertyDeclaration?: BrandPropertyDeclaration;
     }
 
     // SyntaxKind.PropertyAssignment
@@ -1089,22 +1114,6 @@ namespace ts {
     export interface HeritageClause extends Node {
         token: SyntaxKind;
         types?: NodeArray<ExpressionWithTypeArguments>;
-    }
-    
-    export interface BrandTypeDeclaration extends Declaration, ModuleElement {
-        name: Identifier;
-        scope: Node;
-        // Set in checkerHelper.ts, null if a prototype-inferred brand
-        variableDeclaration?: VariableDeclaration;
-        // Defaults to the 'any' type.
-        // TODO should parallel extension relationship for brand types.
-        extendedType?: TypeNode;
-        extendedTypeResolved?: Type;
-        prototypeBrandDeclaration?: BrandTypeDeclaration;
-        // The BrandTypeDeclaration that has us as a prototypeBrandDeclaration
-        ownerBrandDeclaration?: BrandTypeDeclaration;
-        // If the 'this' type of a function
-        functionDeclaration?: FunctionLikeDeclaration;
     }
 
     export interface TypeAliasDeclaration extends Declaration, Statement {
@@ -1906,7 +1915,6 @@ namespace ts {
     export type DestructuringPattern = BindingPattern | ObjectLiteralExpression | ArrayLiteralExpression;
 
     // Properties common to all types
-    
     export interface Type {
         flags: TypeFlags;                // Flags
         /* @internal */ id: number;      // Unique ID

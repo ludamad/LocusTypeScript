@@ -431,6 +431,7 @@ namespace ts {
             messageText: text,
             category: message.category,
             code: message.code,
+
             next: details
         };
     }
@@ -541,7 +542,7 @@ namespace ts {
         return 0;
     }
 
-    export let directorySeparator = "/";
+    export var directorySeparator = "/";
     function getNormalizedParts(normalizedSlashedPath: string, rootLength: number) {
         let parts = normalizedSlashedPath.substr(rootLength).split(directorySeparator);
         let normalized: string[] = [];
@@ -769,7 +770,7 @@ namespace ts {
     function Signature(checker: TypeChecker) {
     }
 
-    export let objectAllocator: ObjectAllocator = {
+    export var objectAllocator: ObjectAllocator = {
         getNodeConstructor: kind => {
             function Node() {
             }

@@ -2,6 +2,7 @@
 /// <reference path="flowAnalysis.ts"/>
 
 /// <reference path="brandTypeQueries.ts"/>
+/// <reference path="ctsTypes.ts"/>
 
 
 /* @internal */
@@ -1193,68 +1194,6 @@ namespace ts {
             type.symbol = symbol;
             return type;
         }
-        
-        // [ConcreteTypeScript]
-        function isRuntimeCheckable(target: Type) {
-            if (target.flags & TypeFlags.Union) {
-                return (<UnionType>target).isRuntimeCheckable;
-            }
-            // TODO: Rename RuntimeCheckable to 'AlwaysRuntimeCheckable' perhaps.
-            return !!(target.flags & TypeFlags.RuntimeCheckable);
-        }
-
-        function areAllRuntimeCheckable(target: Type[]) {
-            for (var i = 0; i < target.length; i++) {
-                if (!isRuntimeCheckable(target[i])) return false;
-            }
-            return true;
-        }
-
-        // [ConcreteTypeScript]
-        // Wrap a type as a concrete type
-        function createConcreteType(target: Type) {
-            var type = target.concreteType;
-            if (!type && !(target.flags & TypeFlags.Any) && isRuntimeCheckable(target)) {
-                type = target.concreteType = <ConcreteType>createType(TypeFlags.Concrete);
-                type.baseType = target;
-            }
-            return type;
-        }
-
-        // And force a type to its non-concrete equivalent
-        function stripConcreteType(target: Type) {
-            if (target.flags & TypeFlags.Concrete) {
-                return (<ConcreteType>target).baseType;
-            } else {
-                return target;
-            }
-        }
-
-        /* Check for assignability problems related to concreteness, namely
-         * requiring checks or float/int coercion, and mark the given node as
-         * requiring those checks */
-        function checkCTSCoercion(node: Node, fromType: Type, toType: Type) {
-            /* If the target type is concrete and value type isn't, must check,
-             * unless it's known null or undefined */
-            if (toType.flags & TypeFlags.Concrete &&
-                !(fromType.flags & TypeFlags.Concrete) &&
-                fromType !== nullType && fromType !== undefinedType) {
-                node.mustCheck = toType;
-            }
-
-            // If the target is float and expression isn't, must coerce
-            if ((toType.flags & TypeFlags.Concrete && (<ConcreteType>toType).baseType.flags & TypeFlags.FloatHint) &&
-                !(fromType.flags & TypeFlags.Concrete && (<ConcreteType>fromType).baseType.flags & TypeFlags.FloatHint)) {
-                node.mustFloat = true;
-            }
-
-            // And similar for int
-            if ((toType.flags & TypeFlags.Concrete && (<ConcreteType>toType).baseType.flags & TypeFlags.IntHint) &&
-                !(fromType.flags & TypeFlags.Concrete && (<ConcreteType>fromType).baseType.flags & TypeFlags.IntHint)) {
-                node.mustInt = true;
-            }
-        }
-        // [/ConcreteTypeScript]
 
         // A reserved member name starts with two underscores, but the third character cannot be an underscore
         // or the @ symbol. A third underscore indicates an escaped form of an identifer that started
@@ -3914,8 +3853,7 @@ namespace ts {
                                 break;
                             }
                         }
-                        var signature = <SignatureDeclaration>node;
-                        result.push(getSignatureFromDeclaration(signature));
+                        result.push(getSignatureFromDeclaration(<SignatureDeclaration>node));
                 }
             }
             return result;
@@ -8303,12 +8241,12 @@ console.log((<any> new Error()).stack)
                 if (node.downgradeToBaseClass) {
                     let extended:Type = brandDecl.extendedType && getTypeFromTypeNode(brandDecl.extendedType);
                     if (extended) {
-
                         let brandTypeExtension:BrandTypeDeclaration = <BrandTypeDeclaration>getSymbolDecl(extended.symbol, SyntaxKind.BrandTypeDeclaration);
                         type = getDeclaredTypeOfSymbol(brandTypeExtension.symbol);
 
                     } else {
-                        let baseExtended = brandDecl.ownerBrandDeclaration && brandDecl.ownerBrandDeclaration.extendedType && getTypeFromTypeNode(brandDecl.ownerBrandDeclaration.extendedType);
+                        let owner = (brandDecl.parent.kind === SyntaxKind.BrandTypeDeclaration) ? <BrandTypeDeclaration> brandDecl.parent : null;
+                        let baseExtended = owner && owner.extendedType && getTypeFromTypeNode(owner.extendedType);
                         if (baseExtended) {
                             let brandTypeExtension:BrandTypeDeclaration = <BrandTypeDeclaration>getSymbolDecl(baseExtended.symbol, SyntaxKind.BrandTypeDeclaration);
                             type = getDeclaredTypeOfSymbol(brandTypeExtension.prototypeBrandDeclaration.symbol);
@@ -10461,12 +10399,6 @@ console.log((<any> new Error()).stack)
                                 checkDestructuringAssignment(restExpression, createArrayType(elementType), contextualMapper);
                             }
                         }
-
-                        // [ConcreteTypeScript]
-                        // If we took advantage of return-assignability to sneak in a non-concrete or non-float, check it
-                        var expType = checkExpression(node.expression); // FIXME: rechecking
-                        checkCTSCoercion(node.expression, expType, returnType);
-                        // [/ConcreteTypeScript]
                     }
                 }
             }
@@ -10906,12 +10838,6 @@ console.log((<any> new Error()).stack)
                 }
             }
             return type;
-        }
-        
-        function checkBrandTypeDeclaration(node: BrandTypeDeclaration) {
-            checkTypeNameIsReserved(node.name, Diagnostics.Class_name_cannot_be_0);
-            
-            // checkSourceElement(node.type);
         }
 
         function checkNumericLiteral(node: LiteralExpression): Type {

@@ -246,20 +246,6 @@ namespace ts {
             description: Diagnostics.Specifies_module_resolution_strategy_Colon_node_Node_js_or_classic_TypeScript_pre_1_6,
             error: Diagnostics.Argument_for_moduleResolution_option_must_be_node_or_classic,
         }
-
-        // [ConcreteTypeScript]
-        ,
-        {
-            name: "defaultConcrete",
-            type: "boolean",
-            description: {key: "Use concrete, instead of optional, typing by default."},
-        },
-        {
-            name: "emitV8Intrinsics",
-            type: "boolean",
-            description: {key: "Emit intrinsics for the modified V8 JS VM."},
-        }
-        // [/ConcreteTypeScript]
     ];
 
     /* @internal */

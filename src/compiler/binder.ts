@@ -417,11 +417,11 @@ namespace ts {
                 if ((<Identifier>contextNode.name).text === "this") {
                     var funcDecl = (<FunctionLikeDeclaration>getThisContainer(node, false));
                     Debug.assert(isFunctionLike(funcDecl))
-                    funcDecl.parameters.thisType = contextNode.type;
                     node.functionDeclaration = funcDecl;
-                    node.variableDeclaration = contextNode;
+                    funcDecl.parameters.thisType = contextNode.type;
                     hasPrototypeBrand = true;
                 }
+                node.variableDeclaration = contextNode;
             } else if (isFunctionLike(contextNode)) {
                 // Handle 'this' declarations syntax 2:
                 Debug.assert(contextNode.parameters.thisType === <any>node.parent)
@@ -439,7 +439,6 @@ namespace ts {
                 synthProtoIdentifier.parent = protoBrandDecl;
                 protoBrandDecl.name = synthProtoIdentifier;
                 protoBrandDecl.parent = node;
-                protoBrandDecl.ownerBrandDeclaration = node;
                 node.prototypeBrandDeclaration = protoBrandDecl;
                 declareSymbol(node.symbol.exports, node.symbol, protoBrandDecl, symbolKind, symbolExcludes);
             }
@@ -695,39 +694,6 @@ namespace ts {
             let symbol = createSymbol(symbolFlags, name);
             addDeclarationToSymbol(symbol, node, symbolFlags);
         }
-        
-        function bindBrandTypeDeclaration(node: BrandTypeDeclaration) {
-            var scope = getModuleOrSourceFile(container);
-            // The parent of the declaration is expected to be the containing scope:
-            node.scope = scope;
-            var symbolKind = SymbolFlags.Brand | SymbolFlags.ExportType, symbolExcludes = SymbolFlags.BrandTypeExcludes;
-
-            if (scope.symbol && scope.symbol.flags & SymbolFlags.HasExports) {
-                declareSymbol(scope.symbol.exports, undefined, node, symbolKind, symbolExcludes);
-            } else {
-                declareSymbol(scope.locals, undefined, node, symbolKind, symbolExcludes);
-            }
-            var parent = node.parent;
-            while (parent.kind !== SyntaxKind.VariableDeclaration) {
-                Debug.assert(!!parent);
-                parent = parent.parent;
-            }
-            node.variableDeclaration = <VariableDeclaration>parent;
-            if (!node.variableDeclaration.name || node.variableDeclaration.name.text === "this") {
-                // Create the prototype brand type:
-                var proto = <BrandTypeDeclaration> new (objectAllocator.getNodeConstructor(SyntaxKind.BrandTypeDeclaration))();
-                proto.name = <Identifier> new (objectAllocator.getNodeConstructor(SyntaxKind.Identifier))();
-                proto.name.text = "prototype";
-                proto.name.parent = proto;
-                proto.pos = proto.name.pos = node.pos;
-                proto.end = proto.name.end = node.end;
-                // Set to parent of FunctionDeclaration:
-                proto.parent = node;
-                node.prototypeBrandDeclaration = proto;
-                proto.ownerBrandDeclaration = node;
-                declareSymbol(node.symbol.exports, node.symbol, proto, symbolKind, symbolExcludes);
-            }
-        }
 
         function bindBlockScopedDeclaration(node: Declaration, symbolFlags: SymbolFlags, symbolExcludes: SymbolFlags) {
             switch (blockScopeContainer.kind) {
@@ -887,34 +853,6 @@ namespace ts {
 
         function getDestructuringParameterName(node: Declaration) {
             return "__" + indexOf((<SignatureDeclaration>node.parent).parameters, node);
-        }
-      
-        // [ConcreteTypeScript] Find variable declaration associated with identifier, or 'null' if not a VariableDeclaration
-        function findVariableDeclaration(location: Node, name: string): VariableDeclaration {
-            while (true) {
-                if (!location) {
-                    // Not found, let checker handle error reporting:
-                    return null;
-                }
-                if (!location.locals || !hasProperty(location.locals, name)) {
-                    location = location.parent;
-                    continue; 
-                }
-                var symbol = location.locals[name];
-                if (symbol.declarations.length < 1) {
-                    return null; 
-                }
-                return <VariableDeclaration> getSymbolDecl(symbol, SyntaxKind.VariableDeclaration);
-            }
-        }
-
-        function postBind(node: Node) {
-            bindBrandPropertiesInScopeAfterInitialBinding(node, declareSymbol);
-            // [ConcreteTypeScript] Compute the contents of any brand-types in 
-            // our block based on relevant assignments.
-            forEachChild(node, (child) => {
-                postBind(child);
-            });
         }
 
         function bind(node: Node) {

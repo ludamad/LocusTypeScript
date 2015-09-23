@@ -1,5 +1,6 @@
 /// <reference path="checker.ts"/>
 /// <reference path="declarationEmitter.ts"/>
+/// <reference path="ctsTypes.ts"/>
 
 /* @internal */
 namespace ts {
@@ -1966,11 +1967,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
 
                 return result;
             }
-            
-            // [ConcreteTypeScript]
-            function isConcreteObjectLiteralElement(prop: ObjectLiteralElement):boolean {
-                return !!(prop.brandPropertyDeclaration && (prop.brandPropertyDeclaration.resolvedType.flags & TypeFlags.Concrete));
-            }
 
             function createPropertyAccessExpression(expression: Expression, name: Identifier): PropertyAccessExpression {
                 let result = <PropertyAccessExpression>createSynthesizedNode(SyntaxKind.PropertyAccessExpression);
@@ -2515,126 +2511,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     emitDownlevelTaggedTemplate(node);
                 }
             }
-
-            // [ConcreteTypeScript]
-            // Emitter for references to CTS runtime functions
-            function emitCTSRT(name: string) {
-                if (compilerOptions.emitV8Intrinsics) write("%_UnsafeAssumeMono(");
-                write("$$cts$$runtime." + name);
-                if (compilerOptions.emitV8Intrinsics) write(")");
-            }
-
-            // Emitter for a type, as part of casting/protection/etc
-            function emitCTSType(type: Type) {
-                if (type.flags & TypeFlags.String ||
-                    type.flags & TypeFlags.StringLiteral) {
-                    write("String");
-                } else if (type.flags & TypeFlags.Number) {
-                    write("Number");
-                } else if (type.flags & TypeFlags.Brand) {
-                    write("$$cts$$brandTypes." + type.symbol.name);
-                } else if (type.flags & TypeFlags.Null) {
-                    emitCTSRT("Null");
-                } else if (type.flags & TypeFlags.Undefined) {
-                    emitCTSRT("Undefined");
-                } else if (type.flags & TypeFlags.Union) {
-                    write("(new "); emitCTSRT("UnionType");
-                    write("("); 
-                    var types:ConcreteType[] = <ConcreteType[]>(<UnionType>type).types;
-                    for (var i = 0; i < types.length; i++) {
-                        emitCTSType(types[i].baseType || types[i]);
-                        if (i !== types.length - 1) write(", ");
-                    }
-                    write("))");
-                } else if (type.flags & TypeFlags.Boolean) {
-                    write("Boolean");
-                } else if (type.symbol) {
-                    // FIXME
-                    write(type.symbol.name);
-                } else {
-                    console.log(type);
-                    throw new Error("Cannot create dynamic type check!");
-                }
-            }
-
-            // Emitter for a TypeNode, similar to a Type but without the checker
-            function emitCTSTypeNode(type: TypeNode) {
-                function emitEntityName(entityName: EntityName) {
-                    if (entityName.kind === SyntaxKind.Identifier) {
-                        writeTextOfNode(currentSourceFile, entityName);
-                    } else {
-                        var qualifiedName = <QualifiedName>entityName;
-                        emitEntityName(qualifiedName.left);
-                        write(".");
-                        writeTextOfNode(currentSourceFile, qualifiedName.right);
-                    }
-                }
-
-                switch (type.kind) {
-                    case SyntaxKind.AnyKeyword:
-                    case SyntaxKind.VoidKeyword:
-                        return write("Object");
-                    case SyntaxKind.StringKeyword:
-                    case SyntaxKind.StringLiteral:
-                        return write("String");
-                    case SyntaxKind.NumberKeyword:
-                    case SyntaxKind.FloatNumberKeyword:
-                    case SyntaxKind.IntNumberKeyword:
-                        return write("Number");
-                    case SyntaxKind.BooleanKeyword:
-                        return write("Boolean");
-                    case SyntaxKind.TypeReference:
-                        return emitEntityName((<TypeReferenceNode>type).typeName);
-                    default:
-                        Debug.fail("Unsupported CTS type: " + type.kind);
-                }
-            }
-
-            // Emit a default value for this type
-            function emitCTSDefault(type: TypeNode) {
-                switch (type.kind) {
-                    case SyntaxKind.StringKeyword:
-                    case SyntaxKind.StringLiteral:
-                        return write("\"\"");
-                    case SyntaxKind.NumberKeyword:
-                        return write("0");
-                    case SyntaxKind.BooleanKeyword:
-                        return write("false");
-                    default:
-                        return write("void 0");
-                }
-            }
-
-            // A general way to wrap an expression in a type cast
-            function emitCastPre(type: Type) {
-                if (type.flags & TypeFlags.Concrete) {
-                    type = (<ConcreteType>type).baseType;
-                }
-                write("(");
-                emitCTSRT("cast");
-                write("(");
-                emitCTSType(type);
-                write(",(");
-            }
-
-            function emitCastPost(type: Type) {
-                write(")))");
-            }
-
-            // And similarly in a falsey coercion
-            function emitFalseyCoercionPre(type: Type) {
-                if (type.flags & TypeFlags.Concrete) {
-                    type = (<ConcreteType>type).baseType;
-                }
-                write("(");
-                emitCTSType(type);
-                write(".$$cts$$falsey(");
-            }
-
-            function emitFalseyCoercionPost(type: Type) {
-                write("))");
-            }
-            // [/ConcreteTypeScript]
 
             function emitParenExpression(node: ParenthesizedExpression) {
                 // If the node is synthesized, it means the emitter put the parentheses there,
@@ -7590,24 +7466,25 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         write(")");
                     }
                     if (node.brandsToEmitAfterwards) {
-                        forEach(node.brandsToEmitAfterwards, (brandProto) => {
-                            var owner = brandProto.ownerBrandDeclaration;
-                            if (owner) writeLine(); 
-                            write("$$cts$$runtime.brand($$cts$$brandTypes.");
-                            writeTextOfNode(currentSourceFile, (owner || brandProto).name);
-                            if (owner) {
+                        for(var brand of node.brandsToEmitAfterwards) {
+                            let isBrandOfPrototypeObject:boolean = (brand.parent.kind === SyntaxKind.BrandTypeDeclaration);
+                            if (isBrandOfPrototypeObject) {
+                                writeLine();
+                                write("$$cts$$runtime.brand($$cts$$brandTypes.");
+                                writeTextOfNode(currentSourceFile, (<BrandTypeDeclaration>brand.parent).name);
                                 write(".prototype")
                                 write(", ");
-                                writeTextOfNode(currentSourceFile, owner.functionDeclaration.name);
+                                writeTextOfNode(currentSourceFile, (<BrandTypeDeclaration>brand.parent).functionDeclaration.name);
                                 write(".prototype);");
-                                writeLine();
                             } else {
+                                write("$$cts$$runtime.brand($$cts$$brandTypes.");
+                                writeTextOfNode(currentSourceFile, brand.name);
                                 write(", ");
-                                writeTextOfNode(currentSourceFile, brandProto.variableDeclaration.name);
+                                writeTextOfNode(currentSourceFile, brand.variableDeclaration.name);
                                 write(");");
-                                writeLine();
                             }
-                        });
+                            writeLine();
+                        }
                     }
 
                 }
