@@ -43,6 +43,7 @@ var compilerSources = [
     "declarationEmitter.ts",
     "emitter.ts",
     "program.ts",
+    "printNode.ts",
     "ctsTypes.ts",
     "commandLineParser.ts",
     "flowAnalysis.ts",

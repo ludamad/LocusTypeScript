@@ -18,7 +18,13 @@ function printErrorLine(rawLine) {
     }
     pathComponents = pathComponents.substring(1, pathComponents.length - 1);
     var _b = pathComponents.split(':'), filename = _b[0], linenum = _b[1], pos = _b[2];
+    if (filename.indexOf("home") === 0)
+        filename = '/' + filename; // HACK FIX
     linenum = parseInt(linenum, 10) - 1;
+    if (!fs.existsSync(filename)) {
+        console.log(rawLine);
+        return;
+    }
     var fileContents = fs.readFileSync(filename, "utf8").toString();
     console.log(clc.white("(" + ++nextNumber + ") ") + clc.white.bold(func + " +" + (linenum + 1)));
     var fileLines = fileContents.split('\n');

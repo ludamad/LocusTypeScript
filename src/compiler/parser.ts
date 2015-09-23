@@ -1959,6 +1959,7 @@ namespace ts {
               node.brandTypeDeclaration = declNode; 
 
               declNode.name = <Identifier>node.typeName;
+              Debug.assert(!!declNode.name);
               declNode.parent = node;
 
               if (token === SyntaxKind.ExtendsKeyword) {
@@ -4455,9 +4456,6 @@ namespace ts {
                     return parseClassDeclaration(fullStart, decorators, modifiers);
                 case SyntaxKind.InterfaceKeyword:
                     return parseInterfaceDeclaration(fullStart, decorators, modifiers);
-                case SyntaxKind.DeclareKeyword:
-                    return parseBrandTypeDeclaration(fullStart, modifiers);
-
                 case SyntaxKind.TypeKeyword:
                     return parseTypeAliasDeclaration(fullStart, decorators, modifiers);
                 case SyntaxKind.EnumKeyword:
@@ -4586,18 +4584,6 @@ namespace ts {
             node.type = parseTypeAnnotation();
             if (!isInOrOfKeyword(token)) {
                 node.initializer = parseInitializer(/*inParameter*/ false);
-            }
-            return finishNode(node);
-        }
-
-        function parseBrandTypeDeclaration(fullStart: number, modifiers: ModifiersArray): BrandTypeDeclaration {
-            var node = <BrandTypeDeclaration>createNode(SyntaxKind.BrandTypeDeclaration, fullStart);
-            setModifiers(node, modifiers);
-            parseExpected(SyntaxKind.DeclareKeyword);
-            node.name = parseIdentifier();
-            if (token === SyntaxKind.ExtendsKeyword) {
-                nextToken();
-                node.extendedType = parseType();
             }
             return finishNode(node);
         }

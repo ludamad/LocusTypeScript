@@ -9,7 +9,10 @@
 module ts {
     function printRecursor(node:Node, print:any) {
     switch (node.kind) {
-        case SyntaxKind.BrandTypeDeclaration: return print(node, "BrandTypeDeclaration");
+        case SyntaxKind.BrandTypeDeclaration: 
+            print(node, "BrandTypeDeclaration");
+            print((<BrandTypeDeclaration>node).name, "BrandTypeDeclaration.name");
+            return;
         case SyntaxKind.Identifier: return print(node, "Identifier");
         case SyntaxKind.Parameter: return print(node, "Parameter");
         case SyntaxKind.GetAccessor: return print(node, "GetAccessor");

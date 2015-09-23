@@ -9692,7 +9692,8 @@ console.log((<any> new Error()).stack)
             let targetType = getTypeFromTypeNode(node.type);
             if (produceDiagnostics && targetType !== unknownType) {
                 let widenedType = getWidenedType(exprType);
-                if (!(isTypeAssignableTo(targetType, widenedType))) {
+                let brandExemption = (exprType.flags & TypeFlags.Brand) || (targetType.flags & TypeFlags.Brand);
+                if (!brandExemption && !isTypeAssignableTo(targetType, widenedType)) {
                     checkTypeAssignableTo(exprType, targetType, node, Diagnostics.Neither_type_0_nor_type_1_is_assignable_to_the_other);
                 }
 

@@ -17,17 +17,14 @@ namespace ts {
         }
         return false;
     }
-    export function getBrandTypesInScope(block:Node):BrandTypeDeclaration[] {
-        if (!block.locals) return [];
+    export function getBrandTypesInScope(scope:Node):BrandTypeDeclaration[] {
+        var useExports = (scope.symbol && scope.symbol.flags & SymbolFlags.HasExports);
+        var symbols:SymbolTable =  (useExports? scope.symbol.exports : scope.locals) || {};
         var declarations:BrandTypeDeclaration[] = [];
-        for (var symbolName in block.locals) {
-            if (hasProperty(block.locals, symbolName)) {
-                var symbol = block.locals[symbolName];
-                forEach(symbol.declarations || [], (declaration) => {
-                    if (declaration.kind == SyntaxKind.BrandTypeDeclaration) {
-                        declarations.push(<BrandTypeDeclaration>declaration);
-                    }
-                });
+        for (var symbolName of Object.keys(symbols)) {
+            var brandType = <BrandTypeDeclaration> getSymbolDecl(symbols[symbolName], SyntaxKind.BrandTypeDeclaration);
+            if (brandType) {
+                declarations.push(brandType);
             }
         }
         return declarations;
