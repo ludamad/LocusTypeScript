@@ -2354,7 +2354,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     write("String");
                 } else if (type.flags & TypeFlags.Number) {
                     write("Number");
-                } else if (type.flags & TypeFlags.Brand) {
+                } else if (type.symbol.flags & SymbolFlags.Brand) {
                     write("$$cts$$runtime.brandTypes." + type.symbol.name);
                 } else if (type.flags & TypeFlags.Null) {
                     emitCTSRT("Null");
@@ -2407,6 +2407,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     case SyntaxKind.BooleanKeyword:
                         return write("Boolean");
                     case SyntaxKind.TypeReference:
+                        if (type.symbol.flags & SymbolFlags.Brand) {
+                            write("$$cts$$runtime.brandTypes.");
+                        }
                         return emitEntityName((<TypeReferenceNode>type).typeName);
                     default:
                         Debug.fail("Unsupported CTS type: " + type.kind);
@@ -2727,8 +2730,26 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 }
                 return false;
             }
-             function emitBinaryExpression(node: BinaryExpression) {
-                // [ConcreteTypeScript] Handle binding assignmen
+
+            // [ConcreteTypeScript]
+            function emitDeclaredAsExpression(left: Expression, right: Expression) {
+                if (right.kind === SyntaxKind.Identifier) {
+                    write("$$cts$$runtime.brandTypes.");
+                    write((<Identifier>right).text);
+                    write(".$$cts$$check(");
+                    emit(left);
+                    write(")");
+                }
+            }
+
+            function emitBinaryExpression(node: BinaryExpression) {
+                // [ConcreteTypeScript] Handle binding assignment
+                if (node.operatorToken.kind === SyntaxKind.DeclaredAsKeyword) {
+                    emitDeclaredAsExpression(node.left, node.right);
+                    return;
+                }
+                // [/ConcreteTypeScript] Handle binding assignment
+                // [ConcreteTypeScript] Handle binding assignment
                 if (isPropertyAssignment(node)) {
                     let propAccess:PropertyAccessExpression = <PropertyAccessExpression>node.left;
                     // console.log("Here with ", propAccess.name.text);

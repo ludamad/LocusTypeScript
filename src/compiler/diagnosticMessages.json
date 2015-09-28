@@ -1,4 +1,8 @@
  {
+    "[ConcreteTypeScript] Expected identifier which resolves to type created with 'declare'.": {
+        "category": "Error",
+        "code": 1002
+    },
     "Unterminated string literal.": {
         "category": "Error",
         "code": 1002

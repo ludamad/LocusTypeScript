@@ -245,6 +245,8 @@ namespace ts {
             let diagnostic = location
                 ? createDiagnosticForNode(location, message, arg0, arg1, arg2)
                 : createCompilerDiagnostic(message, arg0, arg1, arg2);
+                
+                    console.log((<any>new Error()).stack);
             diagnostics.add(diagnostic);
         }
 
@@ -377,6 +379,7 @@ namespace ts {
                 if (symbol.flags & meaning) {
                     return symbol;
                 }
+                
                 if (symbol.flags & SymbolFlags.Alias) {
                     let target = resolveAlias(symbol);
                     // Unknown symbol means an error occurred in alias resolution, treat it as positive answer to avoid cascading errors
@@ -6576,6 +6579,12 @@ console.log((<any> new Error()).stack)
                 }
             }
 
+            // [ConcreteTypeScript] If 'assumeTrue', narrow to a brand-type
+            // TODO implement.
+            function narrowTypeByDeclaredAs(type: Type, expr: BinaryExpression, assumeTrue: boolean): Type {
+                return type;
+            }
+
             function narrowTypeByInstanceof(type: Type, expr: BinaryExpression, assumeTrue: boolean): Type {
                 // Check that type is not any, assumed result is true, and we have variable symbol on the left
                 if (isTypeAny(type) || !assumeTrue || expr.left.kind !== SyntaxKind.Identifier || getResolvedSymbol(<Identifier>expr.left) !== symbol) {
@@ -6675,6 +6684,10 @@ console.log((<any> new Error()).stack)
                         }
                         else if (operator === SyntaxKind.BarBarToken) {
                             return narrowTypeByOr(type, <BinaryExpression>expr, assumeTrue);
+                        }
+                        else if (operator === SyntaxKind.DeclaredAsKeyword) {
+                            // TODO Narrow to a declared type
+                            return narrowTypeByInstanceof(type, <BinaryExpression>expr, assumeTrue);
                         }
                         else if (operator === SyntaxKind.InstanceOfKeyword) {
                             return narrowTypeByInstanceof(type, <BinaryExpression>expr, assumeTrue);
@@ -10297,6 +10310,23 @@ console.log((<any> new Error()).stack)
             return (symbol.flags & SymbolFlags.ConstEnum) !== 0;
         }
 
+        // [ConcreteTypeScript]
+        function checkDeclaredAsExpression(node: BinaryExpression, leftType: Type, rightType: Type): Type {
+            // Concreteness of LHS does not matter for most checks:
+            leftType = stripConcreteType(leftType);
+
+            // Like the instanceof operator, the declared as operator requires the left operand to be of type Any, an object type, or a type parameter type,
+            // and the right operand to be of type Any or a subtype of the 'Function' interface type.
+            // The result is always of the Boolean primitive type.
+            if (allConstituentTypesHaveKind(leftType, TypeFlags.Primitive)) {
+                error(node.left, Diagnostics.The_left_hand_side_of_an_instanceof_expression_must_be_of_type_any_an_object_type_or_a_type_parameter);
+            }
+            // Unlike instanceof, theoretically any (object) type can be branded/declared as a type. We therefore do not do 
+            // any subtype checks.
+
+            return createConcreteType(booleanType); // [ConcreteTypeScript] Always concrete
+        }
+
         function checkInstanceOfExpression(node: BinaryExpression, leftType: Type, rightType: Type): Type {
             // [ConcreteTypeScript] Either side may of course be concrete
 
@@ -10428,13 +10458,30 @@ console.log((<any> new Error()).stack)
             return sourceType;
         }
 
+        // [ConcreteTypeScript]
+        function checkBrandIdentifier(node: Node):Type {
+            if (node.kind !== SyntaxKind.Identifier) {
+                error(node, Diagnostics.ConcreteTypeScript_Expected_identifier_which_resolves_to_type_created_with_declare);
+                return undefinedType;
+            }
+            var ident = <Identifier> node;
+            console.log("POP")
+            var brandSymbol = resolveName(ident.parent, ident.text, SymbolFlags.Type, Diagnostics.ConcreteTypeScript_Expected_identifier_which_resolves_to_type_created_with_declare, ident);
+                        console.log("/POP")
+            return getTypeOfSymbol(brandSymbol);
+        }
+
         function checkBinaryExpression(node: BinaryExpression, contextualMapper?: TypeMapper) {
             let operator = node.operatorToken.kind;
             if (operator === SyntaxKind.EqualsToken && (node.left.kind === SyntaxKind.ObjectLiteralExpression || node.left.kind === SyntaxKind.ArrayLiteralExpression)) {
                 return checkDestructuringAssignment(node.left, checkExpression(node.right, contextualMapper), contextualMapper);
             }
             let leftType = checkExpression(node.left, contextualMapper);
-            let rightType = checkExpression(node.right, contextualMapper);
+            // [ConcreteTypeScript]
+            let rightType = (node.operatorToken.kind === SyntaxKind.DeclaredAsKeyword) 
+                ? checkBrandIdentifier(node.right)
+                : checkExpression(node.right, contextualMapper);
+            // [/ConcreteTypeScript]
             switch (operator) {
                 case SyntaxKind.AsteriskToken:
                 case SyntaxKind.AsteriskEqualsToken:
@@ -10568,6 +10615,8 @@ console.log((<any> new Error()).stack)
                     return createConcreteType(booleanType); // [ConcreteTypeScript] Result is concrete
                 case SyntaxKind.InstanceOfKeyword:
                     return checkInstanceOfExpression(node, leftType, rightType);
+                case SyntaxKind.DeclaredAsKeyword:
+                    return checkDeclaredAsExpression(node, leftType, rightType);
                 case SyntaxKind.InKeyword:
                     return checkInExpression(node, leftType, rightType);
                 case SyntaxKind.AmpersandAmpersandToken:

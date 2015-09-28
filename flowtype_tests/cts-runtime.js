@@ -260,8 +260,8 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         });
         
 
-        // Branding is 
         cement(this, "Brand", Brand);
+        cement(this, "brandTypes", {});
 
     })();
 

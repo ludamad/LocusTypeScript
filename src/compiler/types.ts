@@ -52,6 +52,8 @@ namespace ts {
     // Also, If you add a new SyntaxKind be sure to keep the `Markers` section at the bottom in sync
     export const enum SyntaxKind {
         // [ConcreteTypeScript]
+        BecomesKeyword, // [ConcreteTypeScript]
+        DeclaredAsKeyword, // [ConcreteTypeScript]
         FloatNumberKeyword,   // [ConcreteTypeScript]
         LikeKeyword,          // [ConcreteTypeScript]
         IntNumberKeyword,     // [ConcreteTypeScript]

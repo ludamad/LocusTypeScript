@@ -809,12 +809,11 @@ namespace ts {
         }
 
         function parseErrorAtPosition(start: number, length: number, message: DiagnosticMessage, arg0?: any): void {
-                            // throw new Error(JSON.stringify(createFileDiagnostic(sourceFile, start, length, message, arg0).messageText))
             // Don't report another error if it would just be at the same position as the last error.
             let lastError = lastOrUndefined(parseDiagnostics);
             // throw new Error(JSON.stringify([start, length, createFileDiagnostic(sourceFile, start, length, message, arg0).messageText]));
             if (!lastError || start !== lastError.start) {
-                console.log((<any> new Error).stack);
+                // console.log((<any> new Error).stack);
                 parseDiagnostics.push(createFileDiagnostic(sourceFile, start, length, message, arg0));
             }
             
@@ -3183,6 +3182,7 @@ namespace ts {
                 case SyntaxKind.GreaterThanToken:
                 case SyntaxKind.LessThanEqualsToken:
                 case SyntaxKind.GreaterThanEqualsToken:
+                case SyntaxKind.DeclaredAsKeyword:
                 case SyntaxKind.InstanceOfKeyword:
                 case SyntaxKind.InKeyword:
                 case SyntaxKind.AsKeyword:

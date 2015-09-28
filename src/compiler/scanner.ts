@@ -72,6 +72,8 @@ namespace ts {
         "extends": SyntaxKind.ExtendsKeyword,
         "false": SyntaxKind.FalseKeyword,
         "finally": SyntaxKind.FinallyKeyword,
+        "declaredas": SyntaxKind.DeclaredAsKeyword, // [ConcreteTypeScript]
+        "becomes": SyntaxKind.BecomesKeyword, // [ConcreteTypeScript]
         "floatNumber": SyntaxKind.FloatNumberKeyword, // [ConcreteTypeScript]
         "for": SyntaxKind.ForKeyword,
         "from": SyntaxKind.FromKeyword,

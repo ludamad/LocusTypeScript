@@ -261,7 +261,7 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         
 
         cement(this, "Brand", Brand);
-        cement(this, "brandTypes", Brand);
+        cement(this, "brandTypes", {});
 
     })();
 

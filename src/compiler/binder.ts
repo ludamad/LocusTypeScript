@@ -402,7 +402,7 @@ namespace ts {
             var scope = getModuleOrSourceFile(container);
             // The parent of the declaration is expected to be the containing scope:
             node.scope = scope;
-            var symbolKind = SymbolFlags.Brand | SymbolFlags.ExportType, symbolExcludes = SymbolFlags.BrandTypeExcludes;
+            var symbolKind = SymbolFlags.Brand | SymbolFlags.Type | SymbolFlags.ExportType, symbolExcludes = SymbolFlags.BrandTypeExcludes;
 
             if (scope.symbol && scope.symbol.flags & SymbolFlags.HasExports) {
                 var retSymbol = declareSymbol(scope.symbol.exports, undefined, node, symbolKind, symbolExcludes);

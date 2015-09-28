@@ -3,6 +3,7 @@
 /* @internal */
 namespace ts {
     export var Diagnostics = {
+        ConcreteTypeScript_Expected_identifier_which_resolves_to_type_created_with_declare: { code: 1002, category: DiagnosticCategory.Error, key: "[ConcreteTypeScript] Expected Identifier which resolves to type created with 'declare'." },
         Unterminated_string_literal: { code: 1002, category: DiagnosticCategory.Error, key: "Unterminated string literal." },
         Identifier_expected: { code: 1003, category: DiagnosticCategory.Error, key: "Identifier expected." },
         _0_expected: { code: 1005, category: DiagnosticCategory.Error, key: "'{0}' expected." },

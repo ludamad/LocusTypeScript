@@ -3,23 +3,23 @@ if (typeof $$cts$$runtime === "undefined") {
     if (typeof require !== "undefined") require("./cts-runtime.js");
     else if (typeof document !== "undefined") { document.writeLine("<script src=\"cts-runtime.js\"></script>"); }
     else throw new Error("Could not load ConcreteTypeScript runtime!");
-}var $$cts$$brandTypes = {};
-$$cts$$brandTypes.BrandObjectLiteral2 = new $$cts$$runtime.Brand('BrandObjectLiteral2');
-$$cts$$brandTypes.BrandObjectLiteral = new $$cts$$runtime.Brand('BrandObjectLiteral');
-$$cts$$brandTypes.BlockExit = new $$cts$$runtime.Brand('BlockExit');
-$$cts$$brandTypes.BeforeReturn = new $$cts$$runtime.Brand('BeforeReturn');
-$$cts$$brandTypes.FunctionExit = new $$cts$$runtime.Brand('FunctionExit');
-$$cts$$brandTypes.ScopeExit = new $$cts$$runtime.Brand('ScopeExit');
-$$cts$$brandTypes.ShouldBrandProto = new $$cts$$runtime.Brand('ShouldBrandProto');
-$$cts$$brandTypes.ShouldBrandProto.prototype = new $$cts$$runtime.Brand();
-$$cts$$brandTypes.ShouldCheckThisProto = new $$cts$$runtime.Brand('ShouldCheckThisProto');
-$$cts$$brandTypes.ShouldCheckThisProto.prototype = new $$cts$$runtime.Brand();
-$$cts$$brandTypes.IfBranch = new $$cts$$runtime.Brand('IfBranch');
-$$cts$$brandTypes.IfNoElse = new $$cts$$runtime.Brand('IfNoElse');
-$$cts$$brandTypes.IfNoElseAfterAssign = new $$cts$$runtime.Brand('IfNoElseAfterAssign');
-$$cts$$brandTypes.SwitchAllCasesWrite = new $$cts$$runtime.Brand('SwitchAllCasesWrite');
-$$cts$$brandTypes.SwitchOneCaseWrites = new $$cts$$runtime.Brand('SwitchOneCaseWrites');
-$$cts$$brandTypes.SwitchAllCasesWriteNoDefault = new $$cts$$runtime.Brand('SwitchAllCasesWriteNoDefault');
+}var $$cts$$brandTypes/* TODO UNUSED */ = {};
+$$cts$$runtime.brandTypes.BrandObjectLiteral2 = new $$cts$$runtime.Brand('BrandObjectLiteral2');
+$$cts$$runtime.brandTypes.BrandObjectLiteral = new $$cts$$runtime.Brand('BrandObjectLiteral');
+$$cts$$runtime.brandTypes.BlockExit = new $$cts$$runtime.Brand('BlockExit');
+$$cts$$runtime.brandTypes.BeforeReturn = new $$cts$$runtime.Brand('BeforeReturn');
+$$cts$$runtime.brandTypes.FunctionExit = new $$cts$$runtime.Brand('FunctionExit');
+$$cts$$runtime.brandTypes.ScopeExit = new $$cts$$runtime.Brand('ScopeExit');
+$$cts$$runtime.brandTypes.ShouldBrandProto = new $$cts$$runtime.Brand('ShouldBrandProto');
+$$cts$$runtime.brandTypes.ShouldBrandProto.prototype = new $$cts$$runtime.Brand();
+$$cts$$runtime.brandTypes.ShouldCheckThisProto = new $$cts$$runtime.Brand('ShouldCheckThisProto');
+$$cts$$runtime.brandTypes.ShouldCheckThisProto.prototype = new $$cts$$runtime.Brand();
+$$cts$$runtime.brandTypes.IfBranch = new $$cts$$runtime.Brand('IfBranch');
+$$cts$$runtime.brandTypes.IfNoElse = new $$cts$$runtime.Brand('IfNoElse');
+$$cts$$runtime.brandTypes.IfNoElseAfterAssign = new $$cts$$runtime.Brand('IfNoElseAfterAssign');
+$$cts$$runtime.brandTypes.SwitchAllCasesWrite = new $$cts$$runtime.Brand('SwitchAllCasesWrite');
+$$cts$$runtime.brandTypes.SwitchOneCaseWrites = new $$cts$$runtime.Brand('SwitchOneCaseWrites');
+$$cts$$runtime.brandTypes.SwitchAllCasesWriteNoDefault = new $$cts$$runtime.Brand('SwitchAllCasesWriteNoDefault');
 "use strict";
 // For now, for non-concrete types, we simply test that there was no binding.
 // The file can be inspected manually, otherwise.
@@ -29,12 +29,12 @@ var BRANCH = parseInt(process.env.BRANCH, 10);
 describe("Branding semantics", function () {
     function WheresTheBeef() {
         var a = {  };
-        $$cts$$runtime.protectAssignment(Number, "b", a, 0);$$cts$$runtime.brand($$cts$$brandTypes.BrandObjectLiteral2, a);
+        $$cts$$runtime.protectAssignment(Number, "b", a, 0);$$cts$$runtime.brand($$cts$$runtime.brandTypes.BrandObjectLiteral2, a);
         cts_test.assertType(a, "b", Number);
     }
     it("should bind object literal", function () {
         var a = {  };
-        $$cts$$runtime.protectAssignment(Number, "b", a, 0);$$cts$$runtime.brand($$cts$$brandTypes.BrandObjectLiteral, a);
+        $$cts$$runtime.protectAssignment(Number, "b", a, 0);$$cts$$runtime.brand($$cts$$runtime.brandTypes.BrandObjectLiteral, a);
         cts_test.assertType(a, "b", Number);
     });
     it("should brand after scope break", function () {
@@ -44,8 +44,8 @@ describe("Branding semantics", function () {
             var a = {};
             leakedA = a;
             cts_test.assertNotBranded(a);
-            $$cts$$runtime.protectAssignment(Number, "b", a, 0);;$$cts$$runtime.brand($$cts$$brandTypes.BlockExit, a);
-            $$cts$$runtime.brand($$cts$$brandTypes.BlockExit, a);
+            $$cts$$runtime.protectAssignment(Number, "b", a, 0);;$$cts$$runtime.brand($$cts$$runtime.brandTypes.BlockExit, a);
+            $$cts$$runtime.brand($$cts$$runtime.brandTypes.BlockExit, a);
             break;
         }
         cts_test.assertBranded(leakedA);
@@ -54,8 +54,8 @@ describe("Branding semantics", function () {
         (function () {
             var a = {};
             cts_test.assertNotBranded(a);
-            $$cts$$runtime.protectAssignment(Number, "b", a, 0);;$$cts$$runtime.brand($$cts$$brandTypes.BeforeReturn, a);
-            $$cts$$runtime.brand($$cts$$brandTypes.BeforeReturn, a);
+            $$cts$$runtime.protectAssignment(Number, "b", a, 0);;$$cts$$runtime.brand($$cts$$runtime.brandTypes.BeforeReturn, a);
+            $$cts$$runtime.brand($$cts$$runtime.brandTypes.BeforeReturn, a);
             return cts_test.assertBranded(a);
         })();
     });
@@ -65,7 +65,7 @@ describe("Branding semantics", function () {
             var a = {};
             tester = function () { return cts_test.assertBranded(a); };
             cts_test.assertNotBranded(a);
-            $$cts$$runtime.protectAssignment(Number, "b", a, 0);;$$cts$$runtime.brand($$cts$$brandTypes.FunctionExit, a);
+            $$cts$$runtime.protectAssignment(Number, "b", a, 0);;$$cts$$runtime.brand($$cts$$runtime.brandTypes.FunctionExit, a);
         })();
         tester();
     });
@@ -75,7 +75,7 @@ describe("Branding semantics", function () {
             var a = {};
             tester = function () { return cts_test.assertBranded(a); };
             cts_test.assertNotBranded(a);
-            $$cts$$runtime.protectAssignment(Number, "b", a, 0);;$$cts$$runtime.brand($$cts$$brandTypes.ScopeExit, a);
+            $$cts$$runtime.protectAssignment(Number, "b", a, 0);;$$cts$$runtime.brand($$cts$$runtime.brandTypes.ScopeExit, a);
         }
         tester();
     });
@@ -83,23 +83,23 @@ describe("Branding semantics", function () {
 describe("This branding semantics", function () {
     it("should brand prototype object", function () {
         /*this-branded*/function ShouldBrandProto() {
-            $$cts$$runtime.cast($$cts$$brandTypes.ShouldBrandProto.prototype, Object.getPrototypeOf(this));$$cts$$runtime.cast($$cts$$brandTypes.ShouldBrandProto.prototype, Object.getPrototypeOf(this))
-            $$cts$$runtime.brand($$cts$$brandTypes.ShouldBrandProto, this);
+            $$cts$$runtime.cast($$cts$$runtime.brandTypes.ShouldBrandProto.prototype, Object.getPrototypeOf(this));
+            $$cts$$runtime.brand($$cts$$runtime.brandTypes.ShouldBrandProto, this);
             cts_test.assertBranded(this);
         }
-        $$cts$$runtime.protectProtoAssignment(Number, undefined, $$cts$$brandTypes.ShouldBrandProto.prototype, "x", ShouldBrandProto, 1);;
-        $$cts$$runtime.brand($$cts$$brandTypes.ShouldBrandProto.prototype, ShouldBrandProto.prototype);
+        $$cts$$runtime.protectProtoAssignment(Number, undefined, $$cts$$runtime.brandTypes.ShouldBrandProto.prototype, "x", ShouldBrandProto, 1);;
+        $$cts$$runtime.brand($$cts$$runtime.brandTypes.ShouldBrandProto.prototype, ShouldBrandProto.prototype);
         cts_test.assertBranded(ShouldBrandProto.prototype);
         var val = new ShouldBrandProto();
     });
     it("should check prototype of this", function () {
         /*this-branded*/function ShouldCheckThisProto() {
-            $$cts$$runtime.cast($$cts$$brandTypes.ShouldCheckThisProto.prototype, Object.getPrototypeOf(this));$$cts$$runtime.cast($$cts$$brandTypes.ShouldCheckThisProto.prototype, Object.getPrototypeOf(this))
-            $$cts$$runtime.brand($$cts$$brandTypes.ShouldCheckThisProto, this);
+            $$cts$$runtime.cast($$cts$$runtime.brandTypes.ShouldCheckThisProto.prototype, Object.getPrototypeOf(this));
+            $$cts$$runtime.brand($$cts$$runtime.brandTypes.ShouldCheckThisProto, this);
             cts_test.assertBranded(this);
         }
-        $$cts$$runtime.protectProtoAssignment(Number, undefined, $$cts$$brandTypes.ShouldCheckThisProto.prototype, "x", ShouldCheckThisProto, 1);;
-        $$cts$$runtime.brand($$cts$$brandTypes.ShouldCheckThisProto.prototype, ShouldCheckThisProto.prototype);
+        $$cts$$runtime.protectProtoAssignment(Number, undefined, $$cts$$runtime.brandTypes.ShouldCheckThisProto.prototype, "x", ShouldCheckThisProto, 1);;
+        $$cts$$runtime.brand($$cts$$runtime.brandTypes.ShouldCheckThisProto.prototype, ShouldCheckThisProto.prototype);
         var failedLikeShould = true;
         try {
             ShouldCheckThisProto.call({});
@@ -124,14 +124,14 @@ describe("If statement runtime semantics", function () {
         else {
             $$cts$$runtime.protectAssignment((new $$cts$$runtime.UnionType(Number, String)), "b", a, "Hello");;
             cts_test.assertType(a, "b", [String, Number]);
-        }$$cts$$runtime.brand($$cts$$brandTypes.IfBranch, a);
+        }$$cts$$runtime.brand($$cts$$runtime.brandTypes.IfBranch, a);
     });
     it("no else clause ", function () {
         var a = {};
         if (BRANCH) {
             a.$$cts$$value$b = 1;
             cts_test.assertType(a, "b", null); // non-concrete
-        }$$cts$$runtime.brand($$cts$$brandTypes.IfNoElse, a);
+        }$$cts$$runtime.brand($$cts$$runtime.brandTypes.IfNoElse, a);
     });
     it("no else clause; after assignment", function () {
         var a = {};
@@ -140,7 +140,7 @@ describe("If statement runtime semantics", function () {
         if (BRANCH) {
             $$cts$$runtime.protectAssignment((new $$cts$$runtime.UnionType(String, Number)), "b", a, "Hello");;
             cts_test.assertType(a, "b", [String, Number]);
-        }$$cts$$runtime.brand($$cts$$brandTypes.IfNoElseAfterAssign, a);
+        }$$cts$$runtime.brand($$cts$$runtime.brandTypes.IfNoElseAfterAssign, a);
     });
 });
 describe("Switch statement runtime semantics", function () {
@@ -155,7 +155,7 @@ describe("Switch statement runtime semantics", function () {
                 a.$$cts$$value$b = "Hello";
                 cts_test.assertType(a, "b", [String, Number]);
                 break;
-        }$$cts$$runtime.brand($$cts$$brandTypes.SwitchAllCasesWrite, a);
+        }$$cts$$runtime.brand($$cts$$runtime.brandTypes.SwitchAllCasesWrite, a);
     });
     it("one case writes", function () {
         var a = {};
@@ -166,7 +166,7 @@ describe("Switch statement runtime semantics", function () {
                 break;
             default:
                 break;
-        }$$cts$$runtime.brand($$cts$$brandTypes.SwitchOneCaseWrites, a);
+        }$$cts$$runtime.brand($$cts$$runtime.brandTypes.SwitchOneCaseWrites, a);
         cts_test.assertType(a, "b", null); // non-concrete
     });
     it("all cases write; no default", function () {
@@ -178,7 +178,7 @@ describe("Switch statement runtime semantics", function () {
             case 1:
                 a.$$cts$$value$b = "Hello";
                 break;
-        }$$cts$$runtime.brand($$cts$$brandTypes.SwitchAllCasesWriteNoDefault, a);
+        }$$cts$$runtime.brand($$cts$$runtime.brandTypes.SwitchAllCasesWriteNoDefault, a);
         // Default must be accounted for, causing an uncertain write.
         cts_test.assertType(a, "b", null); // non-concrete
     });
