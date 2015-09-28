@@ -6582,7 +6582,15 @@ console.log((<any> new Error()).stack)
             // [ConcreteTypeScript] If 'assumeTrue', narrow to a brand-type
             // TODO implement.
             function narrowTypeByDeclaredAs(type: Type, expr: BinaryExpression, assumeTrue: boolean): Type {
-                return type;
+                // Check that type is not any, assumed result is true, and we have variable symbol on the left
+                if (isTypeAny(type) || !assumeTrue || expr.left.kind !== SyntaxKind.Identifier) {
+                    return type;
+                }
+                let brandType = checkBrandIdentifier(expr.right);
+                if (!brandType) {
+                    return type;
+                }
+                return intersectTypes(type, brandType);
             }
 
             function narrowTypeByInstanceof(type: Type, expr: BinaryExpression, assumeTrue: boolean): Type {
@@ -6687,7 +6695,7 @@ console.log((<any> new Error()).stack)
                         }
                         else if (operator === SyntaxKind.DeclaredAsKeyword) {
                             // TODO Narrow to a declared type
-                            return narrowTypeByInstanceof(type, <BinaryExpression>expr, assumeTrue);
+                            return narrowTypeByDeclaredAs(type, <BinaryExpression>expr, assumeTrue);
                         }
                         else if (operator === SyntaxKind.InstanceOfKeyword) {
                             return narrowTypeByInstanceof(type, <BinaryExpression>expr, assumeTrue);
