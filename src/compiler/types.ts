@@ -57,6 +57,7 @@ namespace ts {
         FloatNumberKeyword,   // [ConcreteTypeScript]
         LikeKeyword,          // [ConcreteTypeScript]
         IntNumberKeyword,     // [ConcreteTypeScript]
+        BecomesType, // [ConcreteTypeScript]
         BrandTypeDeclaration, // [ConcreteTypeScript]        
         BrandProperty, // [ConcreteTypeScript]        
         // [/ConcreteTypeScript]
@@ -559,10 +560,10 @@ namespace ts {
         expression?: Expression;
     }
 
+    // [ConcreteTypeScript] Introduce ParameterDeclarations as an interface
+    // Use this to tack on support for 'this' types.
     export interface ParameterDeclarations extends NodeArray<ParameterDeclaration> {
-        // [ConcreteTypeScript] Add support for this types
         thisType?: TypeNode;
-        // [/ConcreteTypeScript] Add support for this types
     }
 
     export interface SignatureDeclaration extends Declaration {
@@ -747,6 +748,13 @@ namespace ts {
     export interface UnionTypeNode extends UnionOrIntersectionTypeNode { }
 
     export interface IntersectionTypeNode extends UnionOrIntersectionTypeNode { }
+
+    // [ConcreteTypeScript]
+    export interface BecomesTypeNode extends TypeNode {
+        after: TypeNode;
+        // May be null:
+        before: TypeNode;
+    }
 
     export interface ParenthesizedTypeNode extends TypeNode {
         type: TypeNode;
@@ -1889,13 +1897,16 @@ namespace ts {
         ESSymbol                = 0x01000000,  // Type of symbol primitive introduced in ES6
         // [ConcreteTypeScript]
         // Flag for concrete types, which wrap their non-concrete base types
-        Concrete                = 0x10000000,
+        Concrete                = 0x02000000,
         // Flag for the floating-point hint
-        FloatHint               = 0x20000000,
+        FloatHint               = 0x04000000,
         // Flag for the int hint
-        IntHint                 = 0x40000000,
+        IntHint                 = 0x08000000,
         // Object brand, nominal typing stemming from a code location
-        Brand                   = 0x80000000,
+        Brand                   = 0x10000000,
+        // For 'becomes' types, holds a 'before' type, the type the object resolves to now, and an 'after' type.
+        // 'becomes' declarations are (always?) statically checked (?)
+        Becomes                 = 0x20000000,
         // [/ConcreteTypeScript]
 
         /* @internal */
@@ -1904,10 +1915,10 @@ namespace ts {
         Primitive = String | Number | Boolean | ESSymbol | Void | Undefined | Null | StringLiteral | Enum,
         StringLike = String | StringLiteral,
         NumberLike = Number | Enum,
-        ObjectType = Class | Brand |  Interface | Reference | Tuple | Anonymous,
+        ObjectType = Class | Brand | Interface | Reference | Tuple | Anonymous,
         RuntimeCheckable = Intrinsic  | StringLiteral | Class | Brand, // TODO Rename to RuntimeCheckablePrimitive
         UnionOrIntersection = Union | Intersection,
-        StructuredType = ObjectType | Union | Intersection,
+        StructuredType = ObjectType | Union | Intersection | Becomes,
         /* @internal */
         RequiresWidening = ContainsUndefinedOrNull | ContainsObjectLiteral,
         /* @internal */
@@ -1923,6 +1934,7 @@ namespace ts {
         symbol?: Symbol;                 // Symbol associated with type (if any)
         pattern?: DestructuringPattern;  // Destructuring pattern represented by type (if any)
         concreteType?: ConcreteType;
+        becomesType?: Type;
     }
 
     /* @internal */
@@ -1957,6 +1969,11 @@ namespace ts {
         declaredConstructSignatures: Signature[];  // Declared construct signatures
         declaredStringIndexType: Type;             // Declared string index type
         declaredNumberIndexType: Type;             // Declared numeric index type
+    }
+
+    export interface BecomesType extends Type {
+        before: Type;
+        after: Type;
     }
 
     // [ConcreteTypeScript] Brand types

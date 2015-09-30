@@ -434,7 +434,6 @@ module ts {
                     }
                     var id = breakingContainer.id;
                     this.nodePostLinks[id] = (this.nodePostLinks[id] || []);
-                    // TODO: Issue #1: Disable property binding inside this scan:
                     descend();
                     // This would allow for assignments in the return statement.
                     // However, branding occurs _before_ the return statement has a chance to execute.

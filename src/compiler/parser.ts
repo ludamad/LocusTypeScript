@@ -2379,6 +2379,17 @@ namespace ts {
             node.elementTypes = parseBracketedList(ParsingContext.TupleElementTypes, parseType, SyntaxKind.OpenBracketToken, SyntaxKind.CloseBracketToken);
             return finishNode(node);
         }
+        
+        function parseBecomesType(): BecomesTypeNode {
+            let node = <BecomesTypeNode>createNode(SyntaxKind.BecomesType);
+            nextToken();
+            node.after = parseType();
+            if (token === SyntaxKind.ExtendsKeyword) {
+                parseExpected(SyntaxKind.ExtendsKeyword);
+                node.before = parseType();
+            }
+            return finishNode(node);
+        }
 
         function parseParenthesizedType(): ParenthesizedTypeNode {
             let node = <ParenthesizedTypeNode>createNode(SyntaxKind.ParenthesizedType);
@@ -2446,6 +2457,8 @@ namespace ts {
                         return parseTupleType();
                     case SyntaxKind.OpenParenToken:
                         return parseParenthesizedType();
+                    case SyntaxKind.BecomesKeyword:
+                        return parseBecomesType();
                     case SyntaxKind.DeclareKeyword:
                         return parseBrandType(specifiedConcrete, isConcrete);
                     // [ConcreteTypeScript] hackishly handle undefined as a type

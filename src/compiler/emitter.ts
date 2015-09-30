@@ -1941,7 +1941,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 // TODO also implement for special object literal emits
                 // [ConcreteTypeScript] Emit protectors that were not emitted in the object initializer
                 for (var property of node.properties) {
-                    if (!isConcreteObjectLiteralElement) {
+                    if (!isConcreteObjectLiteralElement(property)) {
                         continue;
                     }
                     // Set in flowAnalysis.ts

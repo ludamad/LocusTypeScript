@@ -1678,15 +1678,23 @@ namespace ts {
                     else if (type.flags & TypeFlags.Reference) {
                         writeTypeReference(<TypeReference>type, flags);
                     }
+                    else if (type.flags & TypeFlags.Brand) {
+                        let brandDecl = <BrandTypeDeclaration>getSymbolDecl(type.symbol, SyntaxKind.BrandTypeDeclaration);
+                        if (brandDecl.parent.kind === SyntaxKind.BrandTypeDeclaration) {
+                            writer.writeSymbol((<BrandTypeDeclaration>brandDecl.parent).name.text, (<BrandTypeDeclaration>brandDecl.parent).symbol);
+                            writer.writeOperator(".prototype");
+                        } else 
+                        buildSymbolDisplay(type.symbol, writer, enclosingDeclaration, SymbolFlags.Type);
+                    } 
+                    else if (type.flags & TypeFlags.Becomes) {
+                        writer.writeOperator("becomes ");
+                        writeType((<BecomesType>type).after, flags);
+                        if ((<BecomesType>type).before) {
+                            writer.writeOperator(" extends ");
+                            writeType((<BecomesType>type).before, flags);
+                        }
+                    }
                     else if (type.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Brand | TypeFlags.Enum | TypeFlags.TypeParameter)) {
-                        if (type.flags & TypeFlags.Brand) {
-                            let brandDecl = <BrandTypeDeclaration>getSymbolDecl(type.symbol, SyntaxKind.BrandTypeDeclaration);
-                            if (brandDecl.parent.kind === SyntaxKind.BrandTypeDeclaration) {
-                                writer.writeSymbol((<BrandTypeDeclaration>brandDecl.parent).name.text, (<BrandTypeDeclaration>brandDecl.parent).symbol);
-                                writer.writeOperator(".prototype");
-                            } else 
-                            buildSymbolDisplay(type.symbol, writer, enclosingDeclaration, SymbolFlags.Type);
-                        } else
                         // The specified symbol flags need to be reinterpreted as type flags
                         buildSymbolDisplay(type.symbol, writer, enclosingDeclaration, SymbolFlags.Type, SymbolFormatFlags.None, flags);
                     }
@@ -4281,6 +4289,22 @@ namespace ts {
             type.elementTypes = elementTypes;
             return type;
         }
+        
+        // [ConcreteTypeScript]
+        function createNewBecomesType(before: Type, after: Type) {
+            let type = <BecomesType>createObjectType(TypeFlags.Becomes);
+            type.before = before;
+            type.after = after;
+            return type;
+        }
+
+        function getTypeFromBecomeTypeNode(node: BecomesTypeNode): Type {
+            let links = getNodeLinks(node);
+            if (!links.resolvedType) {
+                links.resolvedType = createNewBecomesType(getTypeFromTypeNode(node.before), getTypeFromTypeNode(node.after));
+            }
+            return links.resolvedType;
+        }
 
         function getTypeFromTupleTypeNode(node: TupleTypeNode): Type {
             let links = getNodeLinks(node);
@@ -4546,6 +4570,8 @@ namespace ts {
                     return getTypeFromArrayTypeNode(<ArrayTypeNode>node);
                 case SyntaxKind.TupleType:
                     return getTypeFromTupleTypeNode(<TupleTypeNode>node);
+                case SyntaxKind.BecomesType:
+                    return getTypeFromBecomeTypeNode(<BecomesTypeNode>node);
                 case SyntaxKind.UnionType:
                     return getTypeFromUnionTypeNode(<UnionTypeNode>node);
                 case SyntaxKind.IntersectionType:
@@ -13636,6 +13662,10 @@ console.log((<any> new Error()).stack)
             return ok;
         }
 
+        function checkBecomesType(node: BecomesTypeNode) {
+            
+        }
+
         function checkInterfaceDeclaration(node: InterfaceDeclaration) {
             // Grammar checking
             checkGrammarDecorators(node) || checkGrammarModifiers(node) || checkGrammarInterfaceDeclaration(node);
@@ -14376,6 +14406,9 @@ console.log((<any> new Error()).stack)
                     return checkClassDeclaration(<ClassDeclaration>node);
                 case SyntaxKind.InterfaceDeclaration:
                     return checkInterfaceDeclaration(<InterfaceDeclaration>node);
+                case SyntaxKind.BecomesType:
+                    return;
+                    // return checkBecomesType(<BrandTypeDeclaration>node);
                 case SyntaxKind.BrandTypeDeclaration:
                     return checkBrandTypeDeclaration(<BrandTypeDeclaration>node);
                 case SyntaxKind.TypeAliasDeclaration:
