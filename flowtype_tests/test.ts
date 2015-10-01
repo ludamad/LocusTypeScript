@@ -1,4 +1,0 @@
-function cemented() {
-    function not() {
-    }
-}

@@ -249,7 +249,7 @@ namespace ts {
                     console.log((<any>new Error()).stack);
             diagnostics.add(diagnostic);
         }
-
+        
         function createSymbol(flags: SymbolFlags, name: string): Symbol {
             return new Symbol(flags, name);
         }
@@ -1038,7 +1038,7 @@ namespace ts {
             // Escape the name in the "require(...)" clause to ensure we find the right symbol.
             let moduleName = escapeIdentifier(moduleReferenceLiteral.text);
 
-            if (moduleName === undefined) {
+            if (!moduleName) {
                 return;
             }
             let isRelative = isExternalModuleNameRelative(moduleName);
@@ -5538,12 +5538,12 @@ console.log((<any> new Error()).stack)
                 if (!target.hasRestParameter && source.minArgumentCount > target.parameters.length) {
                     return Ternary.False;
                 }
-                if (!!source.resolvedThisType !== !!target.resolvedThisType) {
-                    return Ternary.False;
-                }
-                if (source.resolvedThisType && !isRelatedTo(source.resolvedThisType, target.resolvedThisType, reportErrors)) {
-                    return Ternary.False;
-                }
+                // if (!!source.resolvedThisType !== !!target.resolvedThisType) {
+                //     return Ternary.False;
+                // }
+                // if (source.resolvedThisType && !isRelatedTo(source.resolvedThisType, target.resolvedThisType, reportErrors)) {
+                //     return Ternary.False;
+                // }
 
                 let sourceMax = source.parameters.length;
                 let targetMax = target.parameters.length;
@@ -10389,10 +10389,10 @@ console.log((<any> new Error()).stack)
             // The in operator requires the left operand to be of type Any, the String primitive type, or the Number primitive type,
             // and the right operand to be of type Any, an object type, or a type parameter type.
             // The result is always of the Boolean primitive type.
-            if (!isTypeAnyOrAllConstituentTypesHaveKind(leftType, TypeFlags.StringLike | TypeFlags.NumberLike | TypeFlags.ESSymbol)) {
+            if (!isTypeAnyOrAllConstituentTypesHaveKind(/*ConcreteTypeScript*/ stripConcreteType(leftType), TypeFlags.StringLike | TypeFlags.NumberLike | TypeFlags.ESSymbol)) {
                 error(node.left, Diagnostics.The_left_hand_side_of_an_in_expression_must_be_of_type_any_string_number_or_symbol);
             }
-            if (!isTypeAnyOrAllConstituentTypesHaveKind(rightType, TypeFlags.ObjectType | TypeFlags.TypeParameter)) {
+            if (!isTypeAnyOrAllConstituentTypesHaveKind(/*ConcreteTypeScript*/ stripConcreteType(rightType), TypeFlags.ObjectType | TypeFlags.TypeParameter)) {
                 error(node.right, Diagnostics.The_right_hand_side_of_an_in_expression_must_be_of_type_any_an_object_type_or_a_type_parameter);
             }
             return booleanType;
@@ -10907,7 +10907,7 @@ console.log((<any> new Error()).stack)
                 type = instantiateTypeWithSingleGenericCallSignature(<Expression>node, uninstantiatedType, contextualMapper);
             }
 
-            if (isConstEnumObjectType(type)) {
+            if (isConstEnumObjectType(type) /*ConcreteTypeScript*/ && !(type.symbol.flags & SymbolFlags.Brand) ) {
                 // enum object type for const enums are only permitted in:
                 // - 'left' in property access
                 // - 'object' in indexed access
@@ -10916,8 +10916,11 @@ console.log((<any> new Error()).stack)
                     (node.parent.kind === SyntaxKind.PropertyAccessExpression && (<PropertyAccessExpression>node.parent).expression === node) ||
                     (node.parent.kind === SyntaxKind.ElementAccessExpression && (<ElementAccessExpression>node.parent).expression === node) ||
                     ((node.kind === SyntaxKind.Identifier || node.kind === SyntaxKind.QualifiedName) && isInRightSideOfImportOrExportAssignment(<Identifier>node));
-
+                    
                 if (!ok) {
+                    console.log("Type", typeToString(type));
+                    console.log(type.flags & (TypeFlags.ObjectType | TypeFlags.Anonymous), type.symbol && isConstEnumSymbol(type.symbol))
+                    printNodeDeep(node);
                     error(node, Diagnostics.const_enums_can_only_be_used_in_property_or_index_access_expressions_or_the_right_hand_side_of_an_import_declaration_or_export_assignment);
                 }
             }

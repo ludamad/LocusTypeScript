@@ -3,8 +3,7 @@ if (typeof $$cts$$runtime === "undefined") {
     else if (typeof document !== "undefined") { document.writeLine("<script src=\"cts-runtime.js\"></script>"); }
     else throw new Error("Could not load ConcreteTypeScript runtime!");
 }
-function cemented() {
-    function not() {
-    }
+function f(x) {
+    var s = x;
 }
-$$cts$$runtime.cementGlobal("cemented",cemented);
+$$cts$$runtime.cementGlobal("f",f);

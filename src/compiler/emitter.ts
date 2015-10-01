@@ -2354,7 +2354,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     write("String");
                 } else if (type.flags & TypeFlags.Number) {
                     write("Number");
-                } else if (type.symbol.flags & SymbolFlags.Brand) {
+                } else if (type.symbol && type.symbol.flags & SymbolFlags.Brand) {
                     write("$$cts$$runtime.brandTypes." + type.symbol.name);
                 } else if (type.flags & TypeFlags.Null) {
                     emitCTSRT("Null");
@@ -2407,7 +2407,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     case SyntaxKind.BooleanKeyword:
                         return write("Boolean");
                     case SyntaxKind.TypeReference:
-                        if (type.symbol.flags & SymbolFlags.Brand) {
+                        if (type.symbol && type.symbol.flags & SymbolFlags.Brand) {
                             write("$$cts$$runtime.brandTypes.");
                         }
                         return emitEntityName((<TypeReferenceNode>type).typeName);
