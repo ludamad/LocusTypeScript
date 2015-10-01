@@ -5304,10 +5304,10 @@ namespace ts {
                 depth--;
 
                 // [ConcreteTypeScript]
-		// TODO Make a test case for this
+		// TODO Make a test case for this and reevaluate if its needed
                 // We enforce that classes are only related if specified as such
-                if (result && target.flags & (TypeFlags.Class | TypeFlags.Brand)) {
-                    if (source.flags & (TypeFlags.Class | TypeFlags.Brand) && hasBaseType(<InterfaceType> source, <InterfaceType> target)) {
+                if (result && target.flags & (TypeFlags.Class | TypeFlags.Brand) && source.flags & (TypeFlags.Class | TypeFlags.Brand)) {
+                    if (hasBaseType(<InterfaceType> source, <InterfaceType> target)) {
                         result = Ternary.True;
                     } else {
                         result = Ternary.False;
@@ -14702,32 +14702,6 @@ namespace ts {
                                 copySymbol(location.symbol, meaning);
                             }
                             break;
-                    // TODO Remove this post refactor
-                    // case SyntaxKind.FunctionType:
-
-                    // case SyntaxKind.ConstructorType:
-
-                    // case SyntaxKind.CallSignature:
-
-                    // case SyntaxKind.ConstructSignature:
-
-                    // case SyntaxKind.IndexSignature:
-
-                    // case SyntaxKind.Method:
-
-                    // case SyntaxKind.Constructor:
-
-                    // case SyntaxKind.GetAccessor:
-
-                    // case SyntaxKind.SetAccessor:
-
-                    // case SyntaxKind.FunctionDeclaration:
-
-                    // case SyntaxKind.ArrowFunction:
-
-                    //     copySymbols(getSymbolOfNode(location).exports, meaning & SymbolFlags.Brand);
-
-                    //     break;
                     }
                     
                     if (introducesArgumentsExoticObject(location)) {
