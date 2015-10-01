@@ -7,6 +7,9 @@
 /// <reference path="utilities.ts"/>
 
 namespace ts {
+
+    // 
+
     // Is this an expression of type <identifier>.<identifier> = <expression>?
     export function isPropertyAssignment(node:Node) {
         if (node.kind === SyntaxKind.BinaryExpression && (<BinaryExpression>node).operatorToken.kind === SyntaxKind.EqualsToken) {

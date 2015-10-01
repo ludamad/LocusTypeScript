@@ -510,7 +510,6 @@ namespace ts {
         direct?: boolean;             // If set, may use direct access (i.e., is an access with correct, concrete types)
         assertFloat?: boolean;        // If set, can assert that this value is always a float instead of generic number
         assertInt?: boolean;          // If set, can assert that this value is always an int instead of generic number
-        downgradeToBaseClass?: boolean;
         // Set in flowAnalysis.ts
         brandsToEmitAfterwards?: BrandTypeDeclaration[];
         // [/ConcreteTypeScript]

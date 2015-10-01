@@ -7471,7 +7471,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     if (node.forceFalseyCoercion) {
                         emitFalseyCoercionPre(node.forceFalseyCoercion);
                     }
-                    
+            
+                    if (nodeDowngradeToBaseClass.get(node)) {
+                        write("/*downgraded*/"); 
+                    }       
                     emitJavaScriptWorker(node);
 
                     if (node.forceFalseyCoercion) {

@@ -856,6 +856,10 @@ namespace ts {
         }
 
         function bind(node: Node) {
+            // [ConcreteTypeScript]
+            getNodeId(node); // force node ids to generate in traversal order,
+            // so that we can rely on their order later
+            // [/ConcreteTypeScript]
             node.parent = parent;
 
             let savedInStrictMode = inStrictMode;

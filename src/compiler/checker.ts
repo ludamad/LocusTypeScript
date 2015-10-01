@@ -6460,10 +6460,14 @@ namespace ts {
             let type = getTypeOfSymbol(symbol);
             // [ConcreteTypeScript] Brand variable declarations evaluate to their subtype
             // until the end of scope, or inside a return statement.
-            if (node.kind == SyntaxKind.Identifier && (<Identifier>node).downgradeToBaseClass) {
+            if (node.kind == SyntaxKind.Identifier && nodeDowngradeToBaseClass.get(node)) {
                 if (type.flags & TypeFlags.Concrete) {
                     type = (<InterfaceType>stripConcreteType(type)).resolvedBaseTypes[0];
-                    type = createConcreteType(type) || type;
+                    if (type) {
+                        type = createConcreteType(type) || type;
+                    } else {
+                        type = emptyObjectType;
+                    }
                 } else {
                     // Should never really happen:
                     type = (<InterfaceType>type).resolvedBaseTypes[0];
@@ -6874,7 +6878,7 @@ namespace ts {
                 captureLexicalThis(node, container);
             }
 
-            if (isFunctionLikeDeclarationWithThisBrand(container) && !withoutBrand && !node.downgradeToBaseClass) {
+            if (isFunctionLikeDeclarationWithThisBrand(container) && !withoutBrand && !nodeDowngradeToBaseClass.get(node)) {
                 return getTypeFromTypeNode(container.parameters.thisType);
             }
 
@@ -8280,7 +8284,7 @@ namespace ts {
                 let brandDecl = prototypePropToBrandTypeDecl.get(<PropertyAccessExpression>node).prototypeBrandDeclaration;
                 Debug.assert(!!brandDecl);
                 let type:Type;
-                if (node.downgradeToBaseClass) {
+                if (nodeDowngradeToBaseClass.get(node)) {
                     let extended:Type = brandDecl.extendedType && getTypeFromTypeNode(brandDecl.extendedType);
                     if (extended) {
                         let brandTypeExtension:BrandTypeDeclaration = <BrandTypeDeclaration>getSymbolDecl(extended.symbol, SyntaxKind.BrandTypeDeclaration);
