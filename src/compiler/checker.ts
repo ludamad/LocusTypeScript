@@ -4916,10 +4916,7 @@ namespace ts {
             return result !== Ternary.False;
 
             function reportError(message: DiagnosticMessage, arg0?: string, arg1?: string, arg2?: string): void {
-                
                 errorInfo = chainDiagnosticMessages(errorInfo, message, arg0, arg1, arg2);
-                                                console.log(errorInfo.messageText)
-console.log((<any> new Error()).stack)
             }
 
             function reportRelationError(message: DiagnosticMessage, source: Type, target: Type) {
@@ -4943,7 +4940,6 @@ console.log((<any> new Error()).stack)
                 if (relation === identityRelation) {
                     return isIdenticalTo(source, target);
                 }
-                // console.log(`PHFFF 1 ${typeToString(source)} ${typeToString(target)}`)
 
                 if (isTypeAny(target)) return Ternary.True;
                 if (source === undefinedType) return Ternary.True;
@@ -4962,7 +4958,6 @@ console.log((<any> new Error()).stack)
 
                 if (source.flags & TypeFlags.StringLiteral && target === stringType) return Ternary.True;
                 if (relation === assignableRelation) {
-                    // console.log(`PHFFF 3a ${typeToString(source)} ${typeToString(target)}`)
                     if (isTypeAny(source)) return Ternary.True;
                     if (source === numberType && target.flags & TypeFlags.Enum) return Ternary.True;
                         // [ConcreteTypeScript] numbers are assignable to floatNumbers and intNumbers
@@ -4983,14 +4978,13 @@ console.log((<any> new Error()).stack)
                     // the regular source type and proceed with that.
                     if (target.flags & TypeFlags.UnionOrIntersection) {
                         source = getRegularTypeOfObjectLiteral(source);
-                    }
+                }
                 }
 
                 let saveErrorInfo = errorInfo;
 
                 // Note that the "each" checks must precede the "some" checks to produce the correct results
                 if (source.flags & TypeFlags.Union) {
-                    // console.log(`PHFFF 3c ${typeToString(source)} ${typeToString(target)}`)
                     if (result = eachTypeRelatedToType(<UnionType>source, target, reportErrors)) {
                         return result;
                     }
@@ -5310,6 +5304,7 @@ console.log((<any> new Error()).stack)
                 depth--;
 
                 // [ConcreteTypeScript]
+		// TODO Make a test case for this
                 // We enforce that classes are only related if specified as such
                 if (result && target.flags & (TypeFlags.Class | TypeFlags.Brand)) {
                     if (source.flags & (TypeFlags.Class | TypeFlags.Brand) && hasBaseType(<InterfaceType> source, <InterfaceType> target)) {
@@ -10918,9 +10913,6 @@ console.log((<any> new Error()).stack)
                     ((node.kind === SyntaxKind.Identifier || node.kind === SyntaxKind.QualifiedName) && isInRightSideOfImportOrExportAssignment(<Identifier>node));
                     
                 if (!ok) {
-                    console.log("Type", typeToString(type));
-                    console.log(type.flags & (TypeFlags.ObjectType | TypeFlags.Anonymous), type.symbol && isConstEnumSymbol(type.symbol))
-                    printNodeDeep(node);
                     error(node, Diagnostics.const_enums_can_only_be_used_in_property_or_index_access_expressions_or_the_right_hand_side_of_an_import_declaration_or_export_assignment);
                 }
             }
