@@ -4404,11 +4404,12 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 }
  
                 let isAsync = isAsyncFunctionLike(node);
+                let ret = true;
                 if (isAsync && languageVersion === ScriptTarget.ES6) {
                     emitAsyncFunctionBodyForES6(node);
                 }
                 else {
-                    emitFunctionBody(node, doEmitProtectors, realBodyIfProtectors);
+                    ret = emitFunctionBody(node, doEmitProtectors, realBodyIfProtectors);
                 }
 
                 if (!isES6ExportedDeclaration(node)) {
@@ -4418,7 +4419,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 tempFlags = saveTempFlags;
                 tempVariables = saveTempVariables;
                 tempParameters = saveTempParameters;
-                return true;
+                return ret;
             }
 
             // Returns true if any preamble code was emitted.
@@ -4532,6 +4533,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 if (!emitFunctionBodyPreamble(node, doEmitProtectors, realBodyIfProtectors)) {
                     write("}");
                     scopeEmitEnd();
+                                    decreaseIndent();
                     return false;
                 }
                 // [/ConcreteTypeScript]
