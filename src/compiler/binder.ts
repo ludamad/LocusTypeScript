@@ -409,7 +409,7 @@ namespace ts {
             } else {
                 var retSymbol = declareSymbol(scope.locals, undefined, node, symbolKind, symbolExcludes);
             }
-
+console.log("1+1=2", node.name.text)
             var contextNode = node.parent.parent;
             let hasPrototypeBrand = false;
             if (isVariableLike(contextNode)) {
@@ -418,6 +418,7 @@ namespace ts {
                     var funcDecl = (<FunctionLikeDeclaration>getThisContainer(node, false));
                     Debug.assert(isFunctionLike(funcDecl))
                     node.functionDeclaration = funcDecl;
+                    console.log("1+1=2")
                     funcDecl.parameters.thisType = contextNode.type;
                     hasPrototypeBrand = true;
                 }

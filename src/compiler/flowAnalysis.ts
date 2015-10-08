@@ -30,6 +30,9 @@ module ts {
                     public conditionalBarrier:boolean = false
     ) {
         }
+        getBrandType() {
+            return this.binder.brandTypeDecl;
+        }
         getDeclaration() {
             return this.binder.allProps[this.index];
         }

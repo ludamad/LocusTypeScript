@@ -245,8 +245,7 @@ namespace ts {
             let diagnostic = location
                 ? createDiagnosticForNode(location, message, arg0, arg1, arg2)
                 : createCompilerDiagnostic(message, arg0, arg1, arg2);
-                
-                    console.log((<any>new Error()).stack);
+
             diagnostics.add(diagnostic);
         }
         
@@ -2056,6 +2055,7 @@ namespace ts {
                     if (parameters.length > 0) {
                         writePunctuation(writer, SyntaxKind.SemicolonToken);
                     }
+                    writer.writePunctuation(" ");
                 }
                 for (let i = 0; i < parameters.length; i++) {
                     if (i > 0) {
@@ -2949,7 +2949,12 @@ namespace ts {
         }
 
         function getBaseTypes(type: InterfaceType): ObjectType[] {
-            if (!type.resolvedBaseTypes) {
+            // [ConcreteTypeScript]
+            if (<any>type === emptyObjectType) {
+                // HACK: Not actually an InterfaceType here. TODO
+                return;
+                // [/ConcreteTypeScript]
+            } else if (!type.resolvedBaseTypes) {
                 if (type.symbol.flags & SymbolFlags.Class) {
                     resolveBaseTypesOfClass(type);
                 }
@@ -3450,15 +3455,14 @@ namespace ts {
                     members = getExportsOfSymbol(symbol);
                 }
                 if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method)) {
-                    let funcDecl = <FunctionDeclaration> getSymbolDecl(symbol, SyntaxKind.FunctionDeclaration);
-                    if (isFunctionLikeDeclarationWithThisBrand(funcDecl)) {
-                        constructSignatures = getSignaturesOfSymbol(symbol);
-                        let prototypeSymbol = createSymbol(SymbolFlags.Property | SymbolFlags.Prototype, "prototype");
-                        prototypeSymbol.brandType = funcDecl.parameters.thisType.brandTypeDeclaration.prototypeBrandDeclaration;
-                        members = createSymbolTable([prototypeSymbol]);
-                    } else {
-                        callSignatures = getSignaturesOfSymbol(symbol);
-                    }
+                    // let funcDecl = <FunctionDeclaration> getSymbolDecl(symbol, SyntaxKind.FunctionDeclaration);
+                    // if (isFunctionLikeDeclarationWithThisBrand(funcDecl)) {
+                    //     // constructSignatures = getSignaturesOfSymbol(symbol);
+                    //     let prototypeSymbol = createSymbol(SymbolFlags.Property | SymbolFlags.Prototype, "prototype");
+                    //     prototypeSymbol.brandType = funcDecl.parameters.thisType.brandTypeDeclaration.prototypeBrandDeclaration;
+                    //     members = createSymbolTable([prototypeSymbol]);
+                    // }
+                    callSignatures = getSignaturesOfSymbol(symbol);
                 }
                 if (symbol.flags & SymbolFlags.Class) {
                     let classType = getDeclaredTypeOfClassOrInterface(symbol);
@@ -3835,10 +3839,21 @@ namespace ts {
 
                 links.resolvedSignature = createSignature(declaration, typeParameters, parameters, returnType, typePredicate,
                     minArgumentCount, hasRestParameter(declaration), hasStringLiterals);
-                
+
+                // [ConcreteTypeScript]
                 if (declaration.parameters.thisType) {
                     links.resolvedSignature.resolvedThisType = getTypeFromTypeNode(declaration.parameters.thisType);
+                } else {
+                    if (declaration.parent.kind === SyntaxKind.BinaryExpression && (<BinaryExpression> declaration.parent).operatorToken.kind === SyntaxKind.EqualsToken) {
+                        let left = (<BinaryExpression> declaration.parent).left;
+                        let flowAnalysis = nodeToFlowTypeAnalysis.get(left);
+                        if (flowAnalysis) {
+                            let brandType = flowAnalysis.getBrandType();
+                            links.resolvedSignature.resolvedThisType = createConcreteType(getDeclaredTypeOfSymbol(brandType.symbol));
+                        }
+                    }
                 }
+                // [/ConcreteTypeScript]
             }
             return links.resolvedSignature;
         }
@@ -5542,12 +5557,12 @@ namespace ts {
                     return Ternary.False;
                 }
                 // [ConcreteTypeScript]
-                // Does the source have a 'this' type, and not the target?
-                if (!!source.resolvedThisType !== !!target.resolvedThisType) {
+                // Does the target have a 'this' type, and not the source?
+                if (target.resolvedThisType && !source.resolvedThisType) {
                     return Ternary.False;
                 }
                 // Do we both have 'this' types, but they aren't related?
-                if (source.resolvedThisType && !isRelatedTo(source.resolvedThisType, target.resolvedThisType, reportErrors)) {
+                if (target.resolvedThisType && !isRelatedTo(source.resolvedThisType, target.resolvedThisType, reportErrors)) {
                     return Ternary.False;
                 }
                 // [/ConcreteTypeScript]
@@ -6845,7 +6860,7 @@ namespace ts {
             }
         }
 
-        function checkThisExpression(node: Node, withoutBrand:boolean /*ConcreteTypeScript*/ = false): Type {
+        function checkThisExpression(node: Node): Type {
             // Stop at the first arrow function so that we can
             // tell whether 'this' needs to be captured.
             let container = getThisContainer(node, /* includeArrowFunctions */ true);
@@ -6890,8 +6905,11 @@ namespace ts {
                 captureLexicalThis(node, container);
             }
 
-            if (isFunctionLikeDeclarationWithThisBrand(container) && !withoutBrand && !nodeDowngradeToBaseClass.get(node)) {
-                return getTypeFromTypeNode(container.parameters.thisType);
+            if (isFunctionLike(container) && !nodeDowngradeToBaseClass.get(node)) {
+                let thisType = getSignatureFromDeclaration(container).resolvedThisType;
+                if (thisType) {
+                    return thisType;
+                }
             }
 
             if (isClassLike(container.parent)) {
@@ -7332,8 +7350,16 @@ namespace ts {
                 case SyntaxKind.AsExpression:
                     return getTypeFromTypeNode((<AssertionExpression>parent).type);
                 case SyntaxKind.BinaryExpression:
-                    // [ConcreteTypeScript] Don't use contextual information on members derived for brand types
-                    if ((<BinaryExpression>parent).operatorToken.kind === SyntaxKind.EqualsToken && nodeToFlowTypeAnalysis.get(<PropertyAccessExpression>(<BinaryExpression>parent).left)) {
+                    // [ConcreteTypeScript] 
+                    let flowAnalysis = nodeToFlowTypeAnalysis.get(<PropertyAccessExpression>(<BinaryExpression>parent).left);
+                    if ((<BinaryExpression>parent).operatorToken.kind === SyntaxKind.EqualsToken && flowAnalysis) {
+                        // If the member is a function, we contextually add a 'this' member to its signature
+                        let brandTypeDecl = flowAnalysis.getBrandType();
+                        if (!brandTypeDecl.variableDeclaration) {
+                            // We must be a prototype brand type:
+                            // TODO probably uneeded, do in brand type gathering
+                        }
+                        // Otherwise, don't use contextual information on members derived for brand types
                         return undefined;
                     }
                     // [/ConcreteTypeScript]
