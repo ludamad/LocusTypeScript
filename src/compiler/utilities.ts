@@ -738,7 +738,7 @@ namespace ts {
                     return node;
             }
         }
-    }
+}
 
     export function getSuperContainer(node: Node, includeFunctions: boolean): Node {
         while (true) {

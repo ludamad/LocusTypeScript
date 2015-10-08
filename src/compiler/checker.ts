@@ -2048,8 +2048,15 @@ namespace ts {
                 }
             }
 
-            function buildDisplayForParametersAndDelimiters(parameters: Symbol[], writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags, symbolStack?: Symbol[]) {
+            function buildDisplayForParametersAndDelimiters(thisType:Type, parameters: Symbol[], writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags, symbolStack?: Symbol[]) {
                 writePunctuation(writer, SyntaxKind.OpenParenToken);
+                if (thisType) {
+                    writer.writePunctuation("this: ");
+                    buildTypeDisplay(thisType, writer);
+                    if (parameters.length > 0) {
+                        writePunctuation(writer, SyntaxKind.SemicolonToken);
+                    }
+                }
                 for (let i = 0; i < parameters.length; i++) {
                     if (i > 0) {
                         writePunctuation(writer, SyntaxKind.CommaToken);
@@ -2094,10 +2101,10 @@ namespace ts {
                     buildDisplayForTypeParametersAndDelimiters(signature.typeParameters, writer, enclosingDeclaration, flags, symbolStack);
                 }
 
-                buildDisplayForParametersAndDelimiters(signature.parameters, writer, enclosingDeclaration, flags, symbolStack);
+                buildDisplayForParametersAndDelimiters(signature.resolvedThisType, signature.parameters, writer, enclosingDeclaration, flags, symbolStack);
                 buildReturnTypeDisplay(signature, writer, enclosingDeclaration, flags, symbolStack);
             }
-
+            
             return _displayBuilder || (_displayBuilder = {
                 buildSymbolDisplay,
                 buildTypeDisplay,
@@ -3144,14 +3151,17 @@ namespace ts {
 
         function getDeclaredTypeOfSymbol(symbol: Symbol): Type {
             Debug.assert((symbol.flags & SymbolFlags.Instantiated) === 0);
+            // [ConcreteTypeScript]
+            // This is required to be first because symbols can be marked as 'Class'
+            // but should resolve to brands when used as a type.
+            if (symbol.flags & SymbolFlags.Brand) {
+                return getDeclaredTypeOfBrand(symbol);
+            }
             if (symbol.flags & (SymbolFlags.Class | SymbolFlags.Interface)) {
                 return getDeclaredTypeOfClassOrInterface(symbol);
             }
             if (symbol.flags & SymbolFlags.TypeAlias) {
                 return getDeclaredTypeOfTypeAlias(symbol);
-            }
-            if (symbol.flags & SymbolFlags.Brand) {
-                return getDeclaredTypeOfBrand(symbol);
             }
             if (symbol.flags & SymbolFlags.Enum) {
                 return getDeclaredTypeOfEnum(symbol);
@@ -3271,8 +3281,8 @@ namespace ts {
         function getDefaultConstructSignatures(classType: InterfaceType): Signature[] {
             if (!getBaseTypes(classType).length) {
                 // TODO Regression in equality of template parameters. Investigate this:
-                // return [createSignature(undefined, classType.localTypeParameters, emptyArray, createConcreteType(classType) /* [ConcreteTypeScript] */, undefined, 0, false, false)];
-                return [createSignature(undefined, classType.localTypeParameters, emptyArray, classType /* [ConcreteTypeScript] */, undefined, 0, false, false)];
+                return [createSignature(undefined, classType.localTypeParameters, emptyArray, createConcreteType(classType) /* [ConcreteTypeScript] */, undefined, 0, false, false)];
+                //return [createSignature(undefined, classType.localTypeParameters, emptyArray, classType /* [ConcreteTypeScript] */, undefined, 0, false, false)];
             }
             let baseConstructorType = getBaseConstructorTypeOfClass(classType);
             let baseSignatures = getSignaturesOfType(baseConstructorType, SignatureKind.Construct);
@@ -5449,8 +5459,6 @@ namespace ts {
                 let result = Ternary.True;
                 let saveErrorInfo = errorInfo;
 
-
-
                 if (kind === SignatureKind.Construct) {
                     // Only want to compare the construct signatures for abstractness guarantees.
                     
@@ -5533,12 +5541,16 @@ namespace ts {
                 if (!target.hasRestParameter && source.minArgumentCount > target.parameters.length) {
                     return Ternary.False;
                 }
-                // if (!!source.resolvedThisType !== !!target.resolvedThisType) {
-                //     return Ternary.False;
-                // }
-                // if (source.resolvedThisType && !isRelatedTo(source.resolvedThisType, target.resolvedThisType, reportErrors)) {
-                //     return Ternary.False;
-                // }
+                // [ConcreteTypeScript]
+                // Does the source have a 'this' type, and not the target?
+                if (!!source.resolvedThisType !== !!target.resolvedThisType) {
+                    return Ternary.False;
+                }
+                // Do we both have 'this' types, but they aren't related?
+                if (source.resolvedThisType && !isRelatedTo(source.resolvedThisType, target.resolvedThisType, reportErrors)) {
+                    return Ternary.False;
+                }
+                // [/ConcreteTypeScript]
 
                 let sourceMax = source.parameters.length;
                 let targetMax = target.parameters.length;
