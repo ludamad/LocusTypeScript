@@ -50,3 +50,4 @@ internal/
 **/.DS_Store
 .settings/*
 !.settings/tasks.json
+concretetypescript_tests/*/*.js

@@ -42,9 +42,9 @@ module ts {
         merge(other:FlowTypeAnalysis):FlowTypeAnalysis {
             Debug.assert(other.index === this.index);
             let expressions:Expression[] = [].concat(this.assignments);
-            forEach(other.assignments, (expr) => {
+            for (let expr of other.assignments) {
                 if (expressions.indexOf(expr) === -1) expressions.push(expr);
-            });
+            }
             let definitelyAssigned:boolean = (other.definitelyAssigned && this.definitelyAssigned);
             return new FlowTypeAnalysis(this.binder, this.index, expressions, definitelyAssigned);
         }
@@ -370,9 +370,11 @@ module ts {
             }
             prev.mark(node, this);
 
-            let descend = ()  => forEachChild(node, (subchild) => {
-                prev = this.scan(subchild, prev);
-            });
+            let descend = () => {
+                forEachChild(node, (subchild) => {
+                    prev = this.scan(subchild, prev);
+                });
+            };
 
             switch (node.kind) {
                 case SyntaxKind.PropertyAccessExpression:
@@ -446,9 +448,9 @@ module ts {
                     prev = this.scan((<SwitchStatement>node).expression, prev);
                     let beforeCases = prev;
                     // Flow analysis: Merge the result of every case
-                    forEach((<SwitchStatement>node).caseBlock.clauses, (clause) => {
+                    for (let clause of (<SwitchStatement>node).caseBlock.clauses) {
                         prev = prev.merge(this.scan(clause, beforeCases.passConditionalBarrier()));
-                    });
+                    }
                     break;
 
                 case SyntaxKind.ConditionalExpression:
@@ -485,9 +487,9 @@ module ts {
                     prev = this.scan((<ForStatement>node).statement, prev).merge(prev);
                     break;
                 case SyntaxKind.VariableDeclarationList:
-                    forEach((<VariableDeclarationList>node).declarations, (decl) => {
+                    for (var decl of (<VariableDeclarationList>node).declarations) {
                         prev = this.scan(decl, prev);
-                    });
+                    }
                     break;
                 case SyntaxKind.ForInStatement:
                     prev = this.scan((<ForInStatement>node).initializer, prev);
@@ -532,11 +534,10 @@ module ts {
                     descend();
                 }
                 if (typeof this.nodePostLinks[node.id] !== "undefined") {
-                    this.nodePostLinks[node.id].forEach( links => {
+                    for (let links of this.nodePostLinks[node.id]) {
                         prev = prev.merge(links);
-                    });
+                    }
                 }
-
             /* Otherwise, continue recursive iteration: */
             return prev;
         }

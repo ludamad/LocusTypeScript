@@ -1,0 +1,5 @@
+1+1=2 Foo
+1+1=2
+should_error/function_this_infer.ts(7,29): error TS2339: Property 'y' does not exist on type '!Foo'.
+BrandTypeDeclaration ()
+BrandTypeDeclaration.name (text: Foo)

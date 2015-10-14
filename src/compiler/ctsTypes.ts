@@ -13,8 +13,6 @@ namespace ts {
         }
     }
 
-//TODO use this
-    export var typeNodeToType = new NodeMap<TypeNode, Type>();
     export var nodeToFlowTypeAnalysis = new NodeMap<Node, FlowTypeAnalysis>();
     export var propAccessUsesProtoBrand = new NodeMap<PropertyAccessExpression, boolean>();
     export var objLiteralToBrandPropertyDeclaration = new NodeMap<ObjectLiteralElement, BrandPropertyDeclaration>();

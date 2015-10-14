@@ -1,0 +1,2 @@
+should_error_minor/this_var_with_non_brand.ts(11,5): error TS2322: Type '() => !number' is not assignable to type '(this: number ) => !number'.
+should_error_minor/this_var_with_non_brand.ts(12,1): error TS2322: Type '() => !number' is not assignable to type '(this: number ) => !number'.
