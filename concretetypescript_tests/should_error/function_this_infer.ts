@@ -3,6 +3,6 @@ function Foo() {
     this.x = "Beans";
 }
 
-Foo.prototype.make = function() {
+Foo.prototype.make = /* @thisType @Foo */ function() {
     return "Canned " + this.y;
 }

@@ -1,5 +1,5 @@
 #!/bin/bash
-echo "Running 'should compile' tests..."
+echo "Running compilation tests..."
 rm -f */*.js 
 
 TEST_FOLDERS="should_error shouldnt_error should_error_minor shouldnt_error_new_features"

@@ -14586,6 +14586,10 @@ namespace ts {
             checkSourceFileWorker(node);
 
             checkTime += new Date().getTime() - start;
+            // [ConcreteTypeScript] Add a debug pass for annotations used in "unit" testing (aka something more granular than compilation tests).
+            // if (process.env.CTS_ANNOTATIONS)
+            (<any>ts).debugPass(node);
+            // [/ConcreteTypeScript]    
         }
 
         // Fully type check a source file and collect the relevant diagnostics.

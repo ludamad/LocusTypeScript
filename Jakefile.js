@@ -47,6 +47,7 @@ var compilerSources = [
     "ctsTypes.ts",
     "commandLineParser.ts",
     "flowAnalysis.ts",
+    "flowTypeDebugChecks.ts",
     "tsc.ts",
     "diagnosticInformationMap.generated.ts"
 ].map(function (f) {

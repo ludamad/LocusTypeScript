@@ -23,6 +23,7 @@
         "tsc.ts",
         "ctsTypes.ts",
         "flowAnalysis.ts",
+        "flowTypeDebugChecks.ts",
         "diagnosticInformationMap.generated.ts"
     ]
 }
