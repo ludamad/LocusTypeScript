@@ -1520,7 +1520,24 @@ namespace ts {
         getIndexTypeOfType(type: Type, kind: IndexKind): Type;
         getBaseTypes(type: InterfaceType): ObjectType[];
         getReturnTypeOfSignature(signature: Signature): Type;
-
+        // [ConcreteTypeScript]
+        getTypeOfSymbol(symbol: Symbol): Type;
+        createConcreteType:any, 
+        stripConcreteType:any,
+        isTypeIdenticalTo(source: Type, target: Type): boolean;
+        resolveName(location: Node, name: string, meaning: SymbolFlags, nameNotFoundMessage: DiagnosticMessage, nameArg: string | Identifier): Symbol;
+        compareTypes(source: Type, target: Type): Ternary;
+        checkTypeSubtypeOf(source: Type, target: Type, errorNode: Node, headMessage?: DiagnosticMessage, containingMessageChain?: DiagnosticMessageChain): boolean;
+        checkTypeAssignableTo(source: Type, target: Type, errorNode: Node, headMessage?: DiagnosticMessage, containingMessageChain?: DiagnosticMessageChain): boolean;
+        isSignatureAssignableTo(source: Signature, target: Signature): boolean;
+        checkTypeRelatedTo(
+            source: Type,
+            target: Type,
+            relation: Map<RelationComparisonResult>,
+            errorNode: Node,
+            headMessage?: DiagnosticMessage,
+            containingMessageChain?: DiagnosticMessageChain): boolean;
+        // [/ConcreteTypeScript]
         getSymbolsInScope(location: Node, meaning: SymbolFlags): Symbol[];
         getSymbolAtLocation(node: Node): Symbol;
         getShorthandAssignmentValueSymbol(location: Node): Symbol;

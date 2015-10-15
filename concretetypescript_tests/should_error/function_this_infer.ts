@@ -1,8 +1,9 @@
 function Foo() {
-    var this : declare Foo;
+    var this : declare Foo; 
     this.x = "Beans";
 }
 
-Foo.prototype.make = /* @thisType @Foo */ function() {
+Foo.prototype.make = function() {
+    /*@{assertType !Foo}*/ this;
     return "Canned " + this.y;
 }

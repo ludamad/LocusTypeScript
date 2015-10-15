@@ -64,7 +64,18 @@ namespace ts {
             isArgumentsSymbol: symbol => symbol === argumentsSymbol,
             getDiagnostics,
             getGlobalDiagnostics,
-
+            // [ConcreteTypeScript]
+            getTypeOfSymbol,
+            stripConcreteType,
+            createConcreteType,
+            isTypeIdenticalTo,
+            resolveName,
+            compareTypes,
+            checkTypeSubtypeOf,
+            checkTypeAssignableTo,
+            isSignatureAssignableTo,
+            checkTypeRelatedTo,
+            // [/ConcreteTypeScript]
             // The language service will always care about the narrowed type of a symbol, because that is
             // the type the language says the symbol should have.
             getTypeOfSymbolAtLocation: getNarrowedTypeOfSymbol,
@@ -14588,7 +14599,7 @@ namespace ts {
             checkTime += new Date().getTime() - start;
             // [ConcreteTypeScript] Add a debug pass for annotations used in "unit" testing (aka something more granular than compilation tests).
             // if (process.env.CTS_ANNOTATIONS)
-            (<any>ts).debugPass(node);
+            (<any>ts).debugPass(node, {passType: "check", checker});
             // [/ConcreteTypeScript]    
         }
 
