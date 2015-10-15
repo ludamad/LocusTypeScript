@@ -7385,7 +7385,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 write("if (typeof $$cts$$runtime === \"undefined\") {"); writeLine();
                 increaseIndent();
                 write("if (typeof require !== \"undefined\") require(\".\/cts-runtime.js\");"); writeLine();
-                write("else if (typeof document !== \"undefined\") { document.writeLine(\"<script src=\\\"cts-runtime.js\\\"></script>\"); }"); writeLine();
+                write("else if (typeof document !== \"undefined\") { document.writeln(\"<script src=\\\"cts-runtime.js\\\"></script>\"); }"); writeLine();
                 write("else throw new Error(\"Could not load ConcreteTypeScript runtime!\");"); writeLine();
                 decreaseIndent();
                 write("}");
