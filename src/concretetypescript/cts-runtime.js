@@ -40,12 +40,19 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         }
         if (Object.defineProperty) {
             var defineProperty = Object.defineProperty;
+            var getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
             // use Object.defineProperty to cement object members
             cement = function(obj, prop, val, enumerable) {
+                var descriptor  = getOwnPropertyDescriptor(obj, prop);
+                var configurable  = (descriptor === undefined) ? true : descriptor.configurable;
+
+                var writable  = configurable ? false : descriptor.writable;
+                enumerable  = configurable ? !!enumerable : descriptor.enumerable;
+
                 defineProperty(obj, prop, {
                     configurable: false,
-                    enumerable: !!enumerable,
-                    writable: false,
+                    enumerable: enumerable,
+                    writable: writable,
                     value: val
                 });
             };
