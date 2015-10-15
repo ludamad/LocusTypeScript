@@ -1522,6 +1522,7 @@ namespace ts {
         getReturnTypeOfSignature(signature: Signature): Type;
         // [ConcreteTypeScript]
         getTypeOfSymbol(symbol: Symbol): Type;
+        createType(flags: TypeFlags): Type;
         createConcreteType:any, 
         stripConcreteType:any,
         isTypeIdenticalTo(source: Type, target: Type): boolean;
@@ -1538,6 +1539,7 @@ namespace ts {
             headMessage?: DiagnosticMessage,
             containingMessageChain?: DiagnosticMessageChain): boolean;
         // [/ConcreteTypeScript]
+        primitiveTypeInfo:any,
         getSymbolsInScope(location: Node, meaning: SymbolFlags): Symbol[];
         getSymbolAtLocation(node: Node): Symbol;
         getShorthandAssignmentValueSymbol(location: Node): Symbol;

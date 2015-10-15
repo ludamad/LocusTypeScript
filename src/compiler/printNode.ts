@@ -7,6 +7,11 @@
 /// <reference path="utilities.ts"/>
 
 module ts {
+    export function getNodeKindAsString(node:Node) {
+        let result:string;
+        printRecursor(node, (node, value) => result = value);
+        return result;
+    }
     function printRecursor(node:Node, print:any) {
     switch (node.kind) {
         case SyntaxKind.BrandTypeDeclaration: 

@@ -65,6 +65,8 @@ namespace ts {
             getDiagnostics,
             getGlobalDiagnostics,
             // [ConcreteTypeScript]
+            createType,
+            primitiveTypeInfo,
             getTypeOfSymbol,
             stripConcreteType,
             createConcreteType,
@@ -5101,6 +5103,11 @@ namespace ts {
             }
 
             function isIdenticalTo(source: Type, target: Type): Ternary {
+                // [ConcreteTypeScript]
+                if ((source.flags & TypeFlags.Concrete) && (target.flags & TypeFlags.Concrete)) {
+                    return isIdenticalTo(stripConcreteType(source), stripConcreteType(target));
+                }
+                // [/ConcreteTypeScript]
                 let result: Ternary;
                 if (source.flags & TypeFlags.ObjectType && target.flags & TypeFlags.ObjectType) {
                     if (source.flags & TypeFlags.Reference && target.flags & TypeFlags.Reference && (<TypeReference>source).target === (<TypeReference>target).target) {
@@ -14599,7 +14606,7 @@ namespace ts {
             checkTime += new Date().getTime() - start;
             // [ConcreteTypeScript] Add a debug pass for annotations used in "unit" testing (aka something more granular than compilation tests).
             // if (process.env.CTS_ANNOTATIONS)
-            (<any>ts).debugPass(node, {passType: "check", checker});
+            (<any>ts).debugPass(node, {passType: "check", checker, recurse:true});
             // [/ConcreteTypeScript]    
         }
 

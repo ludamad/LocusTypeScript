@@ -7456,6 +7456,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             }
 
             function emitNodeWithoutSourceMap(node: Node): void {
+                // [ConcreteTypeScript] For debugging, allow asserting about what a node emitted
+                // by taking the text difference after writing and passing it to a debugging function
+                let textLengthBeforeWriting = writer.getText().length;
                 if (node) {
                 // [ConcreteTypeScript] Emit type check if necessary
                     if (node.mustFloat && compilerOptions.emitV8Intrinsics) {
@@ -7514,7 +7517,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                             writeLine();
                         }
                     }
-
+                    (<any>ts).debugPass(currentSourceFile, {passType:"emit", emittedText: writer.getText().substring(textLengthBeforeWriting)}, node)
                 }
             }
 

@@ -6,6 +6,7 @@ function makeFoo() {
 }
 
 function test() : !Foo {
+    /*@{assertType !Foo}*/ new Foo;
     var v:!Foo = makeFoo();
     if (1) {
         let t : declare Foop = 2;
