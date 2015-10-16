@@ -1,3 +1,4 @@
+// TODO rename to ctsDebugChecks
 /// <reference path="binder.ts"/>
 /// <reference path="types.ts"/>
 /// <reference path="checker.ts"/>
@@ -19,126 +20,153 @@ namespace ts {
         /* For emitting pass: */
         emittedText:string;
     }
-    export function debugPass(sourceFile: SourceFile, passArgs:PassArgs, root:Node=sourceFile) {
-        let {checker, passType, recurse} = passArgs;
-        // Don't debug the same pass twice, and don't debug ambient declarations:
-        if ((passType !== "emit" && (<any>sourceFile)[`ctsDidDebug${passType}`]) || sourceFile.fileName.indexOf(".d.ts") != -1) {
+
+    interface DebugAnnotation {
+        annotationCode:string;
+        nodeKindRegex?:string;
+    }
+
+    function dropFirstAndLastChars(str:string) {
+        return str.substring(1, str.length - 1);
+    }
+    function getAnnotationsFromComment(sourceText:string, type:string, range: CommentRange):DebugAnnotation[] {
+        let comment = sourceText.substring(range.pos, range.end);
+        let annotations:DebugAnnotation[] = [];
+        // Handle debug annotations with a node type filter:
+        let withFilterRegex = new RegExp(`@${type}\\[[\\S]+\\]\\{[^]+\\}`, 'g');
+        for (let match of comment.match(withFilterRegex) || []) {
+            annotations.push({
+                annotationCode: dropFirstAndLastChars(match.match(/{[^]+}/)[0]),
+                nodeKindRegex: dropFirstAndLastChars(match.match(/\[[\S]+\]/)[0])
+            });
+        }
+        // Handle uncoditional debug annotations:
+        let withoutFilterRegex = new RegExp(`@${type}\{[^]+\}`, 'g');
+        for (let match of comment.match(withoutFilterRegex) || []) {
+            annotations.push({
+                annotationCode: dropFirstAndLastChars(match.match(/{[^]+}/)[0]),
+            });
+        }
+        return annotations;
+    }
+    function getAnnotationsForNode(sourceText:string, type:string, node: Node):DebugAnnotation[] {
+        let annotations:DebugAnnotation[] = [];
+        let ranges = getLeadingCommentRanges(sourceText, node.pos);
+        if (ranges) {
+            for (let range of ranges) {
+                annotations = annotations.concat(getAnnotationsFromComment(sourceText, type, range));
+            }
+        }
+        return annotations;
+    }
+
+    function wrapAsFunc(code:string, injectedValues) {
+        return `(function(${Object.keys(injectedValues).join(',')}) {${code}})`;
+    }
+    function wrapEvaler(evaler, code:string, injectedValues) {
+        let args = Object.keys(injectedValues).map(key => injectedValues[key]);
+        let funcBody = wrapAsFunc(code,injectedValues);
+        try {
+            return evaler(funcBody).apply(null, args);
+        } catch(err) {
+            console.log(err, "When executing " + code)
+        }
+    }
+
+    let filesWrittenTo = {};
+    function writeLineToFile(fileName:string, line:string) {
+        if (!filesWrittenTo[fileName]) {
+            try { require("fs").unlinkFileSync(fileName); } catch(err) {}
+            filesWrittenTo[fileName] = true;
+        }
+        require("fs").appendFileSync(fileName, line + '\n');
+    }
+
+    function merge(a,b) {
+        let ret = {};
+        for (let k of Object.keys(a)) ret[k] = a[k];
+        for (let k of Object.keys(b)) ret[k] = b[k];
+        return ret;
+    }
+
+    let STORAGE = {}; // For storing for multipart tests
+    function getEvaluationScope(node:Node, pass:string, checker?:TypeChecker) {
+        let sourceFile = getSourceFileOfNode(node);
+        let resultFileName = `${sourceFile.fileName.split("/").pop()}.${pass}.output`;
+        function writeLine(line:string) {
+            writeLineToFile(resultFileName, line);
+        }
+        function toType(str:string) {
+            return resolveType(checker, node, str);
+        }
+        function assert(message:string, condition:boolean) {
+            let prefix = condition ? "FAILURE executing": "Passes";
+            let lineNum = getLineOfLocalPosition(sourceFile, node.pos);
+            let linePos = node.pos - getLineStarts(sourceFile)[lineNum];                
+            let line = `${prefix} at (${getNodeKindAsString(node)}) ${sourceFile.fileName}:${lineNum}:${linePos}, ${message}`;
+            writeLine(line);
+        }
+        return merge(checker, {
+            STORAGE, sourceFile, node, checker,
+            sourceText: sourceFile.text,
+            toType,
+            assert,
+            writeLine,
+            hasType: (type) => checker.isTypeIdenticalTo(checker.getTypeAtLocation(node), typeof type !== "string" ? type : toType(type))
+        });
+    }
+
+    function onPass(node: Node, prefix:string, evaler: (string)=>void, functions) {
+        let sourceFile = getSourceFileOfNode(node);
+        if (sourceFile.fileName.indexOf(".d.ts") >= 0) {
             return;
         }
-        let lines = [];
-        if (!(<any>sourceFile)[`ctsDidDebug${passType}`]) {
-            try {
-                require("fs").unlinkSync(`${sourceFile.fileName.split("/").pop()}.${passType}.output`);
-            } catch (err){}; 
-        }
-        // Mark that we need not debug this further
-        (<any>sourceFile)[`ctsDidDebug${passType}`] = true;
         let sourceText = sourceFile.text;
-        pass(root);
-        if (lines.length > 0) {
-            require("fs").appendFileSync(`${sourceFile.fileName.split("/").pop()}.${passType}.output`, lines.join('\n')+'\n');
-        }
-        return;
-        function pass(node:Node) {
-            for (let annotation of getAnnotationsForNode(node)) {
-                let args:string[] = annotation.split(" ");
-                let funcName = args.shift();
-                processTestAnnotation(node, funcName, args);
+        for (let {annotationCode,nodeKindRegex} of getAnnotationsForNode(sourceText, prefix, node)) {
+            if (!nodeKindRegex) {
+                wrapEvaler(evaler, annotationCode, functions);
+                continue;
             }
-            if (recurse) {
-                forEachChild(node, pass);
+            let dontMatch = (nodeKindRegex.charAt(0) === "~");
+            let regex = new RegExp(dontMatch ? nodeKindRegex.substring(1) : nodeKindRegex);
+            let matched = !!getNodeKindAsString(node).match(regex);
+            if (dontMatch !== matched) { // Does the matchness match?
+                wrapEvaler(evaler, annotationCode, functions);;
             }
         }
-        function getAnnotationsFromComment(range: CommentRange):string[] {
-            let comment = sourceText.substring(range.pos, range.end);
-            // Match strings within @{}, and drop the '@{}'.
-            return (comment.match(/@\{[a-zA-Z0-9 !]+\}/g) || []).map(s => s.substring(2, s.length-1));
+    }
+    export function beforeCheckPass(node, checker, evaler) {
+        if (!node.__wasVisitedBeforeCheck) {
+            onPass(node, "beforeCheck", evaler, getEvaluationScope(node, "beforeCheck", checker));
+            node.__wasVisitedBeforeCheck = true;
         }
-        function getAnnotationsForNode(node: Node):string[] {
-            let leadingCommentRanges = getLeadingCommentRanges(sourceText, node.pos);
-            if (!leadingCommentRanges) return [];
-            return [].concat(...leadingCommentRanges.map(getAnnotationsFromComment));
+    }
+    export function afterCheckPass(node, checker, evaler) {
+        if (!node.__wasVisitedAfterCheck) {
+            onPass(node, "afterCheck", evaler, getEvaluationScope(node, "afterCheck", checker));
+            node.__wasVisitedAfterCheck = true;
         }
-        
-        function processTestAnnotation(node:Node, funcName:string, args:string[]) {
-            // Supported checks:
-            function resolveType(typeName:string):Type {
-                let [left, right] = typeName.split(".");
-                typeName = left;
-                let isConcrete = (typeName.indexOf("!") === 0);
-                if (isConcrete) {
-                    typeName = typeName.substring(1);
-                }
-                let typeSymbol = checker.resolveName(node, typeName, SymbolFlags.Type, null, typeName);
-                let type = checker.getDeclaredTypeOfSymbol(typeSymbol);
-                // Special case .prototype:
-                if (right === "prototype" && getSymbolDecl(typeSymbol, SyntaxKind.BrandTypeDeclaration)) {
-                    let decl = <BrandTypeDeclaration> getSymbolDecl(typeSymbol, SyntaxKind.BrandTypeDeclaration);
-                    type = checker.getDeclaredTypeOfSymbol(decl.prototypeBrandDeclaration.symbol);
-                }
-                if (isConcrete) {
-                    type.concreteType = <ConcreteType>checker.createType(TypeFlags.Concrete);
-                    type.concreteType.baseType = type;
-                    return type.concreteType;
-                }
-                return type;
-            }
-            let lineNum = getLineOfLocalPosition(sourceFile, node.pos);
-            let linePos = node.pos - getLineStarts(sourceFile)[lineNum];
-            // Various assertions go here:
-            const handlers = {
-                check: {
-                    assertType(node:Node, typeName:string) {
-                        let typeA = checker.getTypeAtLocation(node), typeB = resolveType(typeName);
-                        let tstrA =  checker.typeToString(typeA), tstrB = checker.typeToString(typeB);
-                        if (checker.isTypeIdenticalTo(typeA, typeB)) {
-                            succeed(`'${tstrA}'`);
-                        } else {
-                            fail(`'${tstrA}' != '${tstrB}'`);
-                        }
-                    }
-                },
-                emit: {
-                    assertEmit(node:Node, ...matches:string[]) {
-                        let emittedText = passArgs.emittedText;
-                        let failedMatches = matches.filter(match => emittedText.indexOf(match) === -1);
-                        if (failedMatches.length === 0) {
-                            succeed(`'${matches.join(' ')}'`);
-                        } else {
-                            fail(`'${failedMatches.join(' ')}' in ${JSON.stringify(emittedText)}`);
-                        }
-                    }
-                },
-                bind: {
-                    
-                }
-            };
-            let keys = [].concat(...[handlers.check, handlers.emit, handlers.bind].map(Object.keys));
-            if (!isStatement(node) || passType === "emit") {
-                if (keys.indexOf(funcName) === -1) {
-                    fail(`Function not defined anywhere.`);
-                }
-                // Call the handler:
-                let func = handlers[passType][funcName];
-                // if (args.indexOf("[wholeFile]") === 0) {
-                //     // Remove the [wholeFile] attribute
-                //     args.splice(args.indexOf("[wholeFile]"), 1);
-                //     if (node !== sourceFile) return;
-                // } else 
-                if (passType === "emit" && sourceFile === node) {
-                    return;
-                }
-                // TODO Clean
-                if (func) func(node, ...(args.map(s => s.replace(/\\s/g, ' '))));
-            }
-            return; 
-            // Helpers
-            function fail(...args) {
-                lines.push(`FAILURE executing '${funcName}' at (${getNodeKindAsString(node)}) ${sourceFile.fileName}:${lineNum}:${linePos}, ` + args.join("\t"));
-            }
-            function succeed(...args) {
-                lines.push(`Passes '${funcName}' at (${getNodeKindAsString(node)}) ${sourceFile.fileName}:${lineNum}:${linePos}, ` + args.join("\t"));
-            }
+    }
+    // Supported checks:
+    function resolveType(checker:TypeChecker, node:Node, typeName:string):Type {
+        let [left, right] = typeName.split(".");
+        typeName = left;
+        let isConcrete = (typeName.indexOf("!") === 0);
+        if (isConcrete) {
+            typeName = typeName.substring(1);
         }
+        let typeSymbol = checker.resolveName(node, typeName, SymbolFlags.Type, null, typeName);
+        var type = checker.getDeclaredTypeOfSymbol(typeSymbol);
+        // Special case .prototype:
+        if (right === "prototype" && getSymbolDecl(typeSymbol, SyntaxKind.BrandTypeDeclaration)) {
+            let decl = <BrandTypeDeclaration> getSymbolDecl(typeSymbol, SyntaxKind.BrandTypeDeclaration);
+            type = checker.getDeclaredTypeOfSymbol(decl.prototypeBrandDeclaration.symbol);
+        }
+        if (isConcrete) {
+            type.concreteType = <ConcreteType>checker.createType(TypeFlags.Concrete);
+            type.concreteType.baseType = type;
+            return type.concreteType;
+        }
+        return type;
     }
 }

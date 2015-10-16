@@ -1,3 +1,11 @@
+/* @{assertEmit [wholeFile] "$$cts$$brandTypes ="} */
+
+/* @onEmit{
+    if (node === sourceFile) {
+        assertEmit(node, "$$cts$$brandTypes =")
+    }
+}*/
+
 "use strict";
 
 declare var process, branch, describe, it, require;
@@ -163,6 +171,22 @@ describe("Switch statement runtime semantics", () => {
 });
 
 describe("brand type method semantics", () => {
+    it("should check this brand on constructor with 'this'", () => {
+        function Foo() {
+            var this : declare ShouldCheckBrandOnConstructorWithThis;
+            this.fine = true;
+        }
+        var methodFinishedFine = false;
+        var exceptionOccurred = false;
+        try {
+            Foo.call({fine: true});
+        } catch (err) {
+            exceptionOccurred = true;
+        }
+        assert.ok(exceptionOccurred)
+        assert.ok(!methodFinishedFine)
+    });
+
     it("should check this brand on method with 'this'", () => {
         function Foo() {
             var this : declare ShouldCheckBrandOnMethodWithThis;
@@ -180,12 +204,12 @@ describe("brand type method semantics", () => {
             exceptionOccurred = true;
         }
         assert.ok(exceptionOccurred)
-        assert.ok(methodFinishedFine)
+        assert.ok(!methodFinishedFine)
     });
 
     it("should not check this brand on method without 'this'", () => {
         function Foo() {
-            var this : declare ShouldNotCheckBrandOnMethodWithoutThis;
+            var somethingElse : declare ShouldNotCheckBrandOnMethodWithoutThis = {};
         }
         var methodFinishedFine = false;
         var exceptionOccurred = false;
@@ -198,7 +222,7 @@ describe("brand type method semantics", () => {
         } catch (err) {
             exceptionOccurred = true;
         }
-        assert.ok(exceptionOccurred)
+        assert.ok(!exceptionOccurred)
         assert.ok(methodFinishedFine)
     });
 });

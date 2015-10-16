@@ -7517,7 +7517,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                             writeLine();
                         }
                     }
-                    (<any>ts).debugPass(currentSourceFile, {passType:"emit", emittedText: writer.getText().substring(textLengthBeforeWriting)}, node)
+                    // (<any>ts).debugPass(currentSourceFile, {passType:"emit", emittedText: writer.getText().substring(textLengthBeforeWriting)}, node)
                 }
             }
 

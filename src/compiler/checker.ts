@@ -1,5 +1,6 @@
 /// <reference path="binder.ts"/>
 /// <reference path="flowAnalysis.ts"/>
+/// <reference path="flowTypeDebugChecks.ts"/>
 
 /// <reference path="brandTypeQueries.ts"/>
 /// <reference path="ctsTypes.ts"/>
@@ -66,7 +67,7 @@ namespace ts {
             getGlobalDiagnostics,
             // [ConcreteTypeScript]
             createType,
-            primitiveTypeInfo,
+            getPrimitiveTypeInfo,
             getTypeOfSymbol,
             stripConcreteType,
             createConcreteType,
@@ -219,6 +220,9 @@ namespace ts {
             }
         };
 
+        function getPrimitiveTypeInfo():Map<{ type: Type; flags: TypeFlags }> {
+            return primitiveTypeInfo;
+        }
         const JsxNames = {
             JSX: "JSX",
             IntrinsicElements: "IntrinsicElements",
@@ -5105,7 +5109,8 @@ namespace ts {
             function isIdenticalTo(source: Type, target: Type): Ternary {
                 // [ConcreteTypeScript]
                 if ((source.flags & TypeFlags.Concrete) && (target.flags & TypeFlags.Concrete)) {
-                    return isIdenticalTo(stripConcreteType(source), stripConcreteType(target));
+                    let result = isTypeIdenticalTo(stripConcreteType(source), stripConcreteType(target));
+                    return result ? Ternary.True : Ternary.False;
                 }
                 // [/ConcreteTypeScript]
                 let result: Ternary;
@@ -14600,14 +14605,21 @@ namespace ts {
 
         function checkSourceFile(node: SourceFile) {
             let start = new Date().getTime();
-
+            
+            // [ConcreteTypeScript] Add a debug pass for annotations used in "unit" testing (aka something more granular than compilation tests).
+            // if (debug...)
+            if (node.fileName.indexOf(".d.ts") === -1) {
+                forEachChildRecursive(node, subnode => beforeCheckPass(subnode, checker, s => eval(s)));
+            }
+            // [/ConcreteTypeScript]
             checkSourceFileWorker(node);
-
             checkTime += new Date().getTime() - start;
             // [ConcreteTypeScript] Add a debug pass for annotations used in "unit" testing (aka something more granular than compilation tests).
-            // if (process.env.CTS_ANNOTATIONS)
-            (<any>ts).debugPass(node, {passType: "check", checker, recurse:true});
-            // [/ConcreteTypeScript]    
+            // if (debug...)
+            if (node.fileName.indexOf(".d.ts") === -1) {
+                forEachChildRecursive(node, subnode => afterCheckPass(subnode, checker, s => eval(s)));
+            }
+            // [/ConcreteTypeScript]
         }
 
         // Fully type check a source file and collect the relevant diagnostics.
@@ -14650,8 +14662,8 @@ namespace ts {
 
                 if (emitParam) {
                     links.flags |= NodeCheckFlags.EmitParam;
-                }
 
+                }
                 if (emitAwaiter) {
                     links.flags |= NodeCheckFlags.EmitAwaiter;
                 }

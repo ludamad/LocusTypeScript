@@ -1,3 +1,4 @@
+// TODO rename to ctsUtilities
 /// <reference path="types.ts"/>
 /// <reference path="core.ts"/>
 /// <reference path="scanner.ts"/>
@@ -8,7 +9,13 @@
 
 namespace ts {
 
-    // 
+    export function forEachChildRecursive(node:Node, callback: (Node)=>void) {
+        function callbackPrime(node:Node) {
+            callback(node);
+            forEachChild(node, callbackPrime);
+        }
+        callbackPrime(node);
+    }
 
     // Is this an expression of type <identifier>.<identifier> = <expression>?
     export function isPropertyAssignment(node:Node) {

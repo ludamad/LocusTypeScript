@@ -1,6 +1,6 @@
 1+1=2 Foo
 1+1=2
 1+1=2 Bar
-shouldnt_error/this_declare_same_name_as_func.ts(11,16): error TS2351: Cannot use 'new' with an expression whose type lacks a call or construct signature.
+shouldnt_error/this_declare_same_name_as_func.ts(14,16): error TS2351: Cannot use 'new' with an expression whose type lacks a call or construct signature.
 BrandTypeDeclaration ()
 BrandTypeDeclaration.name (text: Foo)

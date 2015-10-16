@@ -6,6 +6,6 @@ export function Foo() {
 }
 
 Foo.prototype.foo = function() {
-    /*@{assertType !Foo}*/ this;
+    /*@{assertType !FooType}*/ this;
     console.log(this.x);
 }
