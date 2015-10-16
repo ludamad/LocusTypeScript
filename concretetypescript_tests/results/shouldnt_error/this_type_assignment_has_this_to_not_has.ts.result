@@ -1,8 +1,0 @@
-1+1=2 Func1
-1+1=2
-1+1=2 Func2
-1+1=2
-shouldnt_error/this_type_assignment_has_this_to_not_has.ts(14,1): error TS2322: Type '(this: Func2 ) => !number' is not assignable to type '(this: Func1 ) => !number'.
-  Type 'Func2' is not assignable to type 'Func1'.
-BrandTypeDeclaration ()
-BrandTypeDeclaration.name (text: Func1)

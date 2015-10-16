@@ -76,7 +76,7 @@ namespace ts {
     let filesWrittenTo = {};
     function writeLineToFile(fileName:string, line:string) {
         if (!filesWrittenTo[fileName]) {
-            try { require("fs").unlinkFileSync(fileName); } catch(err) {}
+            try { require("fs").unlinkSync(fileName); } catch(err) {}
             filesWrittenTo[fileName] = true;
         }
         require("fs").appendFileSync(fileName, line + '\n');
@@ -92,35 +92,48 @@ namespace ts {
     let STORAGE = {}; // For storing for multipart tests
     function getEvaluationScope(node:Node, pass:string, checker?:TypeChecker) {
         let sourceFile = getSourceFileOfNode(node);
-        let resultFileName = `${sourceFile.fileName.split("/").pop()}.${pass}.output`;
+        let resultFileName = `${sourceFile.fileName}.${pass}.output`;
         function writeLine(line:string) {
             writeLineToFile(resultFileName, line);
         }
-        function toType(str:string) {
+        function getType() {
+            return checker.getTypeAtLocation(node);
+        }
+        function toType(str) {
+            if (typeof str !== "string") return str;
             return resolveType(checker, node, str);
         }
-        function assert(message:string, condition:boolean) {
-            let prefix = condition ? "FAILURE executing": "Passes";
+        function assert(condition:boolean, message:string = "assert failed") {
+            let prefix = condition ? "Passes" : "FAILURE executing";
             let lineNum = getLineOfLocalPosition(sourceFile, node.pos);
             let linePos = node.pos - getLineStarts(sourceFile)[lineNum];                
             let line = `${prefix} at (${getNodeKindAsString(node)}) ${sourceFile.fileName}:${lineNum}:${linePos}, ${message}`;
             writeLine(line);
         }
-        return merge(checker, {
-            STORAGE, sourceFile, node, checker,
+        function hasType(type) {
+            return checker.isTypeIdenticalTo(getType(), toType(type));
+        }
+        function concrete(type) {
+            return checker.createConcreteType(type);
+        }
+        // Expose all of the 'ts' namespace:
+        return merge(ts, {
+            concrete, STORAGE, sourceFile, node,
             sourceText: sourceFile.text,
             toType,
             assert,
+            getType,
+            hasType,
             writeLine,
-            hasType: (type) => checker.isTypeIdenticalTo(checker.getTypeAtLocation(node), typeof type !== "string" ? type : toType(type))
+            assertType: (type) => assert(hasType(type), `Should be type ${checker.typeToString(toType(type))}, was type ${checker.typeToString(getType())}`)
         });
     }
 
     function onPass(node: Node, prefix:string, evaler: (string)=>void, functions) {
         let sourceFile = getSourceFileOfNode(node);
-        if (sourceFile.fileName.indexOf(".d.ts") >= 0) {
-            return;
-        }
+        // if (sourceFile.fileName.indexOf(".d.ts") >= 0) {
+        //     return;
+        // }
         let sourceText = sourceFile.text;
         for (let {annotationCode,nodeKindRegex} of getAnnotationsForNode(sourceText, prefix, node)) {
             if (!nodeKindRegex) {

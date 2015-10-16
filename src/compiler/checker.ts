@@ -6949,6 +6949,10 @@ namespace ts {
             }
             return anyType;
         }
+        /* Will allow for access to all closure variables: */
+        function evalInCheckerContext(s: string) {
+            return eval(s);
+        }
 
         function isInConstructorArgumentInitializer(node: Node, constructorDecl: Node): boolean {
             for (let n = node; n && n !== constructorDecl; n = n.parent) {
@@ -14603,13 +14607,23 @@ namespace ts {
             }
         }
 
+        // [ConcreteTypeScript] Helpers for checkSourceFile
+        function doBeforeCheckPass(node:Node) {
+            beforeCheckPass(node, checker, evalInCheckerContext)
+        }
+        function doAfterCheckPass(node:Node) {
+            afterCheckPass(node, checker, evalInCheckerContext)
+        }
+
+        // [/ConcreteTypeScript]
+
         function checkSourceFile(node: SourceFile) {
             let start = new Date().getTime();
             
             // [ConcreteTypeScript] Add a debug pass for annotations used in "unit" testing (aka something more granular than compilation tests).
             // if (debug...)
             if (node.fileName.indexOf(".d.ts") === -1) {
-                forEachChildRecursive(node, subnode => beforeCheckPass(subnode, checker, s => eval(s)));
+                forEachChildRecursive(node, doBeforeCheckPass);
             }
             // [/ConcreteTypeScript]
             checkSourceFileWorker(node);
@@ -14617,7 +14631,7 @@ namespace ts {
             // [ConcreteTypeScript] Add a debug pass for annotations used in "unit" testing (aka something more granular than compilation tests).
             // if (debug...)
             if (node.fileName.indexOf(".d.ts") === -1) {
-                forEachChildRecursive(node, subnode => afterCheckPass(subnode, checker, s => eval(s)));
+                forEachChildRecursive(node, doAfterCheckPass);
             }
             // [/ConcreteTypeScript]
         }

@@ -1,2 +1,0 @@
-should_error/this_types_assignment_1arg.ts(7,1): error TS2322: Type '(this: number; num: number) => number' is not assignable to type '(this: string; num: number) => number'.
-  Type 'number' is not assignable to type 'string'.

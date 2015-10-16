@@ -1,5 +1,0 @@
-1+1=2 Foo
-1+1=2
-should_error/this_type_member_not_found.ts(6,10): error TS2339: Property 'x' does not exist on type '!Foo'.
-BrandTypeDeclaration ()
-BrandTypeDeclaration.name (text: Foo)
