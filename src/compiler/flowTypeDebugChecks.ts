@@ -32,7 +32,8 @@ namespace ts {
     
     // Let the default be on expressions, except if its assertEmitted:
     let macros = {
-        "@assertEmitted\\(([^]+)\\)": s => `@afterEmit[isStatement]{assertEmitted(${s})}`,
+        "@assertEmitted\\[([^\\]]+)\\]\\(([^]+)\\)": (c,s) => `@afterEmit[${c}]{assertEmitted(${s})}`,
+        "@assertEmitted\\(([^]+)\\)": s => `@afterEmit{assertEmitted(${s})}`,
         "@([a-zA-Z]+)\\(([^]+)\\)": (f,s) => `@afterCheck[isExpression]{${f}(${s})}`
     };
 
@@ -125,6 +126,10 @@ namespace ts {
             let line = `${prefix} at (${getNodeKindAsString(node)}) ${sourceFile.fileName}:${lineNum}:${linePos}, ${message}`;
             writeLine(line);
         }
+        function assertEmitted(string) {
+            let emitted = (<any>node).DEBUG_emitted_text;
+            return assert(emitted.match(string) >= 0, `Expected to emit '${string}'.`);
+        }
         function assertError(string) {
             let errors = (<any>node).DEBUG_check_diagonistics;
             if (!errors) {
@@ -132,7 +137,7 @@ namespace ts {
             }
             for (let error of errors) {
                 if (error.match(string)) {
-                    return;
+                    return assert(true, `Found error containing '${string}'.`);
                 }
             }
             return assert(false, `Asserted that we have an error containing '${string}', but no errors matched.`);
@@ -152,6 +157,7 @@ namespace ts {
             getType,
             hasType,
             writeLine,
+            assertEmitted,
             assertError,
             assertType: (type) => assert(hasType(type), `Should be type ${checker.typeToString(toType(type))}, was type ${checker.typeToString(getType())}`)
         });

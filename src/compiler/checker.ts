@@ -747,9 +747,12 @@ namespace ts {
             return type;
         }
 
+        function isConcreteType(type:Type):boolean {
+            return !!(type.flags & TypeFlags.Concrete);
+        }
         // And force a type to its non-concrete equivalent
         function stripConcreteType(target: Type) {
-            if (target.flags & TypeFlags.Concrete) {
+            if (isConcreteType(target)) {
                 return (<ConcreteType>target).baseType;
             } else {
                 return target;
@@ -762,21 +765,20 @@ namespace ts {
         function checkCTSCoercion(node: Node, fromType: Type, toType: Type) {
             /* If the target type is concrete and value type isn't, must check,
              * unless it's known null or undefined */
-            if (toType.flags & TypeFlags.Concrete &&
-                !(fromType.flags & TypeFlags.Concrete) &&
+            if (isConcreteType(toType) && !isConcreteType(fromType) &&
                 fromType !== nullType && fromType !== undefinedType) {
                 node.mustCheck = toType;
             }
 
             // If the target is float and expression isn't, must coerce
-            if ((toType.flags & TypeFlags.Concrete && (<ConcreteType>toType).baseType.flags & TypeFlags.FloatHint) &&
-                !(fromType.flags & TypeFlags.Concrete && (<ConcreteType>fromType).baseType.flags & TypeFlags.FloatHint)) {
+            if ((isConcreteType(toType) && (<ConcreteType>toType).baseType.flags & TypeFlags.FloatHint) &&
+                !(isConcreteType(fromType) && (<ConcreteType>fromType).baseType.flags & TypeFlags.FloatHint)) {
                 node.mustFloat = true;
             }
 
             // And similar for int
-            if ((toType.flags & TypeFlags.Concrete && (<ConcreteType>toType).baseType.flags & TypeFlags.IntHint) &&
-                !(fromType.flags & TypeFlags.Concrete && (<ConcreteType>fromType).baseType.flags & TypeFlags.IntHint)) {
+            if ((isConcreteType(toType) && (<ConcreteType>toType).baseType.flags & TypeFlags.IntHint) &&
+                !(isConcreteType(fromType) && (<ConcreteType>fromType).baseType.flags & TypeFlags.IntHint)) {
                 node.mustInt = true;
             }
         }
@@ -1727,7 +1729,7 @@ namespace ts {
                         writer.writeStringLiteral((<StringLiteralType>type).text);
                     }
                     // [ConcreteTypeScript]
-                    else if (type.flags & TypeFlags.Concrete) {
+                    else if (isConcreteType(type)) {
                         writer.writeOperator("!");
                         writeType((<ConcreteType>type).baseType, flags);
                     }
@@ -4414,7 +4416,7 @@ namespace ts {
         function stripConcretesIfNotAllConcrete(types: Type[]):boolean {
             let allConcrete = true;
             for (let i = 0; i < types.length; i++) {
-                if (!(types[i].flags & TypeFlags.Concrete)) {
+                if (!isConcreteType(types[i])) {
                     allConcrete = false;
                     break;
                 }
@@ -5032,12 +5034,12 @@ namespace ts {
                     }
                 }
                 // [ConcreteTypeScript] Support for concrete type relationships
-                else if (source.flags & TypeFlags.Concrete) {
+                else if (isConcreteType(source)) {
                     if (result = concreteTypeRelatedToType(<ConcreteType>source, target, reportErrors)) {
                         return result;
                     }
                 }
-                else if (target.flags & TypeFlags.Concrete) {
+                else if (isConcreteType(target)) {
                     if (result = typeRelatedToConcreteType(source, <ConcreteType>target, reportErrors)) {
                         return result;
                     }
@@ -5108,7 +5110,7 @@ namespace ts {
 
             function isIdenticalTo(source: Type, target: Type): Ternary {
                 // [ConcreteTypeScript]
-                if ((source.flags & TypeFlags.Concrete) && (target.flags & TypeFlags.Concrete)) {
+                if (isConcreteType(source) && isConcreteType(target)) {
                     let result = isTypeIdenticalTo(stripConcreteType(source), stripConcreteType(target));
                     return result ? Ternary.True : Ternary.False;
                 }
@@ -5241,7 +5243,7 @@ namespace ts {
 
             // [ConcreteTypeScript] Type relationships between concrete and unconcrete types
             function typeRelatedToConcreteType(source: Type, target: ConcreteType, reportErrors: boolean): Ternary {
-                if (source.flags & TypeFlags.Concrete) {
+                if (isConcreteType(source)) {
                     // !x <: !y iff x <: y
                     return isRelatedTo((<ConcreteType>source).baseType, target.baseType, reportErrors);
                 }
@@ -5249,7 +5251,7 @@ namespace ts {
             }
 
             function concreteTypeRelatedToType(source: ConcreteType, target: Type, reportErrors: boolean): Ternary {
-                if (target.flags & TypeFlags.Concrete) {
+                if (isConcreteType(target)) {
                     // !x <: !y iff x <: y
                     return isRelatedTo(source.baseType, (<ConcreteType>target).baseType, reportErrors);
                 } else {
@@ -6394,8 +6396,8 @@ namespace ts {
                 let types = (<UnionType>type).types;
                 // [ConcreteTypeScript]
                 // Also remove concrete equivalents
-                if (forEach(types, t => ((t.flags & typeKind) || (t.flags & TypeFlags.Concrete && (<ConcreteType>t).baseType.flags & typeKind)))) {
-                    let narrowedType = getUnionType(filter(types, t => !((t.flags & typeKind) || (t.flags & TypeFlags.Concrete && (<ConcreteType>t).baseType.flags & typeKind))));
+                if (forEach(types, t => ((t.flags & typeKind) || (isConcreteType(t) && (<ConcreteType>t).baseType.flags & typeKind)))) {
+                    let narrowedType = getUnionType(filter(types, t => !((t.flags & typeKind) || (isConcreteType(t) && (<ConcreteType>t).baseType.flags & typeKind))));
                 // [/ConcreteTypeScript]
                     if (allowEmptyUnionResult || narrowedType !== emptyObjectType) {
                         return narrowedType;
@@ -6511,7 +6513,7 @@ namespace ts {
             // [ConcreteTypeScript] Brand variable declarations evaluate to their subtype
             // until the end of scope, or inside a return statement.
             if (node.kind == SyntaxKind.Identifier && nodeDowngradeToBaseClass.get(node)) {
-                if (type.flags & TypeFlags.Concrete) {
+                if (isConcreteType(type)) {
                     type = (<InterfaceType>stripConcreteType(type)).resolvedBaseTypes[0];
                     if (type) {
                         type = createConcreteType(type) || type;
@@ -8405,17 +8407,16 @@ namespace ts {
                 }
             }
             // Must check if the member is concrete but it is being accessed on a non-concrete type
-            if ((ptype.flags & TypeFlags.Concrete) &&
-                !(type.flags & TypeFlags.Concrete)) {
+            if (isConcreteType(ptype) && !isConcreteType(type)) {
                 node.mustCheck = ptype;
             }
 
             // And may use direct access if the target object is concrete
-            if (type.flags & TypeFlags.Concrete &&
+            if (isConcreteType(type) &&
                 (<ConcreteType>type).baseType.flags & (TypeFlags.Class | TypeFlags.Brand)) {
                 node.direct = true;
                 // As well as name-mangled access if the target value is concrete, or a method being called
-                if (ptype.flags & TypeFlags.Concrete ||
+                if (isConcreteType(ptype) ||
                     (prop.flags & SymbolFlags.Method && node.parent.kind === SyntaxKind.CallExpression &&
                      (<CallExpression>node.parent).expression === <any>node)) {
                     node.mangled = true;
@@ -8423,11 +8424,11 @@ namespace ts {
             }
 
             // And float/intness
-            if (ptype.flags & TypeFlags.Concrete &&
+            if (isConcreteType(ptype) &&
                 (<ConcreteType>ptype).baseType.flags & TypeFlags.FloatHint) {
                 node.assertFloat = true;
             }
-            if (ptype.flags & TypeFlags.Concrete &&
+            if (isConcreteType(ptype) &&
                 (<ConcreteType>ptype).baseType.flags & TypeFlags.IntHint) {
                 node.assertInt = true;
             }
@@ -8455,7 +8456,7 @@ namespace ts {
 
         function checkIndexedAccess(node: ElementAccessExpression): Type {
             let type = checkIndexedAccessPrime(node);
-            if (type.flags & TypeFlags.Concrete) {
+            if (isConcreteType(type)) {
                 node.mustCheck = type;
             }
             return type;
@@ -9758,21 +9759,21 @@ namespace ts {
             // 3. is over a non-concrete object,
             // then its return must be checked.
             let rtype = getReturnTypeOfSignature(signature);
-            if (rtype.flags & TypeFlags.Concrete) { // 2
+            if (isConcreteType(rtype)) { // 2
                 let fnode = node.expression;
                 if (fnode.kind === SyntaxKind.PropertyAccessExpression) { // 1
                     let target = (<PropertyAccessExpression>fnode).expression;
                     let ttype = checkExpression(target);
-                    if (!(ttype.flags & TypeFlags.Concrete || (ttype.symbol && ttype.symbol.flags & SymbolFlags.Class))) { // 3
+                    if (!(isConcreteType(ttype) || (ttype.symbol && ttype.symbol.flags & SymbolFlags.Class))) { // 3
                         // Must check!
                         node.mustCheck = rtype;
 
-                    } else if (ttype.flags & TypeFlags.Concrete &&
+                    } else if (isConcreteType(ttype) &&
                         (<ConcreteType>rtype).baseType.flags & TypeFlags.FloatHint) {
                         // Can assert that it's a float
                         node.assertFloat = true;
 
-                    } else if (ttype.flags & TypeFlags.Concrete &&
+                    } else if (isConcreteType(ttype) &&
                         (<ConcreteType>rtype).baseType.flags & TypeFlags.IntHint) {
                         // Can assert that it's an int
                         node.assertInt = true;
@@ -10652,8 +10653,8 @@ namespace ts {
                     let leftConcrete: boolean = false,
                         rightConcrete: boolean = false,
                         resultConcrete: boolean = false;
-                    if (leftType.flags & TypeFlags.Concrete) leftConcrete = true;
-                    if (rightType.flags & TypeFlags.Concrete) rightConcrete = true;
+                    if (isConcreteType(leftType)) leftConcrete = true;
+                    if (isConcreteType(rightType)) rightConcrete = true;
                     if (leftConcrete && rightConcrete) resultConcrete = true;
                     leftType = stripConcreteType(leftType);
                     rightType = stripConcreteType(rightType);
@@ -10725,7 +10726,7 @@ namespace ts {
                     // asked for.
                     // FIXME: This could break trace-preservation, if the
                     // falseyness behaves differently
-                    if (rightType.flags & TypeFlags.Concrete) {
+                    if (isConcreteType(rightType)) {
                         if (isTypeAssignableTo(leftType, rightType)) {
                             // it's fine, but may need an optimizing-hint coercion
                             checkCTSCoercion(node.left, leftType, rightType);
@@ -12691,7 +12692,7 @@ namespace ts {
                         if (brandTypeDecl.extendedType) {
                             // Use default messages
                             let extendedType:Type = getTypeFromTypeNode(brandTypeDecl.extendedType);
-                            if (!(extendedType.flags & TypeFlags.Concrete)) {
+                            if (!isConcreteType(extendedType)) {
                                 extendedType = createConcreteType(extendedType);
                             }
                             checkTypeAssignableTo(checkExpressionCached(node.initializer), extendedType, node, /*headMessage*/ undefined);

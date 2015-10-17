@@ -124,6 +124,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
         }
 
         function emitJavaScript(jsFilePath: string, root?: SourceFile) {
+            // [ConcreteTypeScript] List of nodes used in testing:
+            // TODO Unhackify this:
+                var emitConstructor = debugWrapEmitterForIntrusiveTesting(emitConstructorRaw, node => getFirstConstructorWithBody(node));
+                var emitNodeWithoutSourceMap = debugWrapEmitterForIntrusiveTesting(emitNodeWithoutSourceMapRaw);
+                var emitClassLikeDeclaration = debugWrapEmitterForIntrusiveTesting(emitClassLikeDeclarationRaw);
+            // [/ConcreteTypeScript]
+
             let writer = createTextWriter(newLine);
             let { write, writeTextOfNode, writeLine, increaseIndent, decreaseIndent } = writer;
             
@@ -4881,7 +4888,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 }
             }
 
-            function emitConstructor(node: ClassLikeDeclaration, baseTypeElement: ExpressionWithTypeArguments) {
+            
+            // [ConcreteTypeScript] Wrap on demand for debugging
+            function emitConstructorRaw(node: ClassLikeDeclaration, baseTypeElement: ExpressionWithTypeArguments) {
+            // [/ConcreteTypeScript]
                 let saveTempFlags = tempFlags;
                 let saveTempVariables = tempVariables;
                 let saveTempParameters = tempParameters;
@@ -5068,7 +5078,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 return emitClassLikeDeclaration(node);
             }
 
-            function emitClassLikeDeclaration(node: ClassLikeDeclaration) {
+            function emitClassLikeDeclarationRaw(node: ClassLikeDeclaration) {
                 if (languageVersion < ScriptTarget.ES6) {
                     emitClassLikeDeclarationBelowES6(node);
                 }
@@ -7374,6 +7384,12 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 }
             }
 
+            function evalInLocalScope(s:string) {
+                return eval(s);
+            }
+            function doAfterEmitPass(node:Node) {
+                afterEmitPass(node, evalInLocalScope);
+            }
             function emitSourceFileNode(node: SourceFile) {
                 // Start new file on new line
                 writeLine();
@@ -7425,6 +7441,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 }
 
                 emitLeadingComments(node.endOfFileToken);
+                if (node.fileName.indexOf(".d.ts") === -1) {
+                    forEachChildRecursive(node, doAfterEmitPass);
+                }
             }
 
             function emitNodeWithCommentsAndWithoutSourcemap(node: Node): void {
@@ -7455,10 +7474,27 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 }
             }
 
-            function emitNodeWithoutSourceMap(node: Node): void {
-                // [ConcreteTypeScript] For debugging, allow asserting about what a node emitted
+            // [ConcreteTypeScript]
+            function debugWrapEmitterForIntrusiveTesting<A>(emitter:A, nodeMap = (x => x)): A {
+                // For debugging, allow asserting about what a node emitted
                 // by taking the text difference after writing and passing it to a debugging function
-                let textLengthBeforeWriting = writer.getText().length;
+                if (!ENABLE_DEBUG_ANNOTATIONS) {
+                    return emitter;
+                }
+                function wrapped(node, ...args) {
+                    let textLengthBeforeWriting = writer.getText().length;
+                    let value = (<any>emitter)(node, ...args);
+                    let newNode = nodeMap(node);
+                    if (newNode) {
+                        (<any>newNode).DEBUG_emitted_text = writer.getText().substring(textLengthBeforeWriting);
+                    }
+                    return value;
+                }
+                return <any> wrapped;
+            }
+
+
+            function emitNodeWithoutSourceMapRaw(node: Node): void {
                 if (node) {
                 // [ConcreteTypeScript] Emit type check if necessary
                     if (node.mustFloat && compilerOptions.emitV8Intrinsics) {
@@ -7517,7 +7553,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                             writeLine();
                         }
                     }
-                    // (<any>ts).debugPass(currentSourceFile, {passType:"emit", emittedText: writer.getText().substring(textLengthBeforeWriting)}, node)
                 }
             }
 
