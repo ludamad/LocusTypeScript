@@ -262,7 +262,7 @@ namespace ts {
             let diagnostic = location
                 ? createDiagnosticForNode(location, message, arg0, arg1, arg2)
                 : createCompilerDiagnostic(message, arg0, arg1, arg2);
-
+            // [/ConcreteTypeScript]
             diagnostics.add(diagnostic);
         }
         
@@ -14367,8 +14367,21 @@ namespace ts {
                 error(node, Diagnostics.A_type_predicate_is_only_allowed_in_return_type_position_for_functions_and_methods);
             }
         }
-
+        // [ConcreteTypeScript] Allow for checking which nodes are associated with which errors
         function checkSourceElement(node: Node): void {
+            let diagnosticsBefore = ENABLE_DEBUG_ANNOTATIONS && diagnostics.getDiagnostics();
+            checkSourceElementWorker(node);
+            let diagnosticsAfter = ENABLE_DEBUG_ANNOTATIONS && diagnostics.getDiagnostics();
+            if (ENABLE_DEBUG_ANNOTATIONS && diagnosticsAfter.length > diagnosticsBefore.length) {
+                for (let i = diagnosticsBefore.length; i < diagnosticsAfter.length; i++) {
+                    let {messageText} = diagnosticsAfter[i];
+                    (<any>node).DEBUG_check_diagonistics = (<any>node).DEBUG_check_diagonistics || [];
+                    (<any>node).DEBUG_check_diagonistics.push(messageText);                
+                }
+            }
+        }
+        function checkSourceElementWorker(node: Node): void {
+        // [/ConcreteTypeScript]
             if (!node) {
                 return;
             }

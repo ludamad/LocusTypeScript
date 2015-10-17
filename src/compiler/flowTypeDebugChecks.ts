@@ -23,21 +23,36 @@ namespace ts {
 
     interface DebugAnnotation {
         annotationCode:string;
-        nodeKindRegex?:string;
+        filterFunctionCode?:string;
     }
 
     function dropFirstAndLastChars(str:string) {
         return str.substring(1, str.length - 1);
     }
+    
+    // Let the default be on expressions, except if its assertEmitted:
+    let macros = {
+        "@assertEmitted\\(([^]+)\\)": s => `@afterEmit[isStatement]{assertEmitted(${s})}`,
+        "@([a-zA-Z]+)\\(([^]+)\\)": (f,s) => `@afterCheck[isExpression]{${f}(${s})}`
+    };
+
     function getAnnotationsFromComment(sourceText:string, type:string, range: CommentRange):DebugAnnotation[] {
         let comment = sourceText.substring(range.pos, range.end);
+        
+        for (let key of Object.keys(macros)) {
+            let match = null;
+            while (match = comment.match(new RegExp(key))) {
+                let prevString = match.shift();
+                comment = comment.replace(prevString, macros[key](...match));
+            }
+        }
         let annotations:DebugAnnotation[] = [];
         // Handle debug annotations with a node type filter:
         let withFilterRegex = new RegExp(`@${type}\\[[\\S]+\\]\\{[^]+\\}`, 'g');
         for (let match of comment.match(withFilterRegex) || []) {
             annotations.push({
                 annotationCode: dropFirstAndLastChars(match.match(/{[^]+}/)[0]),
-                nodeKindRegex: dropFirstAndLastChars(match.match(/\[[\S]+\]/)[0])
+                filterFunctionCode: dropFirstAndLastChars(match.match(/\[[\S]+\]/)[0])
             });
         }
         // Handle uncoditional debug annotations:
@@ -110,6 +125,18 @@ namespace ts {
             let line = `${prefix} at (${getNodeKindAsString(node)}) ${sourceFile.fileName}:${lineNum}:${linePos}, ${message}`;
             writeLine(line);
         }
+        function assertError(string) {
+            let errors = (<any>node).DEBUG_check_diagonistics;
+            if (!errors) {
+                return assert(false, `Asserted that we have an error containing '${string}', but had no errors.`);
+            }
+            for (let error of errors) {
+                if (error.match(string)) {
+                    return;
+                }
+            }
+            return assert(false, `Asserted that we have an error containing '${string}', but no errors matched.`);
+        }
         function hasType(type) {
             return checker.isTypeIdenticalTo(getType(), toType(type));
         }
@@ -125,26 +152,21 @@ namespace ts {
             getType,
             hasType,
             writeLine,
+            assertError,
             assertType: (type) => assert(hasType(type), `Should be type ${checker.typeToString(toType(type))}, was type ${checker.typeToString(getType())}`)
         });
     }
 
-    function onPass(node: Node, prefix:string, evaler: (string)=>void, functions) {
+    function onPass(node: Node, prefix:string, evaler: (string)=>any, functions) {
         let sourceFile = getSourceFileOfNode(node);
         // if (sourceFile.fileName.indexOf(".d.ts") >= 0) {
         //     return;
         // }
         let sourceText = sourceFile.text;
-        for (let {annotationCode,nodeKindRegex} of getAnnotationsForNode(sourceText, prefix, node)) {
-            if (!nodeKindRegex) {
+        for (let {annotationCode,filterFunctionCode} of getAnnotationsForNode(sourceText, prefix, node)) {
+            // If a filter is specified with [], use this before executing the code in {}
+            if (!filterFunctionCode || wrapEvaler(evaler, `return ${filterFunctionCode};`, ts)(node)) {
                 wrapEvaler(evaler, annotationCode, functions);
-                continue;
-            }
-            let dontMatch = (nodeKindRegex.charAt(0) === "~");
-            let regex = new RegExp(dontMatch ? nodeKindRegex.substring(1) : nodeKindRegex);
-            let matched = !!getNodeKindAsString(node).match(regex);
-            if (dontMatch !== matched) { // Does the matchness match?
-                wrapEvaler(evaler, annotationCode, functions);;
             }
         }
     }
@@ -158,6 +180,21 @@ namespace ts {
         if (!node.__wasVisitedAfterCheck) {
             onPass(node, "afterCheck", evaler, getEvaluationScope(node, "afterCheck", checker));
             node.__wasVisitedAfterCheck = true;
+        }
+    }
+    function evalInLocalScope(s) {
+        return eval(s);
+    }
+    export function afterParsePass(node) {
+        if (!node.__wasVisitedAfterParse) {
+            onPass(node, "afterParse", evalInLocalScope, getEvaluationScope(node, "afterParse"));
+            node.__wasVisitedAfterParse = true;
+        }
+    }
+    export function afterEmitPass(node, evaler) {
+        if (!node.__wasVisitedAfterEmit) {
+            onPass(node, "afterEmit", evaler, getEvaluationScope(node, "afterEmit"));
+            node.__wasVisitedAfterEmit = true;
         }
     }
     // Supported checks:

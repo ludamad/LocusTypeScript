@@ -3,6 +3,7 @@
 
 namespace ts {
 
+    export const ENABLE_DEBUG_ANNOTATIONS = true;
     export class NodeMap<N extends Node, T> {
         private values:any = {};
         set(node:N, val:T) {
