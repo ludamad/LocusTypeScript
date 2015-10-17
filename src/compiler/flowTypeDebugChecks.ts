@@ -30,11 +30,25 @@ namespace ts {
         return str.substring(1, str.length - 1);
     }
     
+    let AT_NAME = "@([a-zA-Z]+)";
+    let SQUARE_PARAMS = "\\(([^]+)\\)";
+    let PARAMS = "\\(([^]+)\\)";
     // Let the default be on expressions, except if its assertEmitted:
     let macros = {
-        "@assertEmitted\\[([^{\\(]+)\\]\\(([^]+)\\)": (c,s) => `@afterEmit[${c}]{assertEmitted(${s})}`,
-        "@assertEmitted\\(([^]+)\\)": s => `@afterEmit{assertEmitted(${s})}`,
-        "@([a-zA-Z]+)\\(([^]+)\\)": (f,s) => `@afterCheck[isExpression]{${f}(${s})}`
+        [`${AT_NAME}${PARAMS}`]: (f,s) => {        
+            if (f === "assertEmitted") {
+                return `@afterEmit{${f}(${s})}`;
+            } else {
+                return `@afterCheck[isExpression]{${f}(${s})}`;
+            }
+        },
+        [`${AT_NAME}${SQUARE_PARAMS}${PARAMS}`]: (c, f,s) => {        
+            if (f === "assertEmitted") {
+                return `@afterEmit[${c}]{{${f}(${s})}`;
+            } else {
+                return `@afterCheck[${c}]{${f}(${s})}`;
+            }
+        }
     };
 
     function getAnnotationsFromComment(sourceText:string, type:string, range: CommentRange):DebugAnnotation[] {
@@ -95,6 +109,7 @@ namespace ts {
             try { require("fs").unlinkSync(fileName); } catch(err) {}
             filesWrittenTo[fileName] = true;
         }
+        console.log(line)
         require("fs").appendFileSync(fileName, line + '\n');
     }
 
@@ -131,7 +146,9 @@ namespace ts {
             writeLine(line);
         }
         function assertEmitted(string) {
-            return assert(emittedText.match(string), `Expected to emit '${string}'.`);
+            let matched = emittedText.match(string);
+            let extraText = '';//matched ? '' : ` (${emittedText})`;
+            return assert(matched, `Expected to emit '${string}'${extraText}.`);
         }
         function assertError(string) {
             let errors = (<any>node).DEBUG_check_diagonistics;
@@ -146,6 +163,9 @@ namespace ts {
             return assert(false, `Asserted that we have an error containing '${string}', but no errors matched.`);
         }
         function hasType(type) {
+            if (typeof type === "string") {
+                return checker.typeToString(getType()) === type;
+            }
             return checker.isTypeIdenticalTo(getType(), toType(type));
         }
         function concrete(type) {
@@ -223,9 +243,7 @@ namespace ts {
             type = checker.getDeclaredTypeOfSymbol(decl.prototypeBrandDeclaration.symbol);
         }
         if (isConcrete) {
-            type.concreteType = <ConcreteType>checker.createType(TypeFlags.Concrete);
-            type.concreteType.baseType = type;
-            return type.concreteType;
+            return checker.createConcreteType(type);
         }
         return type;
     }

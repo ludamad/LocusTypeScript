@@ -13,9 +13,9 @@ var Point = (function () {
         this;
     }
     $$cts$$runtime.protect(Number,"x",Point.prototype,true);
-    /*@afterEmit[isFunctionLike]{assertEmitted(/cement[^]*cement/);}       */
     /*@assertEmitted[isFunctionLike](/cts.*cast.*Point.*this/) */
     /*@assertEmitted[isFunctionLike](/cts.*cast.*String.*s/)   */
+    /*@assertEmitted[isFunctionLike](/cement[^]*cement/)       */
     $$cts$$runtime.cement(Point.prototype,"test",function (s) {
         $$cts$$runtime.cast(Point,this);
         $$cts$$runtime.cast(String,s);

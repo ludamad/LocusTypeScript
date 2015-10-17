@@ -3,8 +3,11 @@ if (typeof $$cts$$runtime === "undefined") {
     else if (typeof document !== "undefined") { document.writeln("<script src=\"cts-runtime.js\"></script>"); }
     else throw new Error("Could not load ConcreteTypeScript runtime!");
 }
-/* @TestExpectedToHaveCompileErrors */
-/*
-@assertError[isStatement]("Type 'string' is not assignable to type '!string'");
-*/
-var str = ($$cts$$runtime.cast(String,("string")));
+var ClassWithA = (function () {
+    function ClassWithA(a) {
+        $$cts$$runtime.cast(ClassWithA,this);
+        this.a = a;
+    }
+    return ClassWithA;
+})();
+var hasA = new ClassWithA("string");
