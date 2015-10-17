@@ -4742,7 +4742,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             }
 
             function emitMemberFunctionsForES5AndLower(node: ClassLikeDeclaration) {
-                forEach(node.members, member => {
+                // [ConcreteTypeScript]
+                forEach(node.members, debugWrapEmitterForIntrusiveTesting(member => {
                     if (member.kind === SyntaxKind.SemicolonClassElement) {
                         writeLine();
                         write(";");
@@ -4849,7 +4850,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                             emitEnd(member);
                         }
                     }
-                });
+                }));
             }
 
             function emitMemberFunctionsForES6AndHigher(node: ClassLikeDeclaration) {

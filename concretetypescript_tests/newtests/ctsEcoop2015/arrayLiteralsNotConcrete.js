@@ -3,5 +3,5 @@ if (typeof $$cts$$runtime === "undefined") {
     else if (typeof document !== "undefined") { document.writeln("<script src=\"cts-runtime.js\"></script>"); }
     else throw new Error("Could not load ConcreteTypeScript runtime!");
 }
-/*@assert(isConcreteType(getType()), "Array types shouldn't be concrete!")*/
+/*@assert(!isConcreteType(getType()), "Array types shouldn't be concrete!")*/
 [1, 2, 3];

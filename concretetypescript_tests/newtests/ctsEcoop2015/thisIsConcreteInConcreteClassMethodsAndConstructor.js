@@ -3,18 +3,27 @@ if (typeof $$cts$$runtime === "undefined") {
     else if (typeof document !== "undefined") { document.writeln("<script src=\"cts-runtime.js\"></script>"); }
     else throw new Error("Could not load ConcreteTypeScript runtime!");
 }
-/*@afterEmit[isClassLike]{
-    assertEmitted(/\s+cts.*runtime.*cast.*Point;/);
-}*/
 var Point = (function () {
     function Point(x, y) {
         $$cts$$runtime.cast(Point,this);
         $$cts$$runtime.cast(Number,x);
         $$cts$$runtime.cast(Number,y);
         $$cts$$runtime.addUnenum(this,"$$cts$$value$x",x);
+        /*@assertType("!Point");*/
+        this;
     }
     $$cts$$runtime.protect(Number,"x",Point.prototype,true);
+    /*@afterEmit[isFunctionLike]{assertEmitted(/cement[^]*cement/);}       */
+    /*@assertEmitted[isFunctionLike](/cts.*cast.*Point.*this/) */
+    /*@assertEmitted[isFunctionLike](/cts.*cast.*String.*s/)   */
+    $$cts$$runtime.cement(Point.prototype,"test",function (s) {
+        $$cts$$runtime.cast(Point,this);
+        $$cts$$runtime.cast(String,s);
+        return this.$$cts$$value$test.apply(this, arguments);
+        });
+    $$cts$$runtime.cement(Point.prototype,"$$cts$$value$test",function (s) {
+        /*@assertType("!Point");*/
+        this;
+    });
     return Point;
 })();
-/*@assert(isConcreteType(getType()), "Class types with concrete members should be concrete!")*/
-new Point(1, 2);

@@ -32,7 +32,7 @@ namespace ts {
     
     // Let the default be on expressions, except if its assertEmitted:
     let macros = {
-        "@assertEmitted\\[([^\\]]+)\\]\\(([^]+)\\)": (c,s) => `@afterEmit[${c}]{assertEmitted(${s})}`,
+        "@assertEmitted\\[([^{\\(]+)\\]\\(([^]+)\\)": (c,s) => `@afterEmit[${c}]{assertEmitted(${s})}`,
         "@assertEmitted\\(([^]+)\\)": s => `@afterEmit{assertEmitted(${s})}`,
         "@([a-zA-Z]+)\\(([^]+)\\)": (f,s) => `@afterCheck[isExpression]{${f}(${s})}`
     };
@@ -49,11 +49,11 @@ namespace ts {
         }
         let annotations:DebugAnnotation[] = [];
         // Handle debug annotations with a node type filter:
-        let withFilterRegex = new RegExp(`@${type}\\[[\\S]+\\]\\{[^]+\\}`, 'g');
+        let withFilterRegex = new RegExp(`@${type}\\[[^{]+\\]\\{[^]+\\}`, 'g');
         for (let match of comment.match(withFilterRegex) || []) {
             annotations.push({
                 annotationCode: dropFirstAndLastChars(match.match(/{[^]+}/)[0]),
-                filterFunctionCode: dropFirstAndLastChars(match.match(/\[[\S]+\]/)[0])
+                filterFunctionCode: dropFirstAndLastChars(match.match(/\[[^{]+\]/)[0])
             });
         }
         // Handle uncoditional debug annotations:
@@ -109,6 +109,10 @@ namespace ts {
     function getEvaluationScope(node:Node, pass:string, checker?:TypeChecker) {
         let sourceFile = getSourceFileOfNode(node);
         let resultFileName = `${sourceFile.fileName}.${pass}.output`;
+        let emittedText = (<any>node).DEBUG_emitted_text;
+        // Remove comments:
+        emittedText = emittedText && emittedText.replace(/(\/\*([\s\S]*?)\*\/)|(\/\/(.*)$)/gm, '');
+
         function writeLine(line:string) {
             writeLineToFile(resultFileName, line);
         }
@@ -127,8 +131,7 @@ namespace ts {
             writeLine(line);
         }
         function assertEmitted(string) {
-            let emitted = (<any>node).DEBUG_emitted_text;
-            return assert(emitted.match(string) >= 0, `Expected to emit '${string}'.`);
+            return assert(emittedText.match(string), `Expected to emit '${string}'.`);
         }
         function assertError(string) {
             let errors = (<any>node).DEBUG_check_diagonistics;
@@ -152,6 +155,7 @@ namespace ts {
         return merge(ts, {
             concrete, STORAGE, sourceFile, node,
             sourceText: sourceFile.text,
+            emittedText,
             toType,
             assert,
             getType,
