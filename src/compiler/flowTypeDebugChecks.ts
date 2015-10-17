@@ -100,6 +100,7 @@ namespace ts {
             return evaler(funcBody).apply(null, args);
         } catch(err) {
             console.log(err, "When executing " + code)
+            console.log(err.stack)
         }
     }
 
@@ -183,7 +184,7 @@ namespace ts {
             writeLine,
             assertEmitted,
             assertError,
-            assertType: (type) => assert(hasType(type), `Should be type ${checker.typeToString(toType(type))}, was type ${checker.typeToString(getType())}`)
+            assertType: (type) => assert(hasType(type), `Should be type ${typeof type === "string" ? type : checker.typeToString(toType(type))}, was type ${checker.typeToString(getType())}`)
         });
     }
 

@@ -1,3 +1,6 @@
+/* @assertType("string") */
+(<string>"string").toLowerCase();
+
 interface HasA {
     a:!string;
 }
@@ -8,4 +11,3 @@ class ClassWithA {
 }
 
 var hasA:HasA = new ClassWithA("string");
-

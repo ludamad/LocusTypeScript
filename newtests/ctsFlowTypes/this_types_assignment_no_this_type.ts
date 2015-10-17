@@ -1,3 +1,4 @@
+/* @TextExpectedToHaveCompileErrors */
 type T1 = (this:any) => number;
 type T2 = () => number;
 

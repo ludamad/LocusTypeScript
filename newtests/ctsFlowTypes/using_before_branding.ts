@@ -1,3 +1,4 @@
+/* @TextExpectedToHaveCompileErrors */
 
 function usesFoo(foo:!Foo) {
     

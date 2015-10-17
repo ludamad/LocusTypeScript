@@ -7,7 +7,7 @@ var path = require("path");
 var clc = require("cli-color");
 var {exec,spawn}   = require('child_process');
 var fs = require("fs");
-var testBundles = {"ctsEcoop2015": "Pre-ECOOP2015"};
+var testBundles = {"ctsEcoop2015": "Features of ConcreteTypeScript as of ECOOP2015"};
 
 for (var testBundle of Object.keys(testBundles)) {
     var numberPassedAsserts = 0;
@@ -27,7 +27,9 @@ for (var testBundle of Object.keys(testBundles)) {
     function createTestForFileInBundle(file:string) {
         var fileContent = fs.readFileSync(file, 'utf8');
         var compileFailureExpected = fileContent.match("@TestExpectedToHaveCompileErrors");
+        var testFailureExpected = fileContent.match("@KnownDefect");
         let prefix = compileFailureExpected ? "shouldnt" : "should";
+        if (testFailureExpected) prefix = `**KNOWN TO FAIL** ${prefix}`;
         it(`${prefix} compile ${file}`, function(doneCallback) {
             spawnTsc(file, doneCallback, compileFailureExpected);
         });
@@ -64,7 +66,7 @@ for (var testBundle of Object.keys(testBundles)) {
                 assert(compiledWithErrors, "Expected to compile with errors!");
             } else {
                 var compiledSuccessfully = (exitCode === 0);
-                assert(compiledSuccessfully, "Expected to compiled successfully!");
+                assert(compiledSuccessfully, "Expected to compile successfully!");
             }
             processInlineAssertions(file);
             doneCallback();

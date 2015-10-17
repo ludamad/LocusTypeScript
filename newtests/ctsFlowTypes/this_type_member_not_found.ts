@@ -1,3 +1,4 @@
+/* @TextExpectedToHaveCompileErrors */
 function foo() {
     var this: declare Foo;
 }
