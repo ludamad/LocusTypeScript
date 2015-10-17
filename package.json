@@ -53,6 +53,7 @@
   },
   "dependencies": {
     "cli-color": "~1.0.0",
+    "glob": "^5.0.15",
     "readline": "~1.0.1"
   }
 }

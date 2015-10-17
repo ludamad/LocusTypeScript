@@ -1,5 +1,7 @@
 concretetypescript_tests/*/*.output
 node_modules/
+*/node_modules/
+*/*/node_modules/
 *.result
 *.output
 built/*

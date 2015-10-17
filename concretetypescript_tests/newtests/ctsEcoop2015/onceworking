@@ -1,0 +1,86 @@
+@@arrayLiteralsNotConcrete.ts@@
+
+/*@assert(!isConcreteType(getType()), "Array types shouldn't be concrete!")*/ 
+    [1,2,3];
+@@END@@
+
+@@concreteAssignableToLike.ts@@
+var str:string = <!string>"string";
+@@END@@
+
+@@concreteCastsCheck.ts@@
+
+/*assertEmitted[isStatement]("cast") */
+<!number> <any> 1;
+
+@@END@@
+
+@@functionLiteralsNotConcrete.ts@@
+var funcExpr = function() {}; // Note, different result for checking this directly in post ECOOP ConcreteTypeScript
+/*@assert(!isConcreteType(getType()), "Function types shouldn't be concrete!")*/ 
+funcExpr;
+@@END@@
+
+@@likeNotAssignableToConcrete.ts@@
+/* @TestExpectedToHaveCompileErrors */
+/*
+@afterCheck[isStatement]{
+  assertError("Type 'string' is not assignable to type '!string'");
+} 
+*/ 
+var str:!string = <string>"string";
+@@END@@
+
+@@newClassesNoConcreteMembersAreConcrete.ts@@
+/*@afterEmit[isClassLike]{
+    assertEmitted(/\s+cts.*runtime.*cast.*Point;/);
+}*/ 
+class Point {
+    constructor(public x:number, y:number) {
+    }
+}
+// TODO Double check if this should be the case
+/*@assert(isConcrete(getType()), "Class types with no concrete members should be concrete!")*/ 
+new Point(1,2);
+@@END@@
+
+@@newClassesWithConcreteMembersAreConcrete.ts@@
+/*@afterEmit[isClassLike]{
+    assertEmitted(/\s+cts.*runtime.*cast.*Point;/);
+}*/ 
+class Point {
+    constructor(public x:!number, y:!number) {
+    }
+}
+/*@assert(isConcrete(getType()), "Class types with concrete members should be concrete!")*/ 
+new Point(1,2);
+@@END@@
+
+@@numberLiteralsAreConcrete.ts@@
+/* @TestExpectedToHaveCompileErrors */
+
+var num = 1;
+/*@assertType(concrete(numberType))*/ 
+num;
+
+/*
+@afterCheck[isStatement]{
+  assertError("Type 'number' is not assignable to type '!number'");
+} 
+*/ 
+num = <number>num;
+@@END@@
+
+@@objectLiteralsNotConcrete.ts@@
+/*@assert(!isConcreteType(getType()), "Object literal types shouldn't be concrete!")*/ 
+    {a:1, b:2, c:3};
+@@END@@
+
+@@stringLiteralsAreConcrete.ts@@
+
+
+/* @TestExpectedToHaveCompileErrors */
+var str = "string";
+/*@assertType(concrete(stringType))*/ str;
+str = <string>string;
+@@END@@
