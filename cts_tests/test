@@ -1,0 +1,53 @@
+child_process: customFds option is deprecated, use stdio instead.
+[31m  8 failing[0m
+
+[0m  1) Flow types that analyze assignment should compile ctsFlowTypes/big_prototype_func.ts:
+[0m[31m     Uncaught AssertionError: Expected to compile successfully![0m[90m
+      at ChildProcess.<anonymous> (/home/adomurad/sources/ConcreteTypeScript/cts_tests/cts_tests.js:77:17)
+      at ChildProcess.emit (events.js:110:17)
+      at Process.ChildProcess._handle.onexit (child_process.js:1074:12)
+[0m
+[0m  2) Flow types that analyze assignment **KNOWN TO FAIL** shouldnt compile ctsFlowTypes/brand_class_method_redefinition.ts:
+[0m[31m     Uncaught AssertionError: Expected to compile with errors![0m[90m
+      at ChildProcess.<anonymous> (/home/adomurad/sources/ConcreteTypeScript/cts_tests/cts_tests.js:73:17)
+      at ChildProcess.emit (events.js:110:17)
+      at Process.ChildProcess._handle.onexit (child_process.js:1074:12)
+[0m
+[0m  3) Flow types that analyze assignment should compile ctsFlowTypes/brand_proto_in_global_exported_scope.ts:
+[0m[31m     Uncaught AssertionError: Expected to compile successfully![0m[90m
+      at ChildProcess.<anonymous> (/home/adomurad/sources/ConcreteTypeScript/cts_tests/cts_tests.js:77:17)
+      at ChildProcess.emit (events.js:110:17)
+      at Process.ChildProcess._handle.onexit (child_process.js:1074:12)
+[0m
+[0m  4) Flow types that analyze assignment should compile ctsFlowTypes/node-include.ts:
+[0m[31m     Uncaught AssertionError: Expected to compile successfully![0m[90m
+      at ChildProcess.<anonymous> (/home/adomurad/sources/ConcreteTypeScript/cts_tests/cts_tests.js:77:17)
+      at ChildProcess.emit (events.js:110:17)
+      at Process.ChildProcess._handle.onexit (child_process.js:1074:12)
+[0m
+[0m  5) Flow types that analyze assignment should compile ctsFlowTypes/this_declare_same_name_as_func.ts:
+[0m[31m     Uncaught AssertionError: Expected to compile successfully![0m[90m
+      at ChildProcess.<anonymous> (/home/adomurad/sources/ConcreteTypeScript/cts_tests/cts_tests.js:77:17)
+      at ChildProcess.emit (events.js:110:17)
+      at Process.ChildProcess._handle.onexit (child_process.js:1074:12)
+[0m
+[0m  6) Flow types that analyze assignment should compile ctsFlowTypes/this_type_assignment_has_this_to_not_has.ts:
+[0m[31m     Uncaught AssertionError: Expected to compile successfully![0m[90m
+      at ChildProcess.<anonymous> (/home/adomurad/sources/ConcreteTypeScript/cts_tests/cts_tests.js:77:17)
+      at ChildProcess.emit (events.js:110:17)
+      at Process.ChildProcess._handle.onexit (child_process.js:1074:12)
+[0m
+[0m  7) Flow types that analyze assignment should compile ctsFlowTypes/this_var_with_non_brand.ts:
+[0m[31m     Uncaught AssertionError: Expected to compile successfully![0m[90m
+      at ChildProcess.<anonymous> (/home/adomurad/sources/ConcreteTypeScript/cts_tests/cts_tests.js:77:17)
+      at ChildProcess.emit (events.js:110:17)
+      at Process.ChildProcess._handle.onexit (child_process.js:1074:12)
+[0m
+[0m  8) Small refinements post ECOOP2015 **KNOWN TO FAIL** should compile ctsMisc/concrete_string_method_returns_concrete.ts:
+[0m[31m     Uncaught AssertionError: FAILURE executing at (ParenthesizedExpression) ctsMisc/concrete_string_method_returns_concrete.ts:0:0, Should be type !string, was type string[0m[90m
+      at processInlineAssertions (/home/adomurad/sources/ConcreteTypeScript/cts_tests/cts_tests.js:63:21)
+      at ChildProcess.<anonymous> (/home/adomurad/sources/ConcreteTypeScript/cts_tests/cts_tests.js:79:13)
+      at ChildProcess.emit (events.js:110:17)
+      at Process.ChildProcess._handle.onexit (child_process.js:1074:12)
+[0m
+

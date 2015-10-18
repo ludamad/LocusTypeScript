@@ -31,20 +31,20 @@ namespace ts {
     }
     
     let AT_NAME = "@([a-zA-Z]+)";
-    let SQUARE_PARAMS = "\\(([^]+)\\)";
+    let SQUARE_PARAMS = "\\[([^{\\(]+)\\]";
     let PARAMS = "\\(([^]+)\\)";
     // Let the default be on expressions, except if its assertEmitted:
     let macros = {
         [`${AT_NAME}${PARAMS}`]: (f,s) => {        
-            if (f === "assertEmitted") {
+            if (f.match(/assert[a-zA-Z]*Emitted/)) {
                 return `@afterEmit{${f}(${s})}`;
             } else {
                 return `@afterCheck[isExpression]{${f}(${s})}`;
             }
         },
-        [`${AT_NAME}${SQUARE_PARAMS}${PARAMS}`]: (c, f,s) => {        
-            if (f === "assertEmitted") {
-                return `@afterEmit[${c}]{{${f}(${s})}`;
+        [`${AT_NAME}${SQUARE_PARAMS}${PARAMS}`]: (f, c, s) => {        
+            if (f.match(/assert[a-zA-Z]*Emitted/)) {
+                return `@afterEmit[${c}]{${f}(${s})}`;
             } else {
                 return `@afterCheck[${c}]{${f}(${s})}`;
             }
@@ -146,10 +146,14 @@ namespace ts {
             let line = `${prefix} at (${getNodeKindAsString(node)}) ${sourceFile.fileName}:${lineNum}:${linePos}, ${message}`;
             writeLine(line);
         }
+        
+        function assertNotEmitted(string) {
+            let matched = emittedText.match(string);
+            return assert(!matched, `Expected to NOT emit '${string}'.`);
+        }
         function assertEmitted(string) {
             let matched = emittedText.match(string);
-            let extraText = '';//matched ? '' : ` (${emittedText})`;
-            return assert(matched, `Expected to emit '${string}'${extraText}.`);
+            return assert(matched, `Expected to emit '${string}'.`);
         }
         function assertError(string) {
             let errors = (<any>node).DEBUG_check_diagonistics;
@@ -177,12 +181,16 @@ namespace ts {
             concrete, STORAGE, sourceFile, node,
             sourceText: sourceFile.text,
             emittedText,
+            isSourceFile(node:Node) {
+                return node.kind === SyntaxKind.SourceFile;
+            },
             toType,
             assert,
             getType,
             hasType,
             writeLine,
             assertEmitted,
+            assertNotEmitted,
             assertError,
             assertType: (type) => assert(hasType(type), `Should be type ${typeof type === "string" ? type : checker.typeToString(toType(type))}, was type ${checker.typeToString(getType())}`)
         });
@@ -196,7 +204,7 @@ namespace ts {
         let sourceText = sourceFile.text;
         for (let {annotationCode,filterFunctionCode} of getAnnotationsForNode(sourceText, prefix, node)) {
             // If a filter is specified with [], use this before executing the code in {}
-            if (!filterFunctionCode || wrapEvaler(evaler, `return ${filterFunctionCode};`, ts)(node)) {
+            if (!filterFunctionCode || wrapEvaler(evaler, `return ${filterFunctionCode};`, functions)(node)) {
                 wrapEvaler(evaler, annotationCode, functions);
             }
         }

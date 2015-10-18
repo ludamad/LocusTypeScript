@@ -14373,11 +14373,22 @@ namespace ts {
             let diagnosticsBefore = ENABLE_DEBUG_ANNOTATIONS && diagnostics.getDiagnostics();
             checkSourceElementWorker(node);
             let diagnosticsAfter = ENABLE_DEBUG_ANNOTATIONS && diagnostics.getDiagnostics();
-            if (ENABLE_DEBUG_ANNOTATIONS && diagnosticsAfter.length > diagnosticsBefore.length) {
+            if (ENABLE_DEBUG_ANNOTATIONS && node && !(<any>node).DEBUG_checked && diagnosticsAfter.length > diagnosticsBefore.length) {
+                (<any>node).DEBUG_checked = true;
                 for (let i = diagnosticsBefore.length; i < diagnosticsAfter.length; i++) {
-                    let {messageText} = diagnosticsAfter[i];
                     (<any>node).DEBUG_check_diagonistics = (<any>node).DEBUG_check_diagonistics || [];
-                    (<any>node).DEBUG_check_diagonistics.push(messageText);                
+                    let diagnostic = diagnosticsAfter[i];
+                    let data = diagnostic.messageText;
+                    while (data) {
+                        if (typeof data === "string") {
+                            (<any>node).DEBUG_check_diagonistics.push(data);
+                            break;
+                        } else {
+                            let {messageText} = diagnostic;
+                            (<any>node).DEBUG_check_diagonistics.push((<DiagnosticMessageChain>data).messageText); 
+                            data = (<DiagnosticMessageChain>data).next;
+                        }
+                    }
                 }
             }
         }

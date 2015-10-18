@@ -126,9 +126,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
         function emitJavaScript(jsFilePath: string, root?: SourceFile) {
             // [ConcreteTypeScript] List of nodes used in testing:
             // TODO Unhackify this:
-                var emitConstructor = debugWrapEmitterForIntrusiveTesting(emitConstructorRaw, node => getFirstConstructorWithBody(node));
-                var emitNodeWithoutSourceMap = debugWrapEmitterForIntrusiveTesting(emitNodeWithoutSourceMapRaw);
-                var emitClassLikeDeclaration = debugWrapEmitterForIntrusiveTesting(emitClassLikeDeclarationRaw);
+                // var emitConstructor = debugWrapEmitterForIntrusiveTesting(emitConstructorRaw, node => getFirstConstructorWithBody(node));
+                // var emitNodeWithoutSourceMap = debugWrapEmitterForIntrusiveTesting(emitNodeWithoutSourceMapRaw);
+                // var emitClassLikeDeclaration = debugWrapEmitterForIntrusiveTesting(emitClassLikeDeclarationRaw);
             // [/ConcreteTypeScript]
 
             let writer = createTextWriter(newLine);
@@ -170,10 +170,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             let emit = emitNodeWithCommentsAndWithoutSourcemap;
 
             /** Called just before starting emit of a node */
-            let emitStart = function (node: Node) { };
+            let emitStartRaw = function (node: Node) { };
 
             /** Called once the emit of the node is done */
-            let emitEnd = function (node: Node) { };
+            let emitEndRaw = function (node: Node) { };
 
             /** Emit the text for the given token that comes after startPos
               * This by default writes the text provided with the given tokenKind
@@ -701,14 +701,28 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
 
                 writeEmittedFiles = writeJavaScriptAndSourceMapFile;
                 emit = emitNodeWithCommentsAndWithSourcemap;
-                emitStart = recordEmitNodeStartSpan;
-                emitEnd = recordEmitNodeEndSpan;
+                emitStartRaw = recordEmitNodeStartSpan;
+                emitEndRaw = recordEmitNodeEndSpan;
                 emitToken = writeTextWithSpanRecord;
                 scopeEmitStart = recordScopeNameOfNode;
                 scopeEmitEnd = recordScopeNameEnd;
                 writeComment = writeCommentRangeWithMap;
             }
 
+            // [ConcreteTypeScript] For debug/testing
+            function emitStart(node:Node, callRaw = true) {
+                if (!(<any>node).DEBUG_textLengthBeforeWriting) {
+                    (<any>node).DEBUG_textLengthBeforeWriting = writer.getText().length;
+                } else {
+                    (<any>node).DEBUG_textLengthBeforeWriting = Math.min((<any>node).DEBUG_textLengthBeforeWriting, writer.getText().length);
+                }
+                if (callRaw) emitStartRaw(node);
+            }
+            function emitEnd(node:Node, callRaw = true) {
+                (<any>node).DEBUG_emitted_text = writer.getText().substring((<any>node).DEBUG_textLengthBeforeWriting);
+                if (callRaw) emitEndRaw(node);
+            }
+            // [/ConcreteTypeScript]
             function writeJavaScriptFile(emitOutput: string, writeByteOrderMark: boolean) {
                 writeFile(host, diagnostics, jsFilePath, emitOutput, writeByteOrderMark);
             }
@@ -4743,7 +4757,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
 
             function emitMemberFunctionsForES5AndLower(node: ClassLikeDeclaration) {
                 // [ConcreteTypeScript]
-                forEach(node.members, debugWrapEmitterForIntrusiveTesting(member => {
+                forEach(node.members, (member => {
                     if (member.kind === SyntaxKind.SemicolonClassElement) {
                         writeLine();
                         write(";");
@@ -4889,10 +4903,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 }
             }
 
-            
-            // [ConcreteTypeScript] Wrap on demand for debugging
-            function emitConstructorRaw(node: ClassLikeDeclaration, baseTypeElement: ExpressionWithTypeArguments) {
-            // [/ConcreteTypeScript]
+            function emitConstructor(node: ClassLikeDeclaration, baseTypeElement: ExpressionWithTypeArguments) {
                 let saveTempFlags = tempFlags;
                 let saveTempVariables = tempVariables;
                 let saveTempParameters = tempParameters;
@@ -5079,13 +5090,19 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 return emitClassLikeDeclaration(node);
             }
 
-            function emitClassLikeDeclarationRaw(node: ClassLikeDeclaration) {
+            function emitClassLikeDeclaration(node: ClassLikeDeclaration) {
+                //[ConcreteTypeScript] Debugging only:
+                emitStart(node);
+                // [/ConcreteTypeScript]
                 if (languageVersion < ScriptTarget.ES6) {
                     emitClassLikeDeclarationBelowES6(node);
                 }
                 else {
                     emitClassLikeDeclarationForES6AndHigher(node);
                 }
+                //[ConcreteTypeScript] Debugging only:
+                emitEnd(node);
+                // [/ConcreteTypeScript]
             }
 
             function emitClassLikeDeclarationForES6AndHigher(node: ClassLikeDeclaration) {
@@ -7392,6 +7409,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 afterEmitPass(node, evalInLocalScope);
             }
             function emitSourceFileNode(node: SourceFile) {
+                emitStart(node, false);
                 // Start new file on new line
                 writeLine();
                 emitShebang();
@@ -7442,6 +7460,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 }
 
                 emitLeadingComments(node.endOfFileToken);
+                emitEnd(node, false);
                 if (node.fileName.indexOf(".d.ts") === -1) {
                     forEachChildRecursive(node, doAfterEmitPass);
                 }
@@ -7474,28 +7493,31 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     }
                 }
             }
+            
+            // TODO: Retire
 
-            // [ConcreteTypeScript]
-            function debugWrapEmitterForIntrusiveTesting<A>(emitter:A, nodeMap = (x => x)): A {
-                // For debugging, allow asserting about what a node emitted
-                // by taking the text difference after writing and passing it to a debugging function
-                if (!ENABLE_DEBUG_ANNOTATIONS) {
-                    return emitter;
-                }
-                function wrapped(node, ...args) {
-                    let textLengthBeforeWriting = writer.getText().length;
-                    let value = (<any>emitter)(node, ...args);
-                    let newNode = nodeMap(node);
-                    if (newNode) {
-                        (<any>newNode).DEBUG_emitted_text = writer.getText().substring(textLengthBeforeWriting);
-                    }
-                    return value;
-                }
-                return <any> wrapped;
-            }
+            // // [ConcreteTypeScript]
+            // function debugWrapEmitterForIntrusiveTesting<A>(emitter:A, nodeMap = (x => x)): A {
+            //     // For debugging, allow asserting about what a node emitted
+            //     // by taking the text difference after writing and passing it to a debugging function
+            //     if (!ENABLE_DEBUG_ANNOTATIONS) {
+            //         return emitter;
+            //     }
+            //     function wrapped(node, ...args) {
+            //         let textLengthBeforeWriting = writer.getText().length;
+            //         let value = (<any>emitter)(node, ...args);
+            //         let newNode = nodeMap(node);
+            //         if (newNode) {
+            //             (<any>newNode).DEBUG_emitted_text = writer.getText().substring(textLengthBeforeWriting);
+            //         }
+            //         return value;
+            //     }
+            //     return <any> wrapped;
+            // }
 
 
-            function emitNodeWithoutSourceMapRaw(node: Node): void {
+            function emitNodeWithoutSourceMap(node: Node): void {
+                emitStart(node, false); // [ConcreteTypeScript]
                 if (node) {
                 // [ConcreteTypeScript] Emit type check if necessary
                     if (node.mustFloat && compilerOptions.emitV8Intrinsics) {
@@ -7555,6 +7577,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         }
                     }
                 }
+                emitEnd(node, false); // [ConcreteTypeScript]
             }
 
             function isSpecializedCommentHandling(node: Node): boolean {
@@ -7687,6 +7710,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     case SyntaxKind.FunctionDeclaration:
                     case SyntaxKind.FunctionExpression:
                     case SyntaxKind.ArrowFunction:
+                        // [ConcreteTypeScript]
+                        emitStart(node);
                         // Might need to emit twice (with/without checks)
                         // TODO look into cementGlobal, etc 
                         if (!(<FunctionLikeDeclaration>node).name || (<FunctionLikeDeclaration>node).name.kind !== SyntaxKind.Identifier) {
@@ -7697,6 +7722,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                                 emitFunctionDeclaration(<FunctionLikeDeclaration>node, second, false);
                             }
                         }
+                        emitEnd(node);
                         return; // [ConcreteTypeScript]
                     case SyntaxKind.DeleteExpression:
                         return emitDeleteExpression(<DeleteExpression>node);
