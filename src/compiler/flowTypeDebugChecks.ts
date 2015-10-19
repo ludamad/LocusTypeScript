@@ -7,8 +7,7 @@
 /// <reference path="brandTypeQueries.ts"/>
 /// <reference path="ctsTypes.ts"/>
 
-declare var require;
-
+declare var require: { (id: string): any; resolve(id: string): string; cache: any; extensions: any; main: any; };
 /* @internal */
 namespace ts {
     interface PassArgs {

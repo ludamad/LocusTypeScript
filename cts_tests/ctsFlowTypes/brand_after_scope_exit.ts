@@ -3,9 +3,11 @@ import {assert, assertNotBranded, assertBranded, assertType, assertFails} from "
 
 var tester;
 {
-    let a : declare ScopeExit = {};
+    let a : declare Foo = {};
     tester = () => assertBranded(a);
+    /* @assertType("{}") */ a;
     assertNotBranded(a);
     a.b = 0;
+    /* @assertType("!number") */ a.b;
 }
 tester();

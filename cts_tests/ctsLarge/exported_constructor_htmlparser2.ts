@@ -1,3 +1,4 @@
+// Just a big example.
 declare var require, openImpliesClose, voidElements, re_nameEnd;
 
 export function Parser (cbs, options){

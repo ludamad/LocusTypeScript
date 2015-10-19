@@ -82,6 +82,7 @@ module ts {
         case SyntaxKind.TryStatement: return print(node, "TryStatement");
         case SyntaxKind.CatchClause: return print(node, "CatchClause");
         case SyntaxKind.DebuggerStatement: return print(node, "DebuggerStatement");
+        case SyntaxKind.MethodDeclaration: return print(node, "MethodDeclaration");
         case SyntaxKind.VariableDeclaration: return print(node, "VariableDeclaration");
         case SyntaxKind.ClassDeclaration: return print(node, "ClassDeclaration");
         case SyntaxKind.InterfaceDeclaration: return print(node, "InterfaceDeclaration");

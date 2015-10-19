@@ -3,12 +3,12 @@ import {assert, assertNotBranded, assertBranded, assertType, assertFails} from "
 
 for (var i = 0; i < 2; i++) {
     (function() {
-        var a : declare IfNoElseAfterAssign = {};
-        a.b = 1;
-        assertType(a, "b", [String, Number]);
+        var a : declare Foo = {};
         if (i) {
-            a.b = "Hello";
-            assertType(a, "b", [String, Number]);
+            a.b = 1;
+            /* @assertType("number") */ a.b;
+            assertType(a, "b", null); // non-concrete
         }
+        /* @assertType("number") */ a.b;
     })();
 }

@@ -1,0 +1,130 @@
+
+
+  Features of ConcreteTypeScript as of ECOOP2015
+Passes at (ArrayLiteralExpression) ctsEcoop2015/array_literals_like.ts:0:0, Array types shouldn't be concrete!
+    ✓ should compile ctsEcoop2015/array_literals_like.ts (1515ms)
+    ✓ should compile ctsEcoop2015/concrete_assignable_to_like.ts (1545ms)
+Passes at (ExpressionStatement) ctsEcoop2015/concrete_casts_check.ts:0:0, Expected to emit '/cts.*runtime.*cast.*Number.*1.*\)/'.
+    ✓ should compile ctsEcoop2015/concrete_casts_check.ts (1512ms)
+    ✓ should compile ctsEcoop2015/concrete_members_assignable_to_concrete.ts (1519ms)
+    ✓ should compile ctsEcoop2015/concrete_members_assignable_to_like.ts (1511ms)
+Passes at (ExpressionStatement) ctsEcoop2015/concrete_this_elides_method_check.ts:2:35, Expected to emit '/this.*cts.*myMethod/'.
+    ✓ should compile ctsEcoop2015/concrete_this_elides_method_check.ts (1494ms)
+Passes at (Identifier) ctsEcoop2015/function_literals_like.ts:0:29, Function types shouldn't be concrete!
+    ✓ should compile ctsEcoop2015/function_literals_like.ts (1460ms)
+FAILURE executing at (SourceFile) ctsEcoop2015/global_class_cemented.ts:0:0, Expected to emit '/cement.*Point.*Point/'.
+    1) **KNOWN TO FAIL** should compile ctsEcoop2015/global_class_cemented.ts
+Passes at (SourceFile) ctsEcoop2015/global_function_cemented.ts:0:0, Expected to emit '/cementGlobal.*Test.*Test/'.
+    ✓ should compile ctsEcoop2015/global_function_cemented.ts (1564ms)
+Passes at (ParenthesizedExpression) ctsEcoop2015/infers_concrete_return_type.ts:2:1, Should be type !Foo, was type !Foo
+Passes at (ParenthesizedExpression) ctsEcoop2015/infers_concrete_return_type.ts:4:72, Should be type !number, was type !number
+Passes at (ParenthesizedExpression) ctsEcoop2015/infers_concrete_return_type.ts:5:58, Should be type !string, was type !string
+    ✓ should compile ctsEcoop2015/infers_concrete_return_type.ts (1519ms)
+    2) **KNOWN TO FAIL** shouldnt compile ctsEcoop2015/interfaces_cant_be_concrete.ts
+    ✓ should compile ctsEcoop2015/like_members_assignable_to_like.ts (1511ms)
+Passes at (VariableStatement) ctsEcoop2015/like_members_not_assignable_to_concrete.ts:8:1, Found error containing 'Type 'string' is not assignable to type '!string''.
+    ✓ shouldnt compile ctsEcoop2015/like_members_not_assignable_to_concrete.ts (1564ms)
+Passes at (VariableStatement) ctsEcoop2015/like_not_assignable_to_concrete.ts:0:0, Found error containing 'Type 'string' is not assignable to type '!string''.
+    ✓ shouldnt compile ctsEcoop2015/like_not_assignable_to_concrete.ts (1554ms)
+Passes at (ParenthesizedExpression) ctsEcoop2015/like_string_method_returns_like.ts:0:0, Should be type string, was type string
+    ✓ should compile ctsEcoop2015/like_string_method_returns_like.ts (1513ms)
+Passes at (ExpressionStatement) ctsEcoop2015/like_this_has_method_check.ts:2:35, Expected to emit '/this\.myMethod/'.
+    ✓ should compile ctsEcoop2015/like_this_has_method_check.ts (1541ms)
+FAILURE executing at (SourceFile) ctsEcoop2015/module_class_cemented.ts:0:0, Expected to emit '/cement.*Point.*Point/'.
+    3) **KNOWN TO FAIL** should compile ctsEcoop2015/module_class_cemented.ts
+FAILURE executing at (SourceFile) ctsEcoop2015/module_function_cemented.ts:0:0, Expected to NOT emit '/Test\.makePoint.*=.*makePoint/'.
+    4) **KNOWN TO FAIL** should compile ctsEcoop2015/module_function_cemented.ts
+Passes at (NewExpression) ctsEcoop2015/newed_class_has_concrete_members.ts:10:1, Class types with concrete members should be concrete!
+Passes at (ClassDeclaration) ctsEcoop2015/newed_class_has_concrete_members.ts:0:0, Expected to emit '/cts.*runtime.*cast.*Point.*this/'.
+Passes at (ClassDeclaration) ctsEcoop2015/newed_class_has_concrete_members.ts:0:0, Expected to emit '/cts.*runtime.*cast.*Number.*x/'.
+Passes at (ClassDeclaration) ctsEcoop2015/newed_class_has_concrete_members.ts:0:0, Expected to emit '/cts.*runtime.*cast.*Number.*y/'.
+Passes at (ClassDeclaration) ctsEcoop2015/newed_class_has_concrete_members.ts:0:0, Expected to emit '/cts.*runtime.*addUnenum.*this.*cts..value.x.*\,.*x/'.
+Passes at (ClassDeclaration) ctsEcoop2015/newed_class_has_concrete_members.ts:0:0, Expected to emit '/cts.*runtime.*addUnenum.*this.*cts..value.y.*\,.*y/'.
+    ✓ should compile ctsEcoop2015/newed_class_has_concrete_members.ts (1561ms)
+Passes at (NewExpression) ctsEcoop2015/newed_class_has_like_members.ts:6:1, Class types with no concrete members should be concrete!
+Passes at (ClassDeclaration) ctsEcoop2015/newed_class_has_like_members.ts:0:0, Expected to emit '/cts.*runtime.*cast.*Point.*this/'.
+    ✓ should compile ctsEcoop2015/newed_class_has_like_members.ts (1547ms)
+    ✓ should compile ctsEcoop2015/node_include.ts (1650ms)
+Passes at (NumericLiteral) ctsEcoop2015/number_literals_concrete.ts:0:0, Should be type !number, was type !number
+Passes at (Identifier) ctsEcoop2015/number_literals_concrete.ts:1:12, Should be type !number, was type !number
+    ✓ should compile ctsEcoop2015/number_literals_concrete.ts (1506ms)
+Passes at (Identifier) ctsEcoop2015/object_literals_like.ts:0:26, Object literal types shouldn't be concrete!
+    ✓ should compile ctsEcoop2015/object_literals_like.ts (1505ms)
+Passes at (StringLiteral) ctsEcoop2015/string_literals_concrete.ts:0:0, Should be type !string, was type !string
+Passes at (Identifier) ctsEcoop2015/string_literals_concrete.ts:1:19, Should be type !string, was type !string
+    ✓ should compile ctsEcoop2015/string_literals_concrete.ts (1487ms)
+Passes at (ThisKeyword) ctsEcoop2015/this_concrete_in_method_if_class_has_concrete_members.ts:2:46, Should be type !Point, was type !Point
+Passes at (ThisKeyword) ctsEcoop2015/this_concrete_in_method_if_class_has_concrete_members.ts:9:21, Should be type !Point, was type !Point
+Passes at (<150>) ctsEcoop2015/this_concrete_in_method_if_class_has_concrete_members.ts:5:5, Expected to emit '/cts.*cast.*Point.*this/'.
+Passes at (<150>) ctsEcoop2015/this_concrete_in_method_if_class_has_concrete_members.ts:5:5, Expected to emit '/cts.*cast.*String.*s/'.
+Passes at (<150>) ctsEcoop2015/this_concrete_in_method_if_class_has_concrete_members.ts:5:5, Expected to emit '/cement[^]*cement/'.
+    ✓ should compile ctsEcoop2015/this_concrete_in_method_if_class_has_concrete_members.ts (1410ms)
+Passes at (ThisKeyword) ctsEcoop2015/this_concrete_in_method_if_class_has_like_members.ts:2:44, Should be type !Point, was type !Point
+Passes at (ThisKeyword) ctsEcoop2015/this_concrete_in_method_if_class_has_like_members.ts:9:21, Should be type !Point, was type !Point
+Passes at (<150>) ctsEcoop2015/this_concrete_in_method_if_class_has_like_members.ts:5:5, Expected to emit '/cts.*cast.*Point.*this/'.
+Passes at (<150>) ctsEcoop2015/this_concrete_in_method_if_class_has_like_members.ts:5:5, Expected to emit '/cts.*cast.*String.*s/'.
+Passes at (<150>) ctsEcoop2015/this_concrete_in_method_if_class_has_like_members.ts:5:5, Expected to emit '/cement[^]*cement/'.
+    ✓ should compile ctsEcoop2015/this_concrete_in_method_if_class_has_like_members.ts (1529ms)
+Passed assertions inline in ctsEcoop2015/ files: 35 / 38
+
+  Small refinements post ECOOP2015
+Failed to compile 'ctsMisc/becomes.ts'
+    5) **KNOWN TO FAIL** should compile ctsMisc/becomes.ts
+FAILURE executing at (ParenthesizedExpression) ctsMisc/concrete_string_method_returns_concrete.ts:0:0, Should be type !string, was type string
+    6) **KNOWN TO FAIL** should compile ctsMisc/concrete_string_method_returns_concrete.ts
+    ✓ should run ctsMisc/declaredas.ts as a test (1865ms)
+Passed assertions inline in ctsMisc/ files: 0 / 1
+
+  Flow types that analyze assignment
+    ✓ shouldnt compile ctsFlowTypes/bare_declare.ts (1629ms)
+    ✓ should compile ctsFlowTypes/big_prototype_func.ts (3900ms)
+    7) **KNOWN TO FAIL** shouldnt compile ctsFlowTypes/brand_class_method_redefinition.ts
+    ✓ should compile ctsFlowTypes/brand_proto_in_global_exported_scope.ts (1567ms)
+    ✓ should compile ctsFlowTypes/class_are_concrete.ts (1608ms)
+    8) shouldnt compile ctsFlowTypes/declare_extends_primitive.ts
+    ✓ should compile ctsFlowTypes/emit_members_simple.ts (1459ms)
+Passes at (ThisKeyword) ctsFlowTypes/function_this_infer.ts:6:33, Should be type !Foo, was type !Foo
+    ✓ shouldnt compile ctsFlowTypes/function_this_infer.ts (1684ms)
+    ✓ should compile ctsFlowTypes/object_lit.ts (1674ms)
+Failed to compile 'ctsFlowTypes/this_declare_same_name_as_func.ts'
+    9) should compile ctsFlowTypes/this_declare_same_name_as_func.ts
+    ✓ should compile ctsFlowTypes/this_test.ts (1669ms)
+Failed to compile 'ctsFlowTypes/this_type_assignment_has_this_to_not_has.ts'
+    10) should compile ctsFlowTypes/this_type_assignment_has_this_to_not_has.ts
+    ✓ shouldnt compile ctsFlowTypes/this_type_member_not_found.ts (1574ms)
+    ✓ shouldnt compile ctsFlowTypes/this_types_assignment_0arg.ts (1453ms)
+    ✓ shouldnt compile ctsFlowTypes/this_types_assignment_1arg.ts (1787ms)
+    ✓ shouldnt compile ctsFlowTypes/this_types_assignment_no_this_type.ts (1527ms)
+Failed to compile 'ctsFlowTypes/this_var_with_non_brand.ts'
+    11) should compile ctsFlowTypes/this_var_with_non_brand.ts
+    ✓ shouldnt compile ctsFlowTypes/using_before_branding.ts (1434ms)
+Passed assertions inline in ctsFlowTypes/ files: 1 / 1
+
+  Runtime tests for aspects of flow type branding, etc
+    ✓ should run ctsFlowTypesRuntime/brand_after_function_exit.ts as a test (1938ms)
+    ✓ should run ctsFlowTypesRuntime/brand_after_scope_break.ts as a test (2061ms)
+    ✓ should run ctsFlowTypesRuntime/brand_after_scope_exit.ts as a test (1914ms)
+    ✓ should run ctsFlowTypesRuntime/brand_before_return.ts as a test (1813ms)
+Passes at (Identifier) ctsFlowTypesRuntime/function_bind_object_literal.ts:4:38, Should be type !Declared, was type !Declared
+    ✓ should run ctsFlowTypesRuntime/function_bind_object_literal.ts as a test (1979ms)
+Passes at (Identifier) ctsFlowTypesRuntime/global_bind_object_literal.ts:3:34, Should be type !Declared, was type !Declared
+    ✓ should run ctsFlowTypesRuntime/global_bind_object_literal.ts as a test (1903ms)
+    ✓ should run ctsFlowTypesRuntime/if_statement_both_clauses.ts as a test (1959ms)
+    ✓ should run ctsFlowTypesRuntime/if_statement_no_else.ts as a test (1978ms)
+    ✓ should run ctsFlowTypesRuntime/if_statement_no_else_after_assign.ts as a test (2091ms)
+Passes at (PropertyAccessExpression) ctsFlowTypesRuntime/module_bind_object_literal.ts:5:1, Should be type !Declared, was type !Declared
+FAILURE executing at (Identifier) ctsFlowTypesRuntime/module_bind_object_literal.ts:5:1, Should be type !Declared, was type typeof Module
+    12) should run ctsFlowTypesRuntime/module_bind_object_literal.ts as a test
+    13) **KNOWN TO FAIL** should run ctsFlowTypesRuntime/switch_statement_all_cases_write.ts as a test
+    ✓ **KNOWN TO FAIL** should run ctsFlowTypesRuntime/switch_statement_all_cases_write_no_default.ts as a test (1967ms)
+    14) **KNOWN TO FAIL** should run ctsFlowTypesRuntime/switch_statement_one_case_writes.ts as a test
+    ✓ should run ctsFlowTypesRuntime/this_declare_brand_prototype_object.ts as a test (1992ms)
+    ✓ should run ctsFlowTypesRuntime/this_declare_constructor_checks_prototype.ts as a test (1815ms)
+    15) should run ctsFlowTypesRuntime/this_declare_function_not_check_prototype.ts as a test
+    16) should run ctsFlowTypesRuntime/this_declare_method_cemented.ts as a test
+    17) should run ctsFlowTypesRuntime/this_declare_method_checks_prototype.ts as a test
+Passed assertions inline in ctsFlowTypesRuntime/ files: 3 / 4
+
+
+  48 passing (2m)
+

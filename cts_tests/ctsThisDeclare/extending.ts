@@ -12,9 +12,7 @@ var Bar = function() {
         var this : declare Bar extends Foo;
         this.total = this.x + this.y + this.z;
     }
-    // Do we error if this assignment does not exist?
     Bar.prototype.z = 1;
     return Bar;
 }
-
 

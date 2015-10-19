@@ -5,20 +5,30 @@ var clc = require("cli-color");
 require("./cts-runtime");
 var _a = require('child_process'), exec = _a.exec, spawn = _a.spawn;
 var fs = require("fs");
-var testBundles = {
-    ctsEcoop2015: "Features of ConcreteTypeScript as of ECOOP2015",
-    ctsMisc: "Small refinements post ECOOP2015",
-    ctsFlowTypes: "Flow types that analyze assignment",
-    ctsFlowTypesRuntime: "Runtime tests for aspects of flow type branding, etc"
-};
-for (var _i = 0, _b = Object.keys(testBundles); _i < _b.length; _i++) {
+function getTestBundles() {
+    var paths = [];
+    for (var _i = 0, _a = fs.readdirSync("."); _i < _a.length; _i++) {
+        var filePath = _a[_i];
+        // Must start with 'cts'
+        if (filePath.indexOf('cts') !== 0) {
+            continue;
+        }
+        // Must be a directory
+        if (!fs.statSync(filePath).isDirectory()) {
+            continue;
+        }
+        paths.push(filePath);
+    }
+    return paths;
+}
+for (var _i = 0, _b = getTestBundles(); _i < _b.length; _i++) {
     var testBundle = _b[_i];
     createTestBundle(testBundle);
 }
 function createTestBundle(testBundle) {
     var numberPassedAsserts = 0;
     var numberAsserts = 0;
-    describe(testBundles[testBundle], function () {
+    describe(testBundle, function () {
         after(function () {
             console.log("Passed assertions inline in " + testBundle + "/ files: " + numberPassedAsserts + " / " + numberAsserts);
         });

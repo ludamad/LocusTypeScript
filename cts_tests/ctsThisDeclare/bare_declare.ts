@@ -1,6 +1,7 @@
+// Syntax not supported yet.
 /* @TestExpectedToHaveCompileErrors */
 
-function Foo(this: declare Foo) {
+function Foo(this: declare FooType) {
     this.init();
 }
 

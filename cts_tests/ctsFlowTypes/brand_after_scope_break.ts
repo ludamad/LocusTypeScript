@@ -3,7 +3,7 @@ import {assert, assertNotBranded, assertBranded, assertType, assertFails} from "
 
 var leakedA;
 while (true) {
-    let a : declare BlockExit = {};
+    let a : declare Foo = {};
     leakedA = a;
     assertNotBranded(a);
     a.b = 0;
