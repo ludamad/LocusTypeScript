@@ -1,0 +1,20 @@
+function makeFoo1() : !Foo1 {
+    function embedded() {
+        foo.x = 1;
+    }
+    var foo: declare Foo1 = {};
+    embedded();
+    foo.x = "hey";
+    /* @assertType('!string|!number') */ foo.x;
+    return foo;
+}
+
+function makeFoo2() : !Foo2 {
+    var foo: declare Foo2 = {};
+    embedded();
+    function embedded() {
+        foo.x = 1;
+    }
+    /* @assertType('number') */ foo.x;
+    return foo;
+}

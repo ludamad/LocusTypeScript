@@ -46,6 +46,10 @@ function createTestBundle(testBundle:string) {
 
     function createTestForFileInBundle(file:string) {
         var fileContent = fs.readFileSync(file, 'utf8');
+        var dontUseAsTest = fileContent.indexOf("@DontUseAsTest") >= 0;
+        if (dontUseAsTest) {
+            return;
+        }
         var compileFailureExpected = fileContent.indexOf("@TestExpectedToHaveCompileErrors") >= 0;
         var testFailureExpected = fileContent.indexOf("@KnownDefect") >= 0;
         var isRuntimeTest = fileContent.indexOf("@RuntimeTest") >= 0;
