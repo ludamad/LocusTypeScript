@@ -6,7 +6,7 @@ namespace ts {
         name: Identifier;
         scope: Node;
         // Set in checkerHelper.ts, null if a prototype-inferred brand
-        variableDeclaration?: VariableLikeDeclaration;
+        varOrParamDeclaration?: VariableLikeDeclaration|ParameterDeclaration|ThisParameterDeclaration;
         // Defaults to the 'any' type.
         // TODO should parallel extension relationship for brand types.
         extendedType?: TypeNode;
@@ -215,6 +215,7 @@ namespace ts {
         // Signature elements
         TypeParameter,
         Parameter,
+        ThisParameter, // [ConcreteTypeScript]
         Decorator,
         // TypeMember
         PropertySignature,
@@ -512,6 +513,7 @@ namespace ts {
         assertInt?: boolean;          // If set, can assert that this value is always an int instead of generic number
         // Set in flowAnalysis.ts
         brandsToEmitAfterwards?: BrandTypeDeclaration[];
+        brandsToEmitAtBeginning?: BrandTypeDeclaration[]; // Special case for parameter-this
         // [/ConcreteTypeScript]
     }
 
@@ -562,7 +564,7 @@ namespace ts {
     // [ConcreteTypeScript] Introduce ParameterDeclarations as an interface
     // Use this to tack on support for 'this' types.
     export interface ParameterDeclarations extends NodeArray<ParameterDeclaration> {
-        thisType?: TypeNode;
+        thisParam?: ThisParameterDeclaration;
     }
 
     export interface SignatureDeclaration extends Declaration {
@@ -590,6 +592,10 @@ namespace ts {
         questionToken?: Node;               // Present on optional parameter
         type?: TypeNode;                    // Optional type annotation
         initializer?: Expression;           // Optional initializer
+    }
+    // SyntaxKind.ThisParameter // [ConcreteTypeScript]
+    export interface ThisParameterDeclaration extends Declaration {
+        type: TypeNode;                    // Type annotation
     }
 
     // SyntaxKind.BindingElement

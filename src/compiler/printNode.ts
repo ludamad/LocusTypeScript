@@ -20,6 +20,8 @@ module ts {
             return;
         case SyntaxKind.Identifier: return print(node, "Identifier");
         case SyntaxKind.Parameter: return print(node, "Parameter");
+        case SyntaxKind.TypeReference: return print(node, "TypeReference");    
+        case SyntaxKind.ThisParameter: return print(node, "ThisParameter"); // [ConcreteTypeScript]
         case SyntaxKind.GetAccessor: return print(node, "GetAccessor");
         case SyntaxKind.SetAccessor: return print(node, "SetAccessor");
         case SyntaxKind.ThisKeyword: return print(node, "ThisKeyword");

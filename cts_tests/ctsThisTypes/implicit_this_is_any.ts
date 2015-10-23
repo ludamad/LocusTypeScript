@@ -1,5 +1,4 @@
-function foo() {
-    var this: declare Foo;
+function foo(this: declare Foo) {
     this.x = 1;
 }
 

@@ -1,3 +1,4 @@
+// @KnownDefect 
 /* @RuntimeTest */
 import {assert, assertNotBranded, assertBranded, assertType, assertFails} from "../cts_asserts";
 

@@ -6,7 +6,7 @@ import {assert, assertNotBranded, assertBranded, assertType, assertFails} from "
     /* @assertType("{}") */ a;
     assertNotBranded(a);
     a.b = 0;
-    /* @assertType("!number") */ a.b;
+    /* @assertType("!number") */ (a.b);
     /* @assertType("!Foo") */ a;
     return assertBranded(a);
 })();

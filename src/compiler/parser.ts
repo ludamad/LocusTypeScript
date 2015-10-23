@@ -57,6 +57,7 @@ namespace ts {
                 return visitNode(cbNode, (<TypeParameterDeclaration>node).name) ||
                     visitNode(cbNode, (<TypeParameterDeclaration>node).constraint) ||
                     visitNode(cbNode, (<TypeParameterDeclaration>node).expression);
+            case SyntaxKind.ThisParameter: // [ConcreteTypeScript] TODO: Don't fallthrough into a bunch of unneeded cases
             case SyntaxKind.Parameter:
             case SyntaxKind.PropertyDeclaration:
             case SyntaxKind.PropertySignature:
@@ -97,10 +98,15 @@ namespace ts {
                     visitNode(cbNode, (<FunctionLikeDeclaration>node).questionToken) ||
                     visitNodes(cbNodes, (<FunctionLikeDeclaration>node).typeParameters) ||
                     visitNodes(cbNodes, (<FunctionLikeDeclaration>node).parameters) ||
-                    visitNode(cbNode, (<FunctionLikeDeclaration>node).parameters.thisType) ||
+                    visitNode(cbNode, (<FunctionLikeDeclaration>node).parameters.thisParam) ||
                     visitNode(cbNode, (<FunctionLikeDeclaration>node).type) ||
                     visitNode(cbNode, (<ArrowFunction>node).equalsGreaterThanToken) ||
                     visitNode(cbNode, (<FunctionLikeDeclaration>node).body);
+            // [ConcreteTypeScript]
+            case SyntaxKind.BrandTypeDeclaration:
+                return visitNode(cbNode, (<BrandTypeDeclaration>node).name) || 
+                    visitNode(cbNode, (<BrandTypeDeclaration>node).extendedType);
+            // [/ConcreteTypeScript]
             case SyntaxKind.TypeReference:
                 return visitNode(cbNode, (<TypeReferenceNode>node).typeName) ||
                     visitNode(cbNode, (<TypeReferenceNode>node).brandTypeDeclaration) ||
@@ -2111,9 +2117,11 @@ namespace ts {
             //      BindingIdentifier[?Yield,?Await]Initializer [In, ?Yield,?Await] opt
             if (parseExpected(SyntaxKind.OpenParenToken)) {
                 let thisType:TypeNode;
+                let thisIdentifier:Identifier;
+                let startPos = getNodePos();
                 // [ConcreteTypeScript] Support this types
                 if (token === SyntaxKind.ThisKeyword) {
-                    nextToken();
+                    thisIdentifier = createIdentifier(tokenIsIdentifierOrKeyword(token))
                     parseExpected(SyntaxKind.ColonToken);
                     thisType = parseType();
                     if (token !== SyntaxKind.CloseParenToken) {
@@ -2128,7 +2136,14 @@ namespace ts {
                 setAwaitContext(awaitContext);
 
                 let result = <ParameterDeclarations>parseDelimitedList(ParsingContext.Parameters, parseParameter);
-                result.thisType = thisType;
+                if (thisType) {
+                    let thisParam = <ThisParameterDeclaration>createNode(SyntaxKind.ThisParameter);
+                    thisParam.type = thisType;
+                    thisParam.name = thisIdentifier;
+                    this.pos = startPos;
+                    this.end = getNodeEnd();
+                    result.thisParam = thisParam;
+                }
 
                 setYieldContext(savedYieldContext);
                 setAwaitContext(savedAwaitContext);
@@ -2506,7 +2521,6 @@ namespace ts {
                 case SyntaxKind.OpenParenToken:
                     // Only consider '(' the start of a type if followed by ')', '...', an identifier, a modifier,
                     // or something that starts a type. We don't want to consider things like '(1)' a type.
-                    console.log("WHAT")
                     return lookAhead(isStartOfParenthesizedOrFunctionType);
                 default:
                     return isIdentifier();
@@ -2515,8 +2529,6 @@ namespace ts {
 
         function isStartOfParenthesizedOrFunctionType() {
             nextToken();
-            if (token === SyntaxKind.ThisKeyword) console.log("BRAINBARF")
-            console.log(token)
             return token === SyntaxKind.CloseParenToken  || /* [ConcreteTypeScript]: */ token === SyntaxKind.ThisKeyword || isStartOfParameter() || isStartOfType();
         }
 

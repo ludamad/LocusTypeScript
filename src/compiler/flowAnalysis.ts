@@ -9,6 +9,10 @@
 /// <reference path="brandTypeQueries.ts"/>
 
 module ts {
+    
+    function flowLog(arg, ...args) {
+        console.log(arg, ...args);
+    }
 
     // As our binder passes through the function
     // we collect the relevant assignments of the brand property 
@@ -34,6 +38,7 @@ module ts {
             return this.binder.brandTypeDecl;
         }
         getDeclaration() {
+            Debug.assert(this.binder.allProps[this.index] != null);
             return this.binder.allProps[this.index];
         }
         isPrototypeProperty() {
@@ -238,19 +243,20 @@ module ts {
                     if (this.getBrandPropertyId((<BinaryExpression>node).left) !== null) {
                         lastNode = node;
                     }
-                } else if (isVariableLike(node) && node.type && node.type.brandTypeDeclaration === this.brandTypeDecl) {
+                } else if (node.kind === SyntaxKind.VariableDeclaration && (<VariableDeclaration>node) === this.brandTypeDecl.varOrParamDeclaration) {
                     lastNode = node;
                 }
                 forEachChild(node, iter);
             }
             iter(this.containerScope);
-            this.brandPoint = lastNode;
             let pointScope = this.declarationScope, protoPointScope = this.containerScope;
             if (pointScope.kind === SyntaxKind.FunctionDeclaration || pointScope.kind === SyntaxKind.FunctionExpression || pointScope.kind === SyntaxKind.ArrowFunction) {
                 pointScope = (<FunctionLikeDeclaration> pointScope).body;
             }
-            while (this.brandPoint.parent !== pointScope) {
-                this.brandPoint = this.brandPoint.parent;
+            if (this.brandPoint = lastNode) {
+                while (this.brandPoint.parent !== pointScope) {
+                    this.brandPoint = this.brandPoint.parent;
+                }
             }
             if (this.protoBrandPoint = lastProtoNode) {
                 if (protoPointScope.kind === SyntaxKind.FunctionDeclaration || protoPointScope.kind === SyntaxKind.FunctionExpression || protoPointScope.kind === SyntaxKind.ArrowFunction) {
@@ -285,7 +291,6 @@ module ts {
             return id;
         }
         
-        
         getProtoPropId(str:string, dontCreate?:boolean):number {
             if (this.prototypePropNameToId[str] != null) return this.prototypePropNameToId[str];
             if (dontCreate) {console.log("NAME", str); console.log(this.prototypePropNameToId); throw new Error("DontCreate");}
@@ -308,8 +313,8 @@ module ts {
             let name = (<Identifier> propAccess.expression).text || "this";
 
             // Search for an associated VariableDeclaration with "let <identifier> : brand <identifier".
-            let varDecl = findVariableDeclarationForName(propAccess, name);
-            if (!varDecl || !varDecl.type || varDecl.type.brandTypeDeclaration !== this.brandTypeDecl) {
+            let decl = findDeclarationForName(propAccess, name);
+            if (!decl || !decl.type || decl.type.brandTypeDeclaration !== this.brandTypeDecl) {
                 return null;
             }
             return this.getPropId(propAccess.name.text);
@@ -403,8 +408,8 @@ module ts {
                     // or ones that can potentially leak before branding,
                     // and should be treated as the subtype.
                     let name:string = (<Identifier>node).text || "this";
-                    let varDecl = findVariableDeclarationForName(node.parent, name);
-                    if (varDecl && varDecl.type && varDecl.type.brandTypeDeclaration === this.brandTypeDecl) {
+                    let decl = findDeclarationForName(node.parent, name);
+                    if (decl && decl.type && decl.type.brandTypeDeclaration === this.brandTypeDecl) {
                         let downgrade = true;
                         if (node.parent.kind === SyntaxKind.PropertyAccessExpression ) {
                             // || child.parent.kind === SyntaxKind.VariableDeclaration) {
@@ -423,7 +428,8 @@ module ts {
                         }
                         if (downgrade) {
                             // Don't downgrade if after last property assignment:
-                            if (getNodeId(node) < getNodeId(this.brandPoint) || isNodeDescendentOf(node, this.brandPoint)) {
+                            // this.brandPoint === null means no downgrading, for example if the only definition-affecting operation is eg in the function signature
+                            if (this.brandPoint && (getNodeId(node) < getNodeId(this.brandPoint) || isNodeDescendentOf(node, this.brandPoint))) {
                                 nodeDowngradeToBaseClass.set(node, true);
                             }
                         }
@@ -599,9 +605,14 @@ module ts {
         }
         brandTypeBinder._findBrandPoints();
         let assignmentResults = brandTypeBinder.scan(brandTypeBinder.containerScope, initial);
-        
-        brandTypeBinder.brandPoint.brandsToEmitAfterwards = brandTypeBinder.brandPoint.brandsToEmitAfterwards || [];
-        brandTypeBinder.brandPoint.brandsToEmitAfterwards.push(brandTypeDecl);
+
+        if (brandTypeBinder.brandPoint) {
+            brandTypeBinder.brandPoint.brandsToEmitAfterwards = brandTypeBinder.brandPoint.brandsToEmitAfterwards || [];
+            brandTypeBinder.brandPoint.brandsToEmitAfterwards.push(brandTypeDecl);    
+        } else {
+            scope.brandsToEmitAtBeginning = scope.brandsToEmitAtBeginning || [];
+            scope.brandsToEmitAtBeginning.push(brandTypeDecl);    
+        }
 
         if (brandTypeBinder.protoBrandPoint) {
             brandTypeBinder.protoBrandPoint.brandsToEmitAfterwards = brandTypeBinder.protoBrandPoint.brandsToEmitAfterwards || [];
@@ -629,8 +640,16 @@ module ts {
 
     export function bindBrandPropertiesInScopeAfterInitialBinding(scope:Node, declareSymbol:_declareSymbol) {
         // Find all relevant brand type declarations bound to the current scope.
-        for (let declaration of getBrandTypeVarDeclarations(scope)) {
-            bindBrandTypeBasedOnVarScope(scope, declaration.type.brandTypeDeclaration, declareSymbol, declaration.initializer);
+        for (let declaration of getBrandTypeDeclarations(scope)) {
+            if (declaration.kind === SyntaxKind.VariableDeclaration) {
+                bindBrandTypeBasedOnVarScope(scope, (<VariableDeclaration>declaration).type.brandTypeDeclaration, declareSymbol, (<VariableDeclaration>declaration).initializer);
+            } else if (declaration.kind === SyntaxKind.ThisParameter) {
+                bindBrandTypeBasedOnVarScope(scope, (<ThisParameterDeclaration>declaration).type.brandTypeDeclaration, declareSymbol, null);
+            } else if (declaration.kind === SyntaxKind.Parameter) {
+                bindBrandTypeBasedOnVarScope(scope, (<ParameterDeclaration>declaration).type.brandTypeDeclaration, declareSymbol, null);
+            } else {
+                Debug.assert(false);
+            }
         }
     }
 }

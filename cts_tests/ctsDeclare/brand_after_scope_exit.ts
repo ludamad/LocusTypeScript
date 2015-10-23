@@ -8,6 +8,6 @@ var tester;
     /* @assertType("{}") */ a;
     assertNotBranded(a);
     a.b = 0;
-    /* @assertType("!number") */ a.b;
+    /* @assertType("!number") */ (a.b);
 }
 tester();

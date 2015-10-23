@@ -10,15 +10,6 @@
 declare var require: { (id: string): any; resolve(id: string): string; cache: any; extensions: any; main: any; };
 /* @internal */
 namespace ts {
-    interface PassArgs {
-        passType:string;
-        recurse:boolean;
-        /* For checking pass: */
-        checker:TypeChecker;
-        /* For binding pass: */
-        /* For emitting pass: */
-        emittedText:string;
-    }
 
     interface DebugAnnotation {
         annotationCode:string;
@@ -122,7 +113,9 @@ namespace ts {
 
     let STORAGE = {}; // For storing for multipart tests
     function getEvaluationScope(node:Node, pass:string, checker?:TypeChecker) {
+
         let sourceFile = getSourceFileOfNode(node);
+        Debug.assert(!!sourceFile);
         let resultFileName = `${sourceFile.fileName}.${pass}.output`;
         let emittedText = (<any>node).DEBUG_emitted_text;
         // Remove comments:

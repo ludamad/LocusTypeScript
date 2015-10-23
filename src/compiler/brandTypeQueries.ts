@@ -65,15 +65,28 @@ namespace ts {
         return <FunctionDeclaration[]> getDeclarations(block, isFunctionLikeDeclarationWithThisBrand);
     }
 
-    export function getBrandTypeVarDeclarations(block:Node):VariableDeclaration[] {
-        var isBrandVarDecl = (node:Declaration) => {
-            if (node.kind === SyntaxKind.VariableDeclaration) {
-                var typeNode = (<VariableDeclaration>node).type;
+    export function getBrandTypeDeclarations(block:Node):(VariableDeclaration|ThisParameterDeclaration|ParameterDeclaration)[] {
+        let declarations = <(VariableDeclaration|ThisParameterDeclaration|ParameterDeclaration)[]> getDeclarations(block, isBrandDecl);
+        if (isFunctionLike(block)) {
+            let hadThis = false;
+            // Stopgap code while both 'var this' and 'this: declare X' are possible.
+            for (let decl of declarations) {
+                if ((<Identifier>decl.name).text === "this") {
+                    hadThis = true;
+                }
+            }
+            if (!hadThis && block.parameters.thisParam && block.parameters.thisParam.type.brandTypeDeclaration) {
+                declarations = declarations.concat([block.parameters.thisParam]);
+            }
+        }
+        return declarations;
+        function isBrandDecl(node:Declaration) {
+            if (node.kind === SyntaxKind.VariableDeclaration || node.kind == SyntaxKind.Parameter) {
+                var typeNode = (<VariableDeclaration|ParameterDeclaration>node).type;
                 return !!(typeNode && typeNode.brandTypeDeclaration);
             }
             return false;
         };
-        return <VariableDeclaration[]> getDeclarations(block, isBrandVarDecl);
     }
 
     export function isNodeDescendentOf(node: Node, ancestor: Node): boolean {
@@ -146,13 +159,21 @@ namespace ts {
       }
   
     // [ConcreteTypeScript] Find variable declaration associated with identifier, or 'null' if not a VariableDeclaration
-    export function findVariableDeclarationForName(location: Node, text: string): VariableDeclaration {
+    export function findDeclarationForName(location: Node, text: string): VariableDeclaration|ThisParameterDeclaration|ParameterDeclaration {
+        if (text === "this") {
+            let funcScope = getThisContainer(location, false);
+            if (isFunctionLike(funcScope)) {
+                if (funcScope.parameters.thisParam) {
+                    return funcScope.parameters.thisParam;
+                }
+            }
+        }
         var symbol = getSymbol(location, text, SymbolFlags.Variable);
         if (!symbol || symbol.declarations.length < 1) {
             return null;
         }
-        // Matched, return variable declaration (if exists):
-        return <VariableDeclaration> getSymbolDecl(symbol, SyntaxKind.VariableDeclaration);
+        // Matched, return declaration (if exists):
+        return <VariableDeclaration|ParameterDeclaration> (getSymbolDecl(symbol, SyntaxKind.VariableDeclaration) || getSymbolDecl(symbol, SyntaxKind.Parameter));
     }
         
       // [ConcreteTypeScript] Find function declaration associated with identifier, or 'null' if not a FunctionDeclaration
@@ -175,15 +196,15 @@ namespace ts {
       }
       export function isFunctionLikeDeclarationWithThisBrand(scope:Node): scope is FunctionLikeDeclaration {
           if (isFunctionLike(scope)) {
-              let thisType = scope.parameters.thisType;
-              return !!(thisType && thisType.brandTypeDeclaration);
+              let {thisParam} = scope.parameters;
+              return !!(thisParam && thisParam.type.brandTypeDeclaration);
           }
           return false;
       }
     
       export function isFunctionLikeDeclarationCheckThisBrand(scope:Node, brandTypeDecl: BrandTypeDeclaration):scope is FunctionLikeDeclaration {
           if (isFunctionLikeDeclarationWithThisBrand(scope)) {
-              return (<FunctionDeclaration>scope).parameters.thisType.brandTypeDeclaration === brandTypeDecl;
+              return (<FunctionDeclaration>scope).parameters.thisParam.type.brandTypeDeclaration === brandTypeDecl;
           }
           return false;
       }

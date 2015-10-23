@@ -7,11 +7,11 @@ for (var i = 0; i < 2; i++) {
     switch (i) {
         case 0:
             a.b = 1;
-            /* @assertType("number") */ a.b;
+            /* @assertType("number") */ (a.b);
             break;
         default:
             break;
     }
-    /* @assertType("number") */ a.b;
+    /* @assertType("number") */ (a.b);
     assertType(a, "b", null); // non-concrete
 }

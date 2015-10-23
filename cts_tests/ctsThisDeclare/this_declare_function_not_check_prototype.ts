@@ -4,7 +4,6 @@ import {assert, assertNotBranded, assertBranded, assertType, assertFails} from "
 function Foo() {
     var this : declare Foo;
     this.x = 1;
-    assertBranded(this)
 }
 Foo.prototype.myFunction = function()  {
     return 1;

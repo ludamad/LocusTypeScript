@@ -2820,6 +2820,11 @@ namespace ts {
             if (symbol.flags & (SymbolFlags.Variable | SymbolFlags.Property)) {
                 return getTypeOfVariableOrParameterOrProperty(symbol);
             }
+            // [ConcreteTypeScript]
+            if (symbol.flags & SymbolFlags.Brand) {
+                return createConcreteType(getTypeOfFuncClassEnumModule(symbol));
+            }
+            // [/ConcreteTypeScript]
             if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method | SymbolFlags.Class | SymbolFlags.Brand | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
                 return getTypeOfFuncClassEnumModule(symbol);
             }
@@ -3120,7 +3125,9 @@ namespace ts {
                 links.declaredType = type;
                 // BUG FIX
                 // Do after creating our type, to prevent infinite recursion
-                let initializer = brandTypeDecl.variableDeclaration && brandTypeDecl.variableDeclaration.initializer;
+                let initializer = brandTypeDecl.varOrParamDeclaration && 
+                    brandTypeDecl.varOrParamDeclaration.kind === SyntaxKind.VariableDeclaration && 
+                    (<VariableDeclaration>brandTypeDecl.varOrParamDeclaration).initializer;
                 if (initializer) {
                     if (initializer.kind !== SyntaxKind.ObjectLiteralExpression) {
                         let initType = stripConcreteType(checkExpressionCached(initializer));
@@ -3860,8 +3867,8 @@ namespace ts {
                     minArgumentCount, hasRestParameter(declaration), hasStringLiterals);
 
                 // [ConcreteTypeScript]
-                if (declaration.parameters.thisType) {
-                    links.resolvedSignature.resolvedThisType = getTypeFromTypeNode(declaration.parameters.thisType);
+                if (declaration.parameters.thisParam) {
+                    links.resolvedSignature.resolvedThisType = getTypeFromTypeNode(declaration.parameters.thisParam.type);
                 } else {
                     if (declaration.parent.kind === SyntaxKind.BinaryExpression && (<BinaryExpression> declaration.parent).operatorToken.kind === SyntaxKind.EqualsToken) {
                         let left = (<BinaryExpression> declaration.parent).left;
@@ -3896,9 +3903,6 @@ namespace ts {
                     case SyntaxKind.SetAccessor:
                     case SyntaxKind.FunctionExpression:
                     case SyntaxKind.ArrowFunction:
-                        if ((<FunctionLikeDeclaration>node).parameters.thisType) {
-                            
-                        }
                         // Don't include signature if node is the implementation of an overloaded function. A node is considered
                         // an implementation node if it has a body and the previous node is of the same kind and immediately
                         // precedes the implementation node (i.e. has the same parent and ends where the implementation starts).
@@ -7384,7 +7388,7 @@ namespace ts {
                     if ((<BinaryExpression>parent).operatorToken.kind === SyntaxKind.EqualsToken && flowAnalysis) {
                         // If the member is a function, we contextually add a 'this' member to its signature
                         let brandTypeDecl = flowAnalysis.getBrandType();
-                        if (!brandTypeDecl.variableDeclaration) {
+                        if (!brandTypeDecl.varOrParamDeclaration) {
                             // We must be a prototype brand type:
                             // TODO probably uneeded, do in brand type gathering
                         }
@@ -11521,6 +11525,8 @@ namespace ts {
                         getTypeOfBrandProperty(<BrandPropertyDeclaration> getSymbolDecl(bdecl.symbol.members[key], SyntaxKind.BrandProperty));
                     }
                 }
+                console.log("WHAT")
+                type = createConcreteType(type);
             }
             // [/ConcreteTypeScript]
  

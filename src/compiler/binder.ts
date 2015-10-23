@@ -409,7 +409,6 @@ namespace ts {
             } else {
                 var retSymbol = declareSymbol(scope.locals, undefined, node, symbolKind, symbolExcludes);
             }
-console.log("1+1=2", node.name.text)
             var contextNode = node.parent.parent;
             let hasPrototypeBrand = false;
             if (isVariableLike(contextNode)) {
@@ -418,15 +417,26 @@ console.log("1+1=2", node.name.text)
                     var funcDecl = (<FunctionLikeDeclaration>getThisContainer(node, false));
                     Debug.assert(isFunctionLike(funcDecl))
                     node.functionDeclaration = funcDecl;
-                    console.log("1+1=2")
-                    funcDecl.parameters.thisType = contextNode.type;
+                    let thisParam = <ThisParameterDeclaration> createNode(SyntaxKind.ThisParameter);
+                    thisParam.name = contextNode.name;
+                    thisParam.type = contextNode.type;
+                    thisParam.parent = node;
+                    thisParam.pos = contextNode.pos;
+                    thisParam.end = contextNode.end;
+                    Debug.assert(contextNode.type != null);
+                    funcDecl.parameters.thisParam = thisParam;
                     hasPrototypeBrand = true;
                 }
-                node.variableDeclaration = contextNode;
-            } else if (isFunctionLike(contextNode)) {
+                node.varOrParamDeclaration = contextNode;
+            } else if (contextNode.kind === SyntaxKind.ThisParameter) {
                 // Handle 'this' declarations syntax 2:
-                Debug.assert(contextNode.parameters.thisType === <any>node.parent)
-                node.functionDeclaration = contextNode;
+                Debug.assert(isFunctionLike(contextNode.parent))
+                node.functionDeclaration = <FunctionLikeDeclaration> contextNode.parent;
+                node.varOrParamDeclaration = <ThisParameterDeclaration> contextNode;
+                hasPrototypeBrand = true;
+            } else if (contextNode.kind === SyntaxKind.Parameter) {
+                Debug.assert(isFunctionLike(contextNode.parent))
+                node.varOrParamDeclaration = <ThisParameterDeclaration> contextNode;
                 hasPrototypeBrand = true;
             } else {
                 Debug.assert(false);
@@ -966,6 +976,8 @@ console.log("1+1=2", node.name.text)
                     return checkStrictModeWithStatement(<WithStatement>node);
                 case SyntaxKind.TypeParameter:
                     return declareSymbolAndAddToSymbolTable(<Declaration>node, SymbolFlags.TypeParameter, SymbolFlags.TypeParameterExcludes);
+                case SyntaxKind.ThisParameter:
+                    return bindThisParameter(<ThisParameterDeclaration>node);
                 case SyntaxKind.Parameter:
                     return bindParameter(<ParameterDeclaration>node);
                 case SyntaxKind.VariableDeclaration:
@@ -1146,7 +1158,9 @@ console.log("1+1=2", node.name.text)
                 }
             }
         }
-
+        // [ConcreteTypeScript]
+        function bindThisParameter(node: ThisParameterDeclaration) {
+        }
         function bindParameter(node: ParameterDeclaration) {
             if (inStrictMode) {
                 // It is a SyntaxError if the identifier eval or arguments appears within a FormalParameterList of a

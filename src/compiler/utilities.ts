@@ -1166,6 +1166,7 @@ namespace ts {
             case SyntaxKind.ModuleDeclaration:
             case SyntaxKind.NamespaceImport:
             case SyntaxKind.Parameter:
+            case SyntaxKind.ThisParameter:
             case SyntaxKind.PropertyAssignment:
             case SyntaxKind.PropertyDeclaration:
             case SyntaxKind.PropertySignature:

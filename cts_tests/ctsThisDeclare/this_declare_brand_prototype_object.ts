@@ -1,8 +1,7 @@
 /* @RuntimeTest */
 import {assert, assertNotBranded, assertBranded, assertType, assertFails} from "../cts_asserts";
 
-function ShouldBrandProto() {
-    var this : declare ShouldBrandProto;
+function ShouldBrandProto(this: declare ShouldBrandProto) {
     assertBranded(this)
 }
 ShouldBrandProto.prototype.x = 1;

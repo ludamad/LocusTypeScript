@@ -59,18 +59,23 @@ function createTestBundle(testBundle) {
             var prefix = compileFailureExpected ? "shouldnt" : "should";
             var testName = prefix + " compile " + file;
         }
-        if (testFailureExpected)
+        if (testFailureExpected) {
             testName = "**KNOWN TO FAIL** " + testName;
+            if (process.env.SKIP_KNOWN_DEFECTS) {
+                return;
+            }
+        }
         it(testName, function (doneCallback) {
             this.timeout(20000); // Give a generous 20 seconds for compilation and test running
+            spawnTsc(file, afterCompile, compileFailureExpected);
             function afterCompile() {
                 if (isRuntimeTest) {
-                    var testModule = './' + file.replace(/\.ts$/, '');
-                    var test = require(testModule);
+                    spawnNode(file.replace('.ts', '.js'), doneCallback);
                 }
-                doneCallback();
+                else {
+                    doneCallback();
+                }
             }
-            spawnTsc(file, afterCompile, compileFailureExpected);
         });
     }
     function processInlineAssertions(testFile) {
@@ -97,6 +102,16 @@ function createTestBundle(testBundle) {
                 }
             }
         }
+    }
+    function spawnNode(file, doneCallback) {
+        var nodeInstance = spawn('node', ["cts_node_wrapper.js", file]);
+        nodeInstance.on('exit', function (exitCode) {
+            var compiledSuccessfully = (exitCode === 0);
+            if (!compiledSuccessfully)
+                console.log(clc.red("Failed to run '" + file + "'."));
+            assert(compiledSuccessfully, "Expected to run successfully as unit test.");
+            doneCallback();
+        });
     }
     function spawnTsc(file, doneCallback, expectedBad) {
         var tscInstance = spawn('node', ['../built/local/tsc.js', '--module', 'commonjs', file]);
