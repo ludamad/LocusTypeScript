@@ -1,5 +1,5 @@
 // Syntax not supported yet.
-/* @TestExpectedToHaveCompileErrors */
+/* @KnownDefect */
 
 function Foo(this: declare FooType) {
     this.init();

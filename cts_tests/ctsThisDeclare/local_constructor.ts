@@ -1,4 +1,4 @@
-export function Foo(this: declare Foo) {
+function Foo(this: declare Foo) {
     this.x = 1;
 }
 

@@ -1,8 +1,7 @@
 // @KnownDefect
 // @TestExpectedToHaveCompileErrors 
 
-function Foo() {
-    var this: declare FooType;
+function Foo(this: declare FooType) {
     /*@assertType("!FooType")*/ this;
 }
 
