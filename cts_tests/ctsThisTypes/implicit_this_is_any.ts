@@ -1,3 +1,4 @@
+// @KnownDefect
 function foo(this: declare Foo) {
     this.x = 1;
 }

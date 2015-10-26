@@ -1,0 +1,64 @@
+ 1) ctsDeclare should run ctsDeclare/if_statement_no_else_after_assign.ts as a test:
+     Uncaught AssertionError: FAILURE executing at (ParenthesizedExpression) ctsDeclare/if_statement_no_else_after_assign.ts:13:9, Should have type equal to '!number|!string', has type '!string | !number'
+      at processInlineAssertions (/home/adomurad/sources/ConcreteTypeScript/cts_tests/cts_tests.js:101:21)
+      at ChildProcess.<anonymous> (/home/adomurad/sources/ConcreteTypeScript/cts_tests/cts_tests.js:129:13)
+      at ChildProcess.emit (events.js:110:17)
+      at Process.ChildProcess._handle.onexit (child_process.js:1074:12)
+
+  2) ctsDeclare should run ctsDeclare/module_bind_object_literal.ts as a test:
+     Uncaught AssertionError: FAILURE executing at (ParenthesizedExpression) ctsDeclare/module_bind_object_literal.ts:5:1, Should have type equal to '!Declared', has type '!Foo'
+      at processInlineAssertions (/home/adomurad/sources/ConcreteTypeScript/cts_tests/cts_tests.js:101:21)
+      at ChildProcess.<anonymous> (/home/adomurad/sources/ConcreteTypeScript/cts_tests/cts_tests.js:129:13)
+      at ChildProcess.emit (events.js:110:17)
+      at Process.ChildProcess._handle.onexit (child_process.js:1074:12)
+
+  3) ctsDeclare should compile ctsDeclare/simple_assignments_cause_binding.ts:
+     Uncaught AssertionError: FAILURE executing at (Identifier) ctsDeclare/simple_assignments_cause_binding.ts:7:26, Should have type equal to '!number', has type '!Foo'
+      at processInlineAssertions (/home/adomurad/sources/ConcreteTypeScript/cts_tests/cts_tests.js:101:21)
+      at ChildProcess.<anonymous> (/home/adomurad/sources/ConcreteTypeScript/cts_tests/cts_tests.js:129:13)
+      at ChildProcess.emit (events.js:110:17)
+      at Process.ChildProcess._handle.onexit (child_process.js:1074:12)
+
+  4) ctsMisc should compile ctsMisc/concrete_cast.ts:
+     Uncaught AssertionError: Expected to compile successfully!
+      at ChildProcess.<anonymous> (/home/adomurad/sources/ConcreteTypeScript/cts_tests/cts_tests.js:127:17)
+      at ChildProcess.emit (events.js:110:17)
+      at Process.ChildProcess._handle.onexit (child_process.js:1074:12)
+
+  5) ctsMisc should compile ctsMisc/like_cast.ts:
+     Uncaught AssertionError: Expected to compile successfully!
+      at ChildProcess.<anonymous> (/home/adomurad/sources/ConcreteTypeScript/cts_tests/cts_tests.js:127:17)
+      at ChildProcess.emit (events.js:110:17)
+      at Process.ChildProcess._handle.onexit (child_process.js:1074:12)
+
+  6) ctsMultifile should run ctsMultifile/function_external_declare_class.ts as a test:
+     Uncaught AssertionError: Expected to compile successfully!
+      at ChildProcess.<anonymous> (/home/adomurad/sources/ConcreteTypeScript/cts_tests/cts_tests.js:127:17)
+      at ChildProcess.emit (events.js:110:17)
+      at Process.ChildProcess._handle.onexit (child_process.js:1074:12)
+
+  7) ctsMultifile should run ctsMultifile/global_external_declare.ts as a test:
+     Uncaught AssertionError: Expected to compile successfully!
+      at ChildProcess.<anonymous> (/home/adomurad/sources/ConcreteTypeScript/cts_tests/cts_tests.js:127:17)
+      at ChildProcess.emit (events.js:110:17)
+      at Process.ChildProcess._handle.onexit (child_process.js:1074:12)
+
+  8) ctsMultifile should run ctsMultifile/global_external_declare_class.ts as a test:
+     Uncaught AssertionError: Expected to compile successfully!
+      at ChildProcess.<anonymous> (/home/adomurad/sources/ConcreteTypeScript/cts_tests/cts_tests.js:127:17)
+      at ChildProcess.emit (events.js:110:17)
+      at Process.ChildProcess._handle.onexit (child_process.js:1074:12)
+
+  9) ctsThisTypes shouldnt compile ctsThisTypes/different_this_assignment.ts:
+     Uncaught AssertionError: FAILURE executing at (ExpressionStatement) ctsThisTypes/different_this_assignment.ts:6:10, Asserted that we have an error containing '/'string'.*'number'/', but no errors matched.
+      at processInlineAssertions (/home/adomurad/sources/ConcreteTypeScript/cts_tests/cts_tests.js:101:21)
+      at ChildProcess.<anonymous> (/home/adomurad/sources/ConcreteTypeScript/cts_tests/cts_tests.js:129:13)
+      at ChildProcess.emit (events.js:110:17)
+      at Process.ChildProcess._handle.onexit (child_process.js:1074:12)
+
+  10) ctsThisTypes should compile ctsThisTypes/implicit_this_is_any.ts:
+     Uncaught AssertionError: Expected to compile successfully!
+      at ChildProcess.<anonymous> (/home/adomurad/sources/ConcreteTypeScript/cts_tests/cts_tests.js:127:17)
+      at ChildProcess.emit (events.js:110:17)
+      at Process.ChildProcess._handle.onexit (child_process.js:1074:12)
+

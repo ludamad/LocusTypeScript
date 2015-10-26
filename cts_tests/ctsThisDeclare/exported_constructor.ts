@@ -1,11 +1,12 @@
 // Should output 1
 
-export function Foo() {
-    var this: declare FooType;
+export function Foo(this: declare Foo) {
     this.x = 1;
 }
 
+/* @assertType("typeof Foo") */ Foo;
+
 Foo.prototype.foo = function() {
-    /*@{assertType !FooType}*/ this;
+    /*@assertType("!Foo")*/ this;
     console.log(this.x);
 }

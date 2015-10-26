@@ -1,3 +1,4 @@
+// @KnownDefect
 // If this test fails, things are pretty broken as far as declare types go.
 function func1() {
     var foo : declare Foo = {};

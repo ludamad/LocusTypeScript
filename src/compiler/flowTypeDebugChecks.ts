@@ -161,7 +161,9 @@ namespace ts {
         }
         function hasType(type) {
             if (typeof type === "string") {
-                return checker.typeToString(getType()) === type;
+                let actualType = getType();
+                let typeString = checker.typeToString(actualType)
+                return typeString.replace(/\s/g, '') === type.replace(/\s/g, '');
             }
             return checker.isTypeIdenticalTo(getType(), toType(type));
         }
@@ -184,7 +186,7 @@ namespace ts {
             assertEmitted,
             assertNotEmitted,
             assertError,
-            assertType: (type) => assert(hasType(type), `Should be type ${typeof type === "string" ? type : checker.typeToString(toType(type))}, was type ${checker.typeToString(getType())}`)
+            assertType: (type) => assert(hasType(type), `Should have type equal to '${typeof type === "string" ? type : checker.typeToString(toType(type))}', has type '${checker.typeToString(getType())}'`)
         });
     }
 

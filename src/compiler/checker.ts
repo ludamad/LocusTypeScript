@@ -725,7 +725,6 @@ namespace ts {
             if (target.flags & TypeFlags.Union) {
                 return (<UnionType>target).isRuntimeCheckable;
             }
-            // TODO: Rename RuntimeCheckable to 'AlwaysRuntimeCheckable' perhaps.
             return !!(target.flags & TypeFlags.RuntimeCheckable);
         }
 
@@ -737,14 +736,26 @@ namespace ts {
         }
 
         // [ConcreteTypeScript]
-        // Wrap a type as a concrete type
+        // Wrap a type as a concrete type, if it is runtime-checkable.
         function createConcreteType(target: Type) {
+            Debug.assert(target != null);
             let type = target.concreteType;
-            if (!type && !isTypeAny(target) && isRuntimeCheckable(target)) {
+            if (!type) {
+                if (!isRuntimeCheckable(target)) {
+                    throw new Error("Cannot create concrete type out of '" + typeToString(target) + "'!.");
+                }
                 type = target.concreteType = <ConcreteType>createType(TypeFlags.Concrete);
                 type.baseType = target;
             }
             return type;
+        }
+
+        // TODO think about having this one the default meaning
+        function createConcreteTypeIfPossible(target: Type) {
+            if (!isRuntimeCheckable(target)) {
+                return target;
+            }
+            return createConcreteType(target);
         }
 
         function isConcreteType(type:Type):boolean {
@@ -752,6 +763,7 @@ namespace ts {
         }
         // And force a type to its non-concrete equivalent
         function stripConcreteType(target: Type) {
+            Debug.assert(target != null);
             if (isConcreteType(target)) {
                 return (<ConcreteType>target).baseType;
             } else {
@@ -2813,31 +2825,39 @@ namespace ts {
             return links.type;
         }
 
+        // [ConcreteTypeScript] This is peppered around to get better stack traces.
+        function assertOk<T>(t:T):T {
+            Debug.assert(t != null);
+            return t;
+        }
         function getTypeOfSymbol(symbol: Symbol): Type {
+            // [ConcreteTypeScript] Sprinkled assertOk
             if (symbol.flags & SymbolFlags.Instantiated) {
-                return getTypeOfInstantiatedSymbol(symbol);
+                return assertOk(getTypeOfInstantiatedSymbol(symbol));
             }
             if (symbol.flags & (SymbolFlags.Variable | SymbolFlags.Property)) {
-                return getTypeOfVariableOrParameterOrProperty(symbol);
+                return assertOk(getTypeOfVariableOrParameterOrProperty(symbol));
+            }
+            if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method | SymbolFlags.Class | SymbolFlags.Brand | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
+                return assertOk(getTypeOfFuncClassEnumModule(symbol));
+            }
+            if (symbol.flags & SymbolFlags.EnumMember) {
+                return assertOk(getTypeOfEnumMember(symbol));
+            }
+            if (symbol.flags & SymbolFlags.Accessor) {
+                return assertOk(getTypeOfAccessors(symbol));
+            }
+            if (symbol.flags & SymbolFlags.Alias) {
+                return assertOk(getTypeOfAlias(symbol));
             }
             // [ConcreteTypeScript]
             if (symbol.flags & SymbolFlags.Brand) {
-                return createConcreteType(getTypeOfFuncClassEnumModule(symbol));
+                // This seems suspect for now.
+                throw new Error("ConcreteTypeScript bail: Cannot use Brand as value. Until this is handled gracefully, failing ungracefully...");
+                //return assertOk(createConcreteType(getTypeOfFuncClassEnumModule(symbol)));
             }
             // [/ConcreteTypeScript]
-            if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method | SymbolFlags.Class | SymbolFlags.Brand | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
-                return getTypeOfFuncClassEnumModule(symbol);
-            }
-            if (symbol.flags & SymbolFlags.EnumMember) {
-                return getTypeOfEnumMember(symbol);
-            }
-            if (symbol.flags & SymbolFlags.Accessor) {
-                return getTypeOfAccessors(symbol);
-            }
-            if (symbol.flags & SymbolFlags.Alias) {
-                return getTypeOfAlias(symbol);
-            }
-            return unknownType;
+            return assertOk(unknownType);
         }
 
         function getTargetType(type: ObjectType): Type {
@@ -4567,12 +4587,15 @@ namespace ts {
             let type = getTypeFromTypeNodePrime(node);
 
             if ((<TypeNode> node).isConcrete) {
-                let ctype = createConcreteType(type);
-                if (ctype || (<TypeNode> node).specifiedConcrete) {
-                    type = ctype;
+                if (isRuntimeCheckable(type)) {
+                    type = createConcreteType(type);
                 } else {
-                    // Forget about concreteness
-                    (<TypeNode> node).isConcrete = false;
+                    if ((<TypeNode> node).specifiedConcrete) {
+                        console.log(`WARNING: Could not create concrete type from ${getTextOfNode(node)}.`);
+                    } else {
+                        // Forget about concreteness
+                        (<TypeNode> node).isConcrete = false;
+                    }
                 }
             }
             if (!type) return unknownType;
@@ -6520,7 +6543,8 @@ namespace ts {
                 if (isConcreteType(type)) {
                     type = (<InterfaceType>stripConcreteType(type)).resolvedBaseTypes[0];
                     if (type) {
-                        type = createConcreteType(type) || type;
+                        var t:Error;
+                        type = createConcreteTypeIfPossible(type);
                     } else {
                         type = emptyObjectType;
                     }
@@ -6667,7 +6691,7 @@ namespace ts {
                 if (isTypeAny(type) || !assumeTrue || expr.left.kind !== SyntaxKind.Identifier) {
                     return type;
                 }
-                let brandType = checkBrandIdentifier(expr.right);
+                let brandType = expectBrandIdentifierGetType(expr.right);
                 if (!brandType) {
                     return type;
                 }
@@ -10562,16 +10586,14 @@ namespace ts {
         }
 
         // [ConcreteTypeScript]
-        function checkBrandIdentifier(node: Node):Type {
+        function expectBrandIdentifierGetType(node: Node):Type {
             if (node.kind !== SyntaxKind.Identifier) {
                 error(node, Diagnostics.ConcreteTypeScript_Expected_identifier_which_resolves_to_type_created_with_declare);
                 return undefinedType;
             }
             var ident = <Identifier> node;
-            console.log("POP")
             var brandSymbol = resolveName(ident.parent, ident.text, SymbolFlags.Type, Diagnostics.ConcreteTypeScript_Expected_identifier_which_resolves_to_type_created_with_declare, ident);
-                        console.log("/POP")
-            return getTypeOfSymbol(brandSymbol);
+            return getDeclaredTypeOfSymbol(brandSymbol);
         }
 
         function checkBinaryExpression(node: BinaryExpression, contextualMapper?: TypeMapper) {
@@ -10582,7 +10604,7 @@ namespace ts {
             let leftType = checkExpression(node.left, contextualMapper);
             // [ConcreteTypeScript]
             let rightType = (node.operatorToken.kind === SyntaxKind.DeclaredAsKeyword) 
-                ? checkBrandIdentifier(node.right)
+                ? expectBrandIdentifierGetType(node.right)
                 : checkExpression(node.right, contextualMapper);
             // [/ConcreteTypeScript]
             switch (operator) {
@@ -11525,7 +11547,6 @@ namespace ts {
                         getTypeOfBrandProperty(<BrandPropertyDeclaration> getSymbolDecl(bdecl.symbol.members[key], SyntaxKind.BrandProperty));
                     }
                 }
-                console.log("WHAT")
                 type = createConcreteType(type);
             }
             // [/ConcreteTypeScript]
