@@ -1,9 +1,19 @@
-// Just a big example.
+// Just a big example of a this: declare.
 declare var require, openImpliesClose, voidElements, re_nameEnd;
 
-export function Parser (cbs, options){
-  //TODO fails to cast prototype at runtime
-  var this : declare ParserType;
+export function Parser(this: declare Parser; cbs, options){
+    this._attribname = <any> null;
+    this._attribs = <any> null;
+    this._attribvalue = <any> null;
+    this._cbs = <any> null;
+    this._lowerCaseAttributeNames = <any> null;
+    this._lowerCaseTagNames = <any> null;
+    this._options = <any> null;
+    this._stack = <any> null;
+    this._tagname = <any> null;
+    this._tokenizer = <any> null;
+    this.startIndex = <any> null;
+    this.endIndex = <any> null;
 }
 
 require("util").inherits(Parser, require("events").EventEmitter);

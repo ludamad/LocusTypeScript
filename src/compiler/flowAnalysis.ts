@@ -336,6 +336,9 @@ module ts {
 
             // Search for an associated VariableDeclaration with "let <identifier> : brand <identifier".
             let funcDecl = findFunctionDeclarationForName(propAccess, name);
+            // console.log("FUNCDECL");
+            // if (funcDecl) printNodeDeep(funcDecl);
+            // console.log("/FUNCDECL");
             return isFunctionLikeDeclarationWithThisBrand(funcDecl);
         }
 

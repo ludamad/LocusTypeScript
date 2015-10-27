@@ -176,9 +176,25 @@ namespace ts {
         return <VariableDeclaration|ParameterDeclaration> (getSymbolDecl(symbol, SyntaxKind.VariableDeclaration) || getSymbolDecl(symbol, SyntaxKind.Parameter));
     }
         
-      // [ConcreteTypeScript] Find function declaration associated with identifier, or 'null' if not a FunctionDeclaration
+      export function getExportedSymbol(location: Node, text: string, symbolFlag:SymbolFlags) {
+          while (location) {
+              let exports = (location.symbol && location.symbol.exports);
+              if (!exports || !hasProperty(exports, text) || !(exports[text].flags & symbolFlag)) {
+                  location = location.parent;
+                  continue; 
+              }
+              return location.locals[text];
+          }
+          return null;
+      }
+
+      // Find function declaration associated with identifier, or 'null' if not a FunctionDeclaration
+      export function findFunctionDeclarationSymbolForName(location: Node, text: string): Symbol {
+          return getSymbol(location, text, SymbolFlags.Function) || getExportedSymbol(location, text, SymbolFlags.Function);
+      }
+
       export function findFunctionDeclarationForName(location: Node, text: string): FunctionDeclaration {
-          var symbol = getSymbol(location, text, SymbolFlags.Function);
+          var symbol = findFunctionDeclarationSymbolForName(location, text);
           if (!symbol || symbol.declarations.length < 1) {
               return null;
           }

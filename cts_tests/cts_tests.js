@@ -66,7 +66,8 @@ function createTestBundle(testBundle) {
             }
         }
         it(testName, function (doneCallback) {
-            this.timeout(20000); // Give a generous 20 seconds for compilation and test running
+            // Give a generous 2 minutes for compilation and test running (this is an insane amount, but be mindful that debugging code enabled during testing can be very wasteful)
+            this.timeout(120000);
             spawnTsc(file, afterCompile, compileFailureExpected);
             function afterCompile() {
                 if (isRuntimeTest) {

@@ -1,6 +1,8 @@
 // @RuntimeTest 
 import {assert, assertNotBranded, assertBranded, assertType, assertFails} from "../cts_asserts";
 
+// Wrap in a silly way to make independent of brand scope minimization, and verify
+// that the information is stored at the type level (I suppose).
 var Foo = (function() {
     function Foo(this: declare Foo) {
         this.x = this.y;
