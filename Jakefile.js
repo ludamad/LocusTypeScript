@@ -39,15 +39,14 @@ var compilerSources = [
     "utilities.ts",
     "binder.ts",
     "checker.ts",
-    "brandTypeQueries.ts",
+    "ctsAssignmentAnalysis.ts",
+    "ctsTestEvaluator.ts",
+    "ctsUtilities.ts",
     "declarationEmitter.ts",
     "emitter.ts",
     "program.ts",
     "printNode.ts",
-    "ctsTypes.ts",
     "commandLineParser.ts",
-    "flowAnalysis.ts",
-    "flowTypeDebugChecks.ts",
     "tsc.ts",
     "diagnosticInformationMap.generated.ts"
 ].map(function (f) {

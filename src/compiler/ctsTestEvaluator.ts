@@ -1,10 +1,11 @@
-// TODO rename to ctsDebugChecks
+// This file is part of ConcreteTypeScript.
+
 /// <reference path="binder.ts"/>
 /// <reference path="types.ts"/>
 /// <reference path="checker.ts"/>
-/// <reference path="flowAnalysis.ts"/>
+/// <reference path="ctsAssignmentAnalysis.ts"/>
 
-/// <reference path="brandTypeQueries.ts"/>
+/// <reference path="ctsUtilities.ts"/>
 /// <reference path="ctsTypes.ts"/>
 
 declare var require: { (id: string): any; resolve(id: string): string; cache: any; extensions: any; main: any; };

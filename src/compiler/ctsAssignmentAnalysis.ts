@@ -1,3 +1,5 @@
+// This file is part of ConcreteTypeScript.
+
 /// <reference path="types.ts"/>
 /// <reference path="core.ts"/>
 /// <reference path="scanner.ts"/>
@@ -6,7 +8,7 @@
 /// <reference path="emitter.ts"/>
 /// <reference path="utilities.ts"/>
 /// <reference path="printNode.ts"/>
-/// <reference path="brandTypeQueries.ts"/>
+/// <reference path="ctsUtilities.ts"/>
 
 module ts {
     

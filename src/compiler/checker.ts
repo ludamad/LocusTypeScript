@@ -1,8 +1,8 @@
 /// <reference path="binder.ts"/>
-/// <reference path="flowAnalysis.ts"/>
-/// <reference path="flowTypeDebugChecks.ts"/>
+/// <reference path="ctsAssignmentAnalysis.ts"/>
+/// <reference path="ctsTestEvaluator.ts"/>
 
-/// <reference path="brandTypeQueries.ts"/>
+/// <reference path="ctsUtilities.ts"/>
 /// <reference path="ctsTypes.ts"/>
 
 

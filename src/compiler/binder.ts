@@ -1,6 +1,6 @@
 /// <reference path="parser.ts"/>
-/// <reference path="brandTypeQueries.ts"/>
-/// <reference path="flowAnalysis.ts"/>
+/// <reference path="ctsUtilities.ts"/>
+/// <reference path="ctsAssignmentAnalysis.ts"/>
 
 /* @internal */
 namespace ts {

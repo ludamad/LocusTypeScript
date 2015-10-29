@@ -18,12 +18,11 @@
         "checker.ts",
         "emitter.ts",
         "program.ts",
-        "brandTypeQueries.ts",
+        "ctsAssignmentAnalysis.ts",
+        "ctsUtilities.ts",
+        "ctsTestEvaluator.ts",
         "commandLineParser.ts",
         "tsc.ts",
-        "ctsTypes.ts",
-        "flowAnalysis.ts",
-        "flowTypeDebugChecks.ts",
         "diagnosticInformationMap.generated.ts"
     ]
 }

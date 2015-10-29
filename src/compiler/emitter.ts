@@ -719,7 +719,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 if (callRaw) emitStartRaw(node);
             }
             function emitEnd(node:Node, callRaw = true) {
-                (<any>node).DEBUG_emitted_text = writer.getText().substring((<any>node).DEBUG_textLengthBeforeWriting);
+                if (ENABLE_DEBUG_ANNOTATIONS) {
+                    (<any>node).DEBUG_emitted_text = writer.getText().substring((<any>node).DEBUG_textLengthBeforeWriting);
+                }
                 if (callRaw) emitEndRaw(node);
             }
             // [/ConcreteTypeScript]

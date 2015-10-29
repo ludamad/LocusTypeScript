@@ -1,4 +1,5 @@
-// TODO rename to ctsUtilities
+// This file is part of ConcreteTypeScript.
+
 /// <reference path="types.ts"/>
 /// <reference path="core.ts"/>
 /// <reference path="scanner.ts"/>
@@ -8,6 +9,9 @@
 /// <reference path="utilities.ts"/>
 
 namespace ts {
+
+    declare var process;
+    export var ENABLE_DEBUG_ANNOTATIONS:boolean = !!process.env.CTS_TEST; 
 
     export function forEachChildRecursive(node:Node, callback: (Node)=>void) {
         function callbackPrime(node:Node) {
