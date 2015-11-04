@@ -512,9 +512,9 @@ namespace ts {
         assertFloat?: boolean;        // If set, can assert that this value is always a float instead of generic number
         assertInt?: boolean;          // If set, can assert that this value is always an int instead of generic number
         // Set in ctsAssignmentAnalysis.ts
-        ctsAssignmentAnalysis: FlowTypeAnalysis;
-        ctsDowngradeToBaseClass:boolean
-        brandsToEmitAfterwards?: BrandTypeDeclaration[];
+        ctsAssignmentAnalysis?:   FlowTypeAnalysis;
+        ctsDowngradeToBaseClass?: boolean
+        brandsToEmitAfterwards?:  BrandTypeDeclaration[];
         brandsToEmitAtBeginning?: BrandTypeDeclaration[]; // Special case for parameter-this
         // [/ConcreteTypeScript]
     }

@@ -205,12 +205,14 @@ namespace ts {
         }
     }
     export function beforeCheckPass(node, checker, evaler) {
+        if (!ENABLE_DEBUG_ANNOTATIONS) return;
         if (!node.__wasVisitedBeforeCheck) {
             onPass(node, "beforeCheck", evaler, getEvaluationScope(node, "beforeCheck", checker));
             node.__wasVisitedBeforeCheck = true;
         }
     }
     export function afterCheckPass(node, checker, evaler) {
+        if (!ENABLE_DEBUG_ANNOTATIONS) return;
         if (!node.__wasVisitedAfterCheck) {
             onPass(node, "afterCheck", evaler, getEvaluationScope(node, "afterCheck", checker));
             node.__wasVisitedAfterCheck = true;
@@ -220,12 +222,14 @@ namespace ts {
         return eval(s);
     }
     export function afterParsePass(node) {
+        if (!ENABLE_DEBUG_ANNOTATIONS) return;
         if (!node.__wasVisitedAfterParse) {
             onPass(node, "afterParse", evalInLocalScope, getEvaluationScope(node, "afterParse"));
             node.__wasVisitedAfterParse = true;
         }
     }
     export function afterEmitPass(node, evaler) {
+        if (!ENABLE_DEBUG_ANNOTATIONS) return;
         if (!node.__wasVisitedAfterEmit) {
             onPass(node, "afterEmit", evaler, getEvaluationScope(node, "afterEmit"));
             node.__wasVisitedAfterEmit = true;
