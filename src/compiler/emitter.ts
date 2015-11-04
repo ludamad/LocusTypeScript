@@ -1930,7 +1930,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
 
             // [ConcreteTypeScript]
             function isConcreteObjectLiteralElement(prop: ObjectLiteralElement):boolean {
-                let brandDecl = objLiteralToBrandPropertyDeclaration.get(prop);
+                let brandDecl = prop.ctsBrandPropertyDeclaration;
                 return !!(brandDecl && (brandDecl.resolvedType.flags & TypeFlags.Concrete));
             }
  
@@ -1968,7 +1968,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         continue;
                     }
                     // Set in flowAnalysis.ts
-                    let declaration = objLiteralToBrandPropertyDeclaration.get(property);
+                    let declaration = property.ctsBrandPropertyDeclaration;
                     Debug.assert(declaration.brandTypeDeclaration.varOrParamDeclaration.name.kind === SyntaxKind.Identifier);
                     let varName = (<Identifier>declaration.brandTypeDeclaration.varOrParamDeclaration.name).text;
                     write(";"); writeLine();
@@ -2717,15 +2717,15 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
 
             // [ConcreteTypeScript]
             function emitConcreteAssignment(node:BinaryExpression, expression:Expression, propAccess:PropertyAccessExpression):boolean {
-                let declaration: BrandPropertyDeclaration = nodeToFlowTypeAnalysis.get(propAccess).getDeclaration();
+                let declaration: BrandPropertyDeclaration = (propAccess).ctsAssignmentAnalysis.getDeclaration();
                 let brandDecl = declaration.brandTypeDeclaration;
                 let resolvedToConcrete = (declaration.resolvedType.flags & TypeFlags.Concrete);
-                let assignmentValues = nodeToFlowTypeAnalysis.get(propAccess).assignments;
+                let assignmentValues = (propAccess).ctsAssignmentAnalysis.assignments;
                 // console.log("Here with ", propAccess.name.text,  assignmentValues.length, resolvedToConcrete);
                 if (resolvedToConcrete && assignmentValues.length === 1 && assignmentValues[0] === node.right) {
                     // Emit protection if this is a binding-relevant assignment:
                     // console.log("Here with ", propAccess.name.text, propAccess.brandAnalysis.isPrototypeProperty());
-                    if (nodeToFlowTypeAnalysis.get(propAccess).isPrototypeProperty()) {
+                    if ((propAccess).ctsAssignmentAnalysis.isPrototypeProperty()) {
                         emitCTSRT("protectProtoAssignment(");
                         emitCTSType((<ConcreteType>declaration.resolvedType).baseType);
                         let extendedPrototypeStr = "undefined";
@@ -2776,7 +2776,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 if (isPropertyAssignment(node)) {
                     let propAccess:PropertyAccessExpression = <PropertyAccessExpression>node.left;
                     // console.log("Here with ", propAccess.name.text);
-                    if (nodeToFlowTypeAnalysis.get(propAccess)) {
+                    if ((propAccess).ctsAssignmentAnalysis) {
                         if (emitConcreteAssignment(node, propAccess.expression, propAccess)) {
                             return;
                         }
@@ -7569,7 +7569,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         emitFalseyCoercionPre(node.forceFalseyCoercion);
                     }
             
-                    if (nodeDowngradeToBaseClass.get(node)) {
+                    if ((node).ctsDowngradeToBaseClass) {
                         write("/*downgraded*/"); 
                     }       
                     emitJavaScriptWorker(node);

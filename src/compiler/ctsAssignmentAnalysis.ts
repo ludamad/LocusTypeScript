@@ -197,12 +197,12 @@ module ts {
         mark(node:Node, binder:BrandTypeBinder) {
             let propId = binder.getBrandPropertyId(node);
             if (propId !== null) {
-                nodeToFlowTypeAnalysis.set(node, this.get(binder.getPropId((<PropertyAccessExpression>node).name.text)));
+                node.ctsAssignmentAnalysis = this.get(binder.getPropId((<PropertyAccessExpression>node).name.text));
             }
             propId = binder.getBrandProtoPropertyId(node);
             if (propId !== null) {
-                nodeToFlowTypeAnalysis.set(node, this.get(binder.getProtoPropId((<PropertyAccessExpression>node).name.text)));
-                propAccessUsesProtoBrand.set((<PropertyAccessExpression>node), true);
+                node.ctsAssignmentAnalysis = this.get(binder.getProtoPropId((<PropertyAccessExpression>node).name.text));
+                (<PropertyAccessExpression>node).useProtoBrand = true;
             }
         }
     }
@@ -368,7 +368,7 @@ module ts {
                         let propId = this.getPropId(propName.text);
                         prev = prev.addAssignedValue(propId, (<PropertyAssignment> objectLit).initializer);
                         this.fillProp(propertyNode);
-                        objLiteralToBrandPropertyDeclaration.set(objectLit, propertyNode);
+                        objectLit.ctsBrandPropertyDeclaration = propertyNode;
                     }
                 }
             }
@@ -402,10 +402,10 @@ module ts {
                     if (downgrade) {
                         // Don't downgrade if after last property assignment:
                         if (getNodeId(node) < getNodeId(this.protoBrandPoint) || isNodeDescendentOf(node, this.protoBrandPoint)) {
-                            nodeDowngradeToBaseClass.set(node, true);
+                            node.ctsDowngradeToBaseClass = true;
                         }
                     }
-                    prototypePropToBrandTypeDecl.set(<PropertyAccessExpression>node, this.brandTypeDecl);
+                    (<PropertyAccessExpression>node).brandTypeDecl = this.brandTypeDecl;
                     break;
                 case SyntaxKind.ThisKeyword:
                 case SyntaxKind.Identifier:
@@ -435,7 +435,7 @@ module ts {
                             // Don't downgrade if after last property assignment:
                             // this.brandPoint === null means no downgrading, for example if the only definition-affecting operation is eg in the function signature
                             if (this.brandPoint && (getNodeId(node) < getNodeId(this.brandPoint) || isNodeDescendentOf(node, this.brandPoint))) {
-                                nodeDowngradeToBaseClass.set(node, true);
+                                node.ctsDowngradeToBaseClass = true;
                             }
                         }
                     }
@@ -629,7 +629,7 @@ module ts {
             let name = (<Identifier>brandPropDecl.name).text;
             let flowTypeAnalysis:FlowTypeAnalysis = assignmentResults.get(brandTypeBinder.getPropId(name));                
             Debug.assert(!!flowTypeAnalysis)
-            nodeToFlowTypeAnalysis.set(brandPropDecl, flowTypeAnalysis);
+            brandPropDecl.ctsAssignmentAnalysis = flowTypeAnalysis;
         }
 
         // Set the binding assignments for each prototype property:
@@ -638,7 +638,7 @@ module ts {
                 let name = (<Identifier>brandPropDecl.name).text;
                 let flowTypeAnalysis:FlowTypeAnalysis = assignmentResults.get(brandTypeBinder.getProtoPropId(name));
                 Debug.assert(!!flowTypeAnalysis)
-                nodeToFlowTypeAnalysis.set(brandPropDecl, flowTypeAnalysis);
+                brandPropDecl.ctsAssignmentAnalysis = flowTypeAnalysis;
             }
         }
     }

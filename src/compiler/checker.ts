@@ -2437,7 +2437,7 @@ namespace ts {
         function getTypeOfBrandProperty(declaration: BrandPropertyDeclaration): Type {
             // We wish to give a type to the brand property that is a union over all declaration-scope assignments.
             if (declaration.resolvedType) return declaration.resolvedType;
-            declaration.resolvedType = getUnionOverExpressions(nodeToFlowTypeAnalysis.get(declaration));
+            declaration.resolvedType = getUnionOverExpressions(declaration.ctsAssignmentAnalysis);
             return declaration.resolvedType;
         }
 
@@ -3892,7 +3892,7 @@ namespace ts {
                 } else {
                     if (declaration.parent.kind === SyntaxKind.BinaryExpression && (<BinaryExpression> declaration.parent).operatorToken.kind === SyntaxKind.EqualsToken) {
                         let left = (<BinaryExpression> declaration.parent).left;
-                        let flowAnalysis = nodeToFlowTypeAnalysis.get(left);
+                        let flowAnalysis = (left).ctsAssignmentAnalysis;
                         if (flowAnalysis) {
                             let brandType = flowAnalysis.getBrandType();
                             links.resolvedSignature.resolvedThisType = createConcreteType(getDeclaredTypeOfSymbol(brandType.symbol));
@@ -6539,7 +6539,7 @@ namespace ts {
             let type = getTypeOfSymbol(symbol);
             // [ConcreteTypeScript] Brand variable declarations evaluate to their subtype
             // until the end of scope, or inside a return statement.
-            if (node.kind == SyntaxKind.Identifier && nodeDowngradeToBaseClass.get(node)) {
+            if (node.kind == SyntaxKind.Identifier && (node).ctsDowngradeToBaseClass) {
                 if (isConcreteType(type)) {
                     type = (<InterfaceType>stripConcreteType(type)).resolvedBaseTypes[0];
                     if (type) {
@@ -6958,7 +6958,7 @@ namespace ts {
                 captureLexicalThis(node, container);
             }
 
-            if (isFunctionLike(container) && !nodeDowngradeToBaseClass.get(node)) {
+            if (isFunctionLike(container) && !(node).ctsDowngradeToBaseClass) {
                 let thisType = getSignatureFromDeclaration(container).resolvedThisType;
                 if (thisType) {
                     return thisType;
@@ -7408,7 +7408,7 @@ namespace ts {
                     return getTypeFromTypeNode((<AssertionExpression>parent).type);
                 case SyntaxKind.BinaryExpression:
                     // [ConcreteTypeScript] 
-                    let flowAnalysis = nodeToFlowTypeAnalysis.get(<PropertyAccessExpression>(<BinaryExpression>parent).left);
+                    let flowAnalysis = (<PropertyAccessExpression>(<BinaryExpression>parent).left).ctsAssignmentAnalysis;
                     if ((<BinaryExpression>parent).operatorToken.kind === SyntaxKind.EqualsToken && flowAnalysis) {
                         // If the member is a function, we contextually add a 'this' member to its signature
                         let brandTypeDecl = flowAnalysis.getBrandType();
@@ -8368,18 +8368,18 @@ namespace ts {
         // [ConcreteTypeScript] Get narrowed types for brand property, or proto-property accesses
         function getNarrowedTypeOfBrandPropertyAccess(access:PropertyAccessExpression) {
             // BUG FIX: Make sure resolvedType is always set.
-            let declaration = nodeToFlowTypeAnalysis.get(access).getDeclaration();
+            let declaration = access.ctsAssignmentAnalysis.getDeclaration();
             getTypeOfBrandProperty(declaration);
-            return getUnionOverExpressions(nodeToFlowTypeAnalysis.get(access));
+            return getUnionOverExpressions(access.ctsAssignmentAnalysis);
         }
 
         function checkPropertyAccessExpressionOrQualifiedName(node: PropertyAccessExpression | QualifiedName, left: Expression | QualifiedName, right: Identifier) {
             // [ConcreteTypeScript] types for .prototype:
-            if (prototypePropToBrandTypeDecl.get(<PropertyAccessExpression>node)) {
-                let brandDecl = prototypePropToBrandTypeDecl.get(<PropertyAccessExpression>node).prototypeBrandDeclaration;
+            if ((<PropertyAccessExpression>node).brandTypeDecl) {
+                let brandDecl = (<PropertyAccessExpression>node).brandTypeDecl.prototypeBrandDeclaration;
                 Debug.assert(!!brandDecl);
                 let type:Type;
-                if (nodeDowngradeToBaseClass.get(node)) {
+                if ((node).ctsDowngradeToBaseClass) {
                     let extended:Type = brandDecl.extendedType && getTypeFromTypeNode(brandDecl.extendedType);
                     if (extended) {
                         let brandTypeExtension:BrandTypeDeclaration = <BrandTypeDeclaration>getSymbolDecl(extended.symbol, SyntaxKind.BrandTypeDeclaration);
@@ -8430,7 +8430,7 @@ namespace ts {
             let ptype:Type = getTypeOfSymbol(prop);
             if (node.kind == SyntaxKind.PropertyAccessExpression) {
                 // if (prop.declarations && prop.declarations[0].kind == SyntaxKind.BrandProperty) {
-                if (nodeToFlowTypeAnalysis.get(<PropertyAccessExpression>node)) {
+                if ((<PropertyAccessExpression>node).ctsAssignmentAnalysis) {
                     ptype = getNarrowedTypeOfBrandPropertyAccess(<PropertyAccessExpression>node);
                 }
             }

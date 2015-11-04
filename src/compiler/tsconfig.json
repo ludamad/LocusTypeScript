@@ -21,6 +21,7 @@
         "ctsAssignmentAnalysis.ts",
         "ctsUtilities.ts",
         "ctsTestEvaluator.ts",
+        "ctsTypes.ts",
         "commandLineParser.ts",
         "tsc.ts",
         "diagnosticInformationMap.generated.ts"

@@ -511,7 +511,9 @@ namespace ts {
         direct?: boolean;             // If set, may use direct access (i.e., is an access with correct, concrete types)
         assertFloat?: boolean;        // If set, can assert that this value is always a float instead of generic number
         assertInt?: boolean;          // If set, can assert that this value is always an int instead of generic number
-        // Set in flowAnalysis.ts
+        // Set in ctsAssignmentAnalysis.ts
+        ctsAssignmentAnalysis: FlowTypeAnalysis;
+        ctsDowngradeToBaseClass:boolean
         brandsToEmitAfterwards?: BrandTypeDeclaration[];
         brandsToEmitAtBeginning?: BrandTypeDeclaration[]; // Special case for parameter-this
         // [/ConcreteTypeScript]
@@ -616,6 +618,8 @@ namespace ts {
 
     export interface ObjectLiteralElement extends Declaration {
         _objectLiteralBrandBrand: any;
+        // [ConcreteTypeScript]
+        ctsBrandPropertyDeclaration?:BrandPropertyDeclaration;
     }
 
     // SyntaxKind.PropertyAssignment
@@ -903,6 +907,7 @@ namespace ts {
         // same scope, we collect a relevant list of expressions for determining 
         // the narrowed type of the expression.
         useProtoBrand?: boolean;
+        brandTypeDecl?:BrandTypeDeclaration;
     }
 
     export interface ElementAccessExpression extends MemberExpression {

@@ -207,6 +207,7 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         // the "protectAssignment" adds a protector for a given type and name to an object, if one does not
         // already exist.
         cement(this, "protectAssignment", function(type, name, obj, value) {
+            console.log("protectAssignment");
             var existingSetter = getSetter(obj, name);
             if (existingSetter != null && typeEquals(existingSetter.$$cts$$type, type)) {
                 // Just use existing setter:
@@ -223,6 +224,7 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         });
 
         cement(this, "protectProtoAssignment", function(type, protoCheckType, protoBrandType, name, obj, value) {
+            console.log("protectProtoAssignment");
             if (!hasProperty(obj, "$$cts$$prototypeFrozen")) {
                 addUnenum(obj,"$$cts$$prototypeFrozen", true);
                 var prototype = obj.prototype;
@@ -235,10 +237,15 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             this.protectAssignment(type, name, obj.prototype, value);
         });
 
-        function Brand(brandName) {this.brandName = brandName;}
+        function Brand(brandName) {
+            console.log("Creating " + this.brandName)
+            this.brandName = brandName;
+        }
+
         cement(Brand, "prototype", Brand.prototype);
         cement(Brand, "toString", function() {return this.brandName;});
         cement(Brand.prototype, "$$cts$$check", function(obj) {
+            console.log("check")
             if (typeof obj !== "object" || typeof obj.$$cts$$brands === "undefined") {
                 return false;
             }
@@ -250,6 +257,7 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             return false;
         });
         cement(this, "brand", function(brand, obj) {
+            console.log("brand")
             if (typeof obj === "undefined" || obj === null) {
                 throw new Error("Attempt to brand undefined/null object!")
             }
