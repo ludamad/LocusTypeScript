@@ -65,6 +65,11 @@ function createTestBundle(testBundle) {
                 return;
             }
         }
+        else {
+            if (process.env.ONLY_KNOWN_DEFECTS) {
+                return;
+            }
+        }
         it(testName, function (doneCallback) {
             // Give a generous 2 minutes for compilation and test running (this is an insane amount, but be mindful that debugging code enabled during testing can be very wasteful)
             this.timeout(120000);

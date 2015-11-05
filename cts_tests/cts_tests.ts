@@ -67,6 +67,10 @@ function createTestBundle(testBundle:string) {
             if (process.env.SKIP_KNOWN_DEFECTS) {
                 return;
             }
+        } else {
+            if (process.env.ONLY_KNOWN_DEFECTS) {
+                return;
+            }
         }
         it(testName, function(doneCallback) {
             // Give a generous 2 minutes for compilation and test running (this is an insane amount, but be mindful that debugging code enabled during testing can be very wasteful)
