@@ -212,7 +212,7 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         // already exist.
         cement(this, "protectAssignment", function(type, name, obj, value) {
             var existingSetter = getSetter(obj, name);
-            if (existingSetter != null) {//}&& typeEquals(existingSetter.$$cts$$type, type)) {
+            if (existingSetter != null && typeEquals(existingSetter.$$cts$$type, type)) {
                 // Just use existing setter:
                 obj[name] = value;
                 return;
