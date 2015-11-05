@@ -12,6 +12,7 @@ namespace ts {
 
     declare var process;
     export var ENABLE_DEBUG_ANNOTATIONS:boolean = !!process.env.CTS_TEST; 
+    export var DISABLE_PROTECTED_MEMBERS:boolean = !!process.env.CTS_DISABLE_TYPE_PROTECTION; 
 
     export function forEachChildRecursive(node:Node, callback: (Node)=>void) {
         function callbackPrime(node:Node) {

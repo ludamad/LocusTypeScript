@@ -124,13 +124,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
         }
 
         function emitJavaScript(jsFilePath: string, root?: SourceFile) {
-            // [ConcreteTypeScript] List of nodes used in testing:
-            // TODO Unhackify this:
-                // var emitConstructor = debugWrapEmitterForIntrusiveTesting(emitConstructorRaw, node => getFirstConstructorWithBody(node));
-                // var emitNodeWithoutSourceMap = debugWrapEmitterForIntrusiveTesting(emitNodeWithoutSourceMapRaw);
-                // var emitClassLikeDeclaration = debugWrapEmitterForIntrusiveTesting(emitClassLikeDeclarationRaw);
-            // [/ConcreteTypeScript]
-
             let writer = createTextWriter(newLine);
             let { write, writeTextOfNode, writeLine, increaseIndent, decreaseIndent } = writer;
             
@@ -1931,7 +1924,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             // [ConcreteTypeScript]
             function isConcreteObjectLiteralElement(prop: ObjectLiteralElement):boolean {
                 let brandDecl = prop.ctsBrandPropertyDeclaration;
-                return !!(brandDecl && (brandDecl.resolvedType.flags & TypeFlags.Concrete));
+                return !DISABLE_PROTECTED_MEMBERS && !!(brandDecl && (brandDecl.resolvedType.flags & TypeFlags.Concrete));
             }
  
             function emitObjectLiteral(node: ObjectLiteralExpression): void {
@@ -1963,6 +1956,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
 
                 // TODO also implement for special object literal emits
                 // [ConcreteTypeScript] Emit protectors that were not emitted in the object initializer
+                if (!DISABLE_PROTECTED_MEMBERS)
                 for (var property of node.properties) {
                     if (!isConcreteObjectLiteralElement(property)) {
                         continue;
@@ -2717,6 +2711,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
 
             // [ConcreteTypeScript]
             function emitConcreteAssignment(node:BinaryExpression, expression:Expression, propAccess:PropertyAccessExpression):boolean {
+                if (DISABLE_PROTECTED_MEMBERS) return false;
                 let declaration: BrandPropertyDeclaration = (propAccess).ctsAssignmentAnalysis.getDeclaration();
                 let brandDecl = declaration.brandTypeDeclaration;
                 let resolvedToConcrete = (declaration.resolvedType.flags & TypeFlags.Concrete);
@@ -7493,6 +7488,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             }
 
             function emitNodeWithCommentsAndWithoutSourcemap(node: Node): void {
+                if (DISABLE_PROTECTED_MEMBERS) {
+                    node.direct = false;
+                }
                 emitNodeConsideringCommentsOption(node, emitNodeWithoutSourceMap);
             }
 
