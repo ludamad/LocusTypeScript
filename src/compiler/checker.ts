@@ -2536,17 +2536,7 @@ namespace ts {
             
             // Use type from type annotation if one is present
             if (declaration.type) {
-                let type = getTypeFromTypeNode(declaration.type);
-                // [ConcreteTypeScript]
-                if (declaration.kind == SyntaxKind.VariableDeclaration) {
-                    if ((<VariableDeclaration>declaration).type.brandTypeDeclaration) {
-                        // Brand type declarations don't check assignment,
-                        // instead we use the right-hand-side of the assignment
-                        // as the source of the fields for the brand type.
-                        return createConcreteType(type);
-                    }
-                }
-                return type;
+                return getTypeFromTypeNode(declaration.type);
             }
 
             if (declaration.kind === SyntaxKind.Parameter) {
@@ -12720,7 +12710,7 @@ namespace ts {
                             // Use default messages
                             let extendedType:Type = getTypeFromTypeNode(brandTypeDecl.extendedType);
                             if (!isConcreteType(extendedType)) {
-                                extendedType = createConcreteType(extendedType);
+                                extendedType = createConcreteTypeIfPossible(extendedType);
                             }
                             checkTypeAssignableTo(checkExpressionCached(node.initializer), extendedType, node, /*headMessage*/ undefined);
                             // [ConcreteTypeScript]

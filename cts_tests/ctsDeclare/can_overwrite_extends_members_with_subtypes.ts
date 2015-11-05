@@ -1,4 +1,3 @@
-// @KnownDefect
 // @TestExpectedToHaveCompileErrors
 
 interface HasA {
