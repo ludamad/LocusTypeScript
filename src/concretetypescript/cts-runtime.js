@@ -151,20 +151,24 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         // the "protect" function adds a protector for a given type and name to an object
         function protect(type, name, obj, enumerable) {
             var pname = "$$cts$$value$" + name;
+            var setterName ="$$cts$$setter$"+name;
             var getter = function() { return this[pname]; };
-            var setter = type.$$cts$$setter;
+            var setter = type[setterName];
             if (!setter) {
                 setter = function(val) { this[pname] = $$cts$$runtime.cast(type, val); };
-                addUnenum(type, "$$cts$$setter", setter);
-                addUnenum(setter, "$$cts$$type", type);
+                addUnenum(type, setterName, setter);
+                if (!type.$$cts$$type) {
+                    addUnenum(setter, "$$cts$$type", type);
+                }
             }
 
             if (Object.defineProperty) {
+                console.log(setter.toString())
                 Object.defineProperty(obj, name, {
                     configurable: false,
                     enumerable: (typeof enumerable === "undefined") ? true : !!enumerable,
                     get: getter,
-                    set: setter
+                    set:  setter
                 });
 
             } else throw new Error("Cannot protect properties!");
@@ -207,11 +211,10 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         // the "protectAssignment" adds a protector for a given type and name to an object, if one does not
         // already exist.
         cement(this, "protectAssignment", function(type, name, obj, value) {
-            console.log("protectAssignment");
             var existingSetter = getSetter(obj, name);
-            if (existingSetter != null && typeEquals(existingSetter.$$cts$$type, type)) {
+            if (existingSetter != null) {//}&& typeEquals(existingSetter.$$cts$$type, type)) {
                 // Just use existing setter:
-                this[name] = obj;
+                obj[name] = value;
                 return;
             }
             if (existingSetter != null) {
@@ -224,7 +227,6 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         });
 
         cement(this, "protectProtoAssignment", function(type, protoCheckType, protoBrandType, name, obj, value) {
-            console.log("protectProtoAssignment");
             if (!hasProperty(obj, "$$cts$$prototypeFrozen")) {
                 addUnenum(obj,"$$cts$$prototypeFrozen", true);
                 var prototype = obj.prototype;
@@ -238,14 +240,12 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         });
 
         function Brand(brandName) {
-            console.log("Creating " + this.brandName)
             this.brandName = brandName;
         }
 
         cement(Brand, "prototype", Brand.prototype);
         cement(Brand, "toString", function() {return this.brandName;});
         cement(Brand.prototype, "$$cts$$check", function(obj) {
-            console.log("check")
             if (typeof obj !== "object" || typeof obj.$$cts$$brands === "undefined") {
                 return false;
             }
@@ -257,7 +257,6 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             return false;
         });
         cement(this, "brand", function(brand, obj) {
-            console.log("brand")
             if (typeof obj === "undefined" || obj === null) {
                 throw new Error("Attempt to brand undefined/null object!")
             }
