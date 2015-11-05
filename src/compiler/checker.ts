@@ -4586,7 +4586,7 @@ namespace ts {
         function getTypeFromTypeNode(node: TypeNode): Type {
             let type = getTypeFromTypeNodePrime(node);
 
-            if ((<TypeNode> node).isConcrete) {
+            if ((<TypeNode> node).isConcrete || node.brandTypeDeclaration) {
                 if (isRuntimeCheckable(type)) {
                     type = createConcreteType(type);
                 } else {

@@ -70,11 +70,18 @@ function createTestBundle(testBundle) {
             this.timeout(120000);
             spawnTsc(file, afterCompile, compileFailureExpected);
             function afterCompile() {
+                var wrappedDoneCallback = function () {
+                    // Test succeeded
+                    if (testFailureExpected) {
+                        console.log(clc.red("WARNING: Test marked @KnownDefect, but passed!"));
+                    }
+                    doneCallback();
+                };
                 if (isRuntimeTest) {
-                    spawnNode(file.replace('.ts', '.js'), doneCallback);
+                    spawnNode(file.replace('.ts', '.js'), wrappedDoneCallback);
                 }
                 else {
-                    doneCallback();
+                    wrappedDoneCallback();
                 }
             }
         });
