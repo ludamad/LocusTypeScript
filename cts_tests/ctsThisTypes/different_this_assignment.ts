@@ -1,5 +1,4 @@
 // @KnownDefect
-// This types should not degrade if not interacting with an implicit 'this'
 /* @TestExpectedToHaveCompileErrors */
 type T1 = (this:string) => number;
 type T2 = (this:number) => number;

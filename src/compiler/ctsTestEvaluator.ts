@@ -159,6 +159,14 @@ namespace ts {
                 }
             }
             return assert(false, `Asserted that we have an error containing '${string}', but no errors matched.`);
+
+        }
+        function assertNotError() {
+            let errors = (<any>node).DEBUG_check_diagonistics;
+            if (!errors || errors.length === 0) {
+                return;
+            }
+            assert(false, `Asserted that we have no errors, but had ${errors.join('\n')}.`);
         }
         function hasType(type) {
             if (typeof type === "string") {
@@ -187,6 +195,7 @@ namespace ts {
             assertEmitted,
             assertNotEmitted,
             assertError,
+            assertNotError,
             assertType: (type) => assert(hasType(type), `Should have type equal to '${typeof type === "string" ? type : checker.typeToString(toType(type))}', has type '${checker.typeToString(getType())}'`)
         });
     }

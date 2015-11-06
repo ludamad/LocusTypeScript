@@ -1,190 +1,0 @@
-
-[0m[0m
-[0m  ctsBecomeTypes[0m
-[31mFailed to compile 'ctsBecomeTypes/collect_assignments_ifelse.ts'[39m
-  [31m  1) **KNOWN TO FAIL** should compile ctsBecomeTypes/collect_assignments_ifelse.ts[0m
-[31mFailed to compile 'ctsBecomeTypes/collect_assignments_simple.ts'[39m
-  [31m  2) **KNOWN TO FAIL** should compile ctsBecomeTypes/collect_assignments_simple.ts[0m
-[31mFailed to compile 'ctsBecomeTypes/collect_binding_assignments_ifelse.ts'[39m
-  [31m  3) **KNOWN TO FAIL** should run ctsBecomeTypes/collect_binding_assignments_ifelse.ts as a test[0m
-[31mFailed to compile 'ctsBecomeTypes/collect_binding_assignments_simple_explicit.ts'[39m
-  [31m  4) **KNOWN TO FAIL** should run ctsBecomeTypes/collect_binding_assignments_simple_explicit.ts as a test[0m
-[31mFailed to compile 'ctsBecomeTypes/collect_binding_assignments_simple_implicit.ts'[39m
-  [31m  5) **KNOWN TO FAIL** should run ctsBecomeTypes/collect_binding_assignments_simple_implicit.ts as a test[0m
-[31mFailed to compile 'ctsBecomeTypes/collect_brand_declarations.ts'[39m
-  [31m  6) **KNOWN TO FAIL** should run ctsBecomeTypes/collect_brand_declarations.ts as a test[0m
-[31mFailed to compile 'ctsBecomeTypes/collect_brand_declarations_and_assignments.ts'[39m
-  [31m  7) **KNOWN TO FAIL** should run ctsBecomeTypes/collect_brand_declarations_and_assignments.ts as a test[0m
-[31mFailed to compile 'ctsBecomeTypes/dont_infer_assignments.ts'[39m
-  [31m  8) **KNOWN TO FAIL** should compile ctsBecomeTypes/dont_infer_assignments.ts[0m
-[31mFailed to compile 'ctsBecomeTypes/infer_brand_declarations.ts'[39m
-  [31m  9) **KNOWN TO FAIL** should compile ctsBecomeTypes/infer_brand_declarations.ts[0m
-Passed assertions inline in ctsBecomeTypes/ files: 0 / 0
-
-[0m  ctsDeclare[0m
-[90mPasses at (Identifier) ctsDeclare/brand_after_function_exit.ts:5:29, Should be type {}, was type {}[39m
-[90mPasses at (Identifier) ctsDeclare/brand_after_function_exit.ts:9:12, Should be type !Foo, was type !Foo[39m
-  [32m  ✓[0m[90m should run ctsDeclare/brand_after_function_exit.ts as a test [0m[31m(1967ms)[0m
-  [32m  ✓[0m[90m should run ctsDeclare/brand_after_scope_break.ts as a test [0m[31m(1913ms)[0m
-[90mPasses at (Identifier) ctsDeclare/brand_after_scope_exit.ts:6:36, Should be type {}, was type {}[39m
-[90mPasses at (PropertyAccessExpression) ctsDeclare/brand_after_scope_exit.ts:9:12, Should be type !number, was type !number[39m
-[31mFAILURE executing at (Identifier) ctsDeclare/brand_after_scope_exit.ts:9:12, Should be type !number, was type !Foo[39m
-  [31m  10) should run ctsDeclare/brand_after_scope_exit.ts as a test[0m
-[90mPasses at (Identifier) ctsDeclare/brand_before_return.ts:4:29, Should be type {}, was type {}[39m
-[90mPasses at (PropertyAccessExpression) ctsDeclare/brand_before_return.ts:7:12, Should be type !number, was type !number[39m
-[31mFAILURE executing at (Identifier) ctsDeclare/brand_before_return.ts:7:12, Should be type !number, was type !Foo[39m
-  [31m  11) should run ctsDeclare/brand_before_return.ts as a test[0m
-  [32m  ✓[0m[90m **KNOWN TO FAIL** shouldnt compile ctsDeclare/can_overwrite_extends_members_with_subtypes.ts [0m[31m(1517ms)[0m
-  [32m  ✓[0m[90m **KNOWN TO FAIL** shouldnt compile ctsDeclare/cannot_overwrite_extends_members_with_unrelated.ts [0m[31m(1494ms)[0m
-[31mFAILURE executing at (PropertyAccessExpression) ctsDeclare/embedded_function_binds_as_conditional.ts:6:18, Should be type !string|!number, was type !string[39m
-  [31m  12) should compile ctsDeclare/embedded_function_binds_as_conditional.ts[0m
-  [31m  13) **KNOWN TO FAIL** shouldnt compile ctsDeclare/extends_primitive.ts[0m
-[90mPasses at (Identifier) ctsDeclare/function_bind_object_literal.ts:4:33, Should be type !Foo, was type !Foo[39m
-  [32m  ✓[0m[90m should run ctsDeclare/function_bind_object_literal.ts as a test [0m[31m(1949ms)[0m
-[90mPasses at (Identifier) ctsDeclare/global_bind_object_literal.ts:3:29, Should be type !Foo, was type !Foo[39m
-  [32m  ✓[0m[90m should run ctsDeclare/global_bind_object_literal.ts as a test [0m[31m(1905ms)[0m
-[90mPasses at (PropertyAccessExpression) ctsDeclare/if_statement_both_clauses.ts:7:20, Should be type !number, was type !number[39m
-[31mFAILURE executing at (Identifier) ctsDeclare/if_statement_both_clauses.ts:7:20, Should be type !number, was type !Foo[39m
-  [31m  14) should run ctsDeclare/if_statement_both_clauses.ts as a test[0m
-[31mFAILURE executing at (PropertyAccessExpression) ctsDeclare/if_statement_no_else.ts:7:20, Should be type number, was type !number[39m
-  [31m  15) should run ctsDeclare/if_statement_no_else.ts as a test[0m
-[90mPasses at (PropertyAccessExpression) ctsDeclare/if_statement_no_else_after_assign.ts:6:16, Should be type !number, was type !number[39m
-[31mFAILURE executing at (Identifier) ctsDeclare/if_statement_no_else_after_assign.ts:6:16, Should be type !number, was type !Foo[39m
-  [31m  16) should run ctsDeclare/if_statement_no_else_after_assign.ts as a test[0m
-[90mPasses at (Identifier) ctsDeclare/is_parent_type_until_final_assign.ts:6:14, Should be type {}, was type {}[39m
-[90mPasses at (Identifier) ctsDeclare/is_parent_type_until_final_assign.ts:9:14, Should be type !Foo, was type !Foo[39m
-  [32m  ✓[0m[90m shouldnt compile ctsDeclare/is_parent_type_until_final_assign.ts [0m[31m(1564ms)[0m
-[31mFAILURE executing at (ParenthesizedExpression) ctsDeclare/module_bind_object_literal.ts:5:1, Should be type !Declared, was type !Foo[39m
-  [31m  17) should run ctsDeclare/module_bind_object_literal.ts as a test[0m
-  [31m  18) **KNOWN TO FAIL** shouldnt compile ctsDeclare/no_initializer.ts[0m
-[90mPasses at (PropertyAccessExpression) ctsDeclare/object_lit.ts:1:8, Should be type !number, was type !number[39m
-[31mFAILURE executing at (Identifier) ctsDeclare/object_lit.ts:1:8, Should be type !number, was type !Foo[39m
-  [31m  19) should compile ctsDeclare/object_lit.ts[0m
-[90mPasses at (PropertyAccessExpression) ctsDeclare/simple_assignments_cause_binding.ts:7:26, Should be type !number, was type !number[39m
-[31mFAILURE executing at (Identifier) ctsDeclare/simple_assignments_cause_binding.ts:7:26, Should be type !number, was type !Foo[39m
-  [31m  20) should compile ctsDeclare/simple_assignments_cause_binding.ts[0m
-[90mPasses at (PropertyAccessExpression) ctsDeclare/switch_statement_all_cases_write.ts:8:20, Should be type !number, was type !number[39m
-[31mFAILURE executing at (Identifier) ctsDeclare/switch_statement_all_cases_write.ts:8:20, Should be type !number, was type !Foo[39m
-  [31m  21) **KNOWN TO FAIL** should run ctsDeclare/switch_statement_all_cases_write.ts as a test[0m
-[31mFAILURE executing at (PropertyAccessExpression) ctsDeclare/switch_statement_all_cases_write_no_default.ts:8:20, Should be type number, was type !number[39m
-  [31m  22) **KNOWN TO FAIL** should run ctsDeclare/switch_statement_all_cases_write_no_default.ts as a test[0m
-[31mFAILURE executing at (PropertyAccessExpression) ctsDeclare/switch_statement_one_case_writes.ts:8:20, Should be type number, was type !number[39m
-  [31m  23) **KNOWN TO FAIL** should run ctsDeclare/switch_statement_one_case_writes.ts as a test[0m
-Passed assertions inline in ctsDeclare/ files: 15 / 27
-
-[0m  ctsEcoop2015[0m
-[90mPasses at (ArrayLiteralExpression) ctsEcoop2015/array_literals_like.ts:0:0, Array types shouldn't be concrete![39m
-  [32m  ✓[0m[90m should compile ctsEcoop2015/array_literals_like.ts [0m[31m(1522ms)[0m
-  [32m  ✓[0m[90m should compile ctsEcoop2015/concrete_assignable_to_like.ts [0m[31m(1490ms)[0m
-[90mPasses at (ExpressionStatement) ctsEcoop2015/concrete_casts_check.ts:0:0, Expected to emit '/cts.*runtime.*cast.*Number.*1.*\)/'.[39m
-  [32m  ✓[0m[90m should compile ctsEcoop2015/concrete_casts_check.ts [0m[31m(1472ms)[0m
-  [32m  ✓[0m[90m should compile ctsEcoop2015/concrete_members_assignable_to_concrete.ts [0m[31m(1548ms)[0m
-  [32m  ✓[0m[90m should compile ctsEcoop2015/concrete_members_assignable_to_like.ts [0m[31m(1540ms)[0m
-[90mPasses at (ExpressionStatement) ctsEcoop2015/concrete_this_elides_method_check.ts:2:35, Expected to emit '/this.*cts.*myMethod/'.[39m
-  [32m  ✓[0m[90m should compile ctsEcoop2015/concrete_this_elides_method_check.ts [0m[31m(1546ms)[0m
-[90mPasses at (Identifier) ctsEcoop2015/function_literals_like.ts:0:29, Function types shouldn't be concrete![39m
-  [32m  ✓[0m[90m should compile ctsEcoop2015/function_literals_like.ts [0m[31m(1507ms)[0m
-[31mFAILURE executing at (SourceFile) ctsEcoop2015/global_class_cemented.ts:0:0, Expected to emit '/cement.*Point.*Point/'.[39m
-  [31m  24) **KNOWN TO FAIL** should compile ctsEcoop2015/global_class_cemented.ts[0m
-[90mPasses at (SourceFile) ctsEcoop2015/global_function_cemented.ts:0:0, Expected to emit '/cementGlobal.*Test.*Test/'.[39m
-  [32m  ✓[0m[90m should compile ctsEcoop2015/global_function_cemented.ts [0m[31m(1541ms)[0m
-[90mPasses at (ParenthesizedExpression) ctsEcoop2015/infers_concrete_return_type.ts:2:1, Should be type !Foo, was type !Foo[39m
-[90mPasses at (ParenthesizedExpression) ctsEcoop2015/infers_concrete_return_type.ts:4:72, Should be type !number, was type !number[39m
-[90mPasses at (ParenthesizedExpression) ctsEcoop2015/infers_concrete_return_type.ts:5:58, Should be type !string, was type !string[39m
-  [32m  ✓[0m[90m should compile ctsEcoop2015/infers_concrete_return_type.ts [0m[31m(1689ms)[0m
-  [31m  25) **KNOWN TO FAIL** shouldnt compile ctsEcoop2015/interfaces_cant_be_concrete.ts[0m
-  [32m  ✓[0m[90m should compile ctsEcoop2015/like_members_assignable_to_like.ts [0m[31m(1580ms)[0m
-[90mPasses at (VariableStatement) ctsEcoop2015/like_members_not_assignable_to_concrete.ts:8:1, Found error containing 'Type 'string' is not assignable to type '!string''.[39m
-  [32m  ✓[0m[90m shouldnt compile ctsEcoop2015/like_members_not_assignable_to_concrete.ts [0m[31m(1535ms)[0m
-[90mPasses at (VariableStatement) ctsEcoop2015/like_not_assignable_to_concrete.ts:0:0, Found error containing 'Type 'string' is not assignable to type '!string''.[39m
-  [32m  ✓[0m[90m shouldnt compile ctsEcoop2015/like_not_assignable_to_concrete.ts [0m[31m(1501ms)[0m
-[90mPasses at (ParenthesizedExpression) ctsEcoop2015/like_string_method_returns_like.ts:0:0, Should be type string, was type string[39m
-  [32m  ✓[0m[90m should compile ctsEcoop2015/like_string_method_returns_like.ts [0m[31m(1408ms)[0m
-[90mPasses at (ExpressionStatement) ctsEcoop2015/like_this_has_method_check.ts:2:35, Expected to emit '/this\.myMethod/'.[39m
-  [32m  ✓[0m[90m should compile ctsEcoop2015/like_this_has_method_check.ts [0m[31m(1439ms)[0m
-[31mFAILURE executing at (SourceFile) ctsEcoop2015/module_class_cemented.ts:0:0, Expected to emit '/cement.*Point.*Point/'.[39m
-  [31m  26) **KNOWN TO FAIL** should compile ctsEcoop2015/module_class_cemented.ts[0m
-[31mFAILURE executing at (SourceFile) ctsEcoop2015/module_function_cemented.ts:0:0, Expected to NOT emit '/Test\.makePoint.*=.*makePoint/'.[39m
-  [31m  27) **KNOWN TO FAIL** should compile ctsEcoop2015/module_function_cemented.ts[0m
-[90mPasses at (NewExpression) ctsEcoop2015/newed_class_has_concrete_members.ts:10:1, Class types with concrete members should be concrete![39m
-[90mPasses at (ClassDeclaration) ctsEcoop2015/newed_class_has_concrete_members.ts:0:0, Expected to emit '/cts.*runtime.*cast.*Point.*this/'.[39m
-[90mPasses at (ClassDeclaration) ctsEcoop2015/newed_class_has_concrete_members.ts:0:0, Expected to emit '/cts.*runtime.*cast.*Number.*x/'.[39m
-[90mPasses at (ClassDeclaration) ctsEcoop2015/newed_class_has_concrete_members.ts:0:0, Expected to emit '/cts.*runtime.*cast.*Number.*y/'.[39m
-[90mPasses at (ClassDeclaration) ctsEcoop2015/newed_class_has_concrete_members.ts:0:0, Expected to emit '/cts.*runtime.*addUnenum.*this.*cts..value.x.*\,.*x/'.[39m
-[90mPasses at (ClassDeclaration) ctsEcoop2015/newed_class_has_concrete_members.ts:0:0, Expected to emit '/cts.*runtime.*addUnenum.*this.*cts..value.y.*\,.*y/'.[39m
-  [32m  ✓[0m[90m should compile ctsEcoop2015/newed_class_has_concrete_members.ts [0m[31m(1549ms)[0m
-[90mPasses at (NewExpression) ctsEcoop2015/newed_class_has_like_members.ts:6:1, Class types with no concrete members should be concrete![39m
-[90mPasses at (ClassDeclaration) ctsEcoop2015/newed_class_has_like_members.ts:0:0, Expected to emit '/cts.*runtime.*cast.*Point.*this/'.[39m
-  [32m  ✓[0m[90m should compile ctsEcoop2015/newed_class_has_like_members.ts [0m[31m(1596ms)[0m
-  [32m  ✓[0m[90m should compile ctsEcoop2015/node_include.ts [0m[31m(1712ms)[0m
-[90mPasses at (NumericLiteral) ctsEcoop2015/number_literals_concrete.ts:0:0, Should be type !number, was type !number[39m
-[90mPasses at (Identifier) ctsEcoop2015/number_literals_concrete.ts:1:12, Should be type !number, was type !number[39m
-  [32m  ✓[0m[90m should compile ctsEcoop2015/number_literals_concrete.ts [0m[31m(1514ms)[0m
-[90mPasses at (Identifier) ctsEcoop2015/object_literals_like.ts:0:26, Object literal types shouldn't be concrete![39m
-  [32m  ✓[0m[90m should compile ctsEcoop2015/object_literals_like.ts [0m[31m(1626ms)[0m
-[90mPasses at (StringLiteral) ctsEcoop2015/string_literals_concrete.ts:0:0, Should be type !string, was type !string[39m
-[90mPasses at (Identifier) ctsEcoop2015/string_literals_concrete.ts:1:19, Should be type !string, was type !string[39m
-  [32m  ✓[0m[90m should compile ctsEcoop2015/string_literals_concrete.ts [0m[31m(1522ms)[0m
-[90mPasses at (ThisKeyword) ctsEcoop2015/this_concrete_in_method_if_class_has_concrete_members.ts:2:46, Should be type !Point, was type !Point[39m
-[90mPasses at (ThisKeyword) ctsEcoop2015/this_concrete_in_method_if_class_has_concrete_members.ts:9:21, Should be type !Point, was type !Point[39m
-[90mPasses at (MethodDeclaration) ctsEcoop2015/this_concrete_in_method_if_class_has_concrete_members.ts:5:5, Expected to emit '/cts.*cast.*Point.*this/'.[39m
-[90mPasses at (MethodDeclaration) ctsEcoop2015/this_concrete_in_method_if_class_has_concrete_members.ts:5:5, Expected to emit '/cts.*cast.*String.*s/'.[39m
-[90mPasses at (MethodDeclaration) ctsEcoop2015/this_concrete_in_method_if_class_has_concrete_members.ts:5:5, Expected to emit '/cement[^]*cement/'.[39m
-  [32m  ✓[0m[90m should compile ctsEcoop2015/this_concrete_in_method_if_class_has_concrete_members.ts [0m[31m(1556ms)[0m
-[90mPasses at (ThisKeyword) ctsEcoop2015/this_concrete_in_method_if_class_has_like_members.ts:2:44, Should be type !Point, was type !Point[39m
-[90mPasses at (ThisKeyword) ctsEcoop2015/this_concrete_in_method_if_class_has_like_members.ts:9:21, Should be type !Point, was type !Point[39m
-[90mPasses at (MethodDeclaration) ctsEcoop2015/this_concrete_in_method_if_class_has_like_members.ts:5:5, Expected to emit '/cts.*cast.*Point.*this/'.[39m
-[90mPasses at (MethodDeclaration) ctsEcoop2015/this_concrete_in_method_if_class_has_like_members.ts:5:5, Expected to emit '/cts.*cast.*String.*s/'.[39m
-[90mPasses at (MethodDeclaration) ctsEcoop2015/this_concrete_in_method_if_class_has_like_members.ts:5:5, Expected to emit '/cement[^]*cement/'.[39m
-  [32m  ✓[0m[90m should compile ctsEcoop2015/this_concrete_in_method_if_class_has_like_members.ts [0m[31m(1529ms)[0m
-Passed assertions inline in ctsEcoop2015/ files: 35 / 38
-
-[0m  ctsLarge[0m
-  [32m  ✓[0m[90m should compile ctsLarge/exported_constructor_htmlparser2.ts [0m[31m(3936ms)[0m
-Passed assertions inline in ctsLarge/ files: 0 / 0
-
-[0m  ctsMisc[0m
-  [32m  ✓[0m[90m should run ctsMisc/declaredas.ts as a test [0m[31m(1939ms)[0m
-Passed assertions inline in ctsMisc/ files: 0 / 0
-
-[0m  ctsMultifile[0m
-[90mPasses at (Identifier) ctsMultifile/function_external_declare.ts:8:23, Should be type !Foo, was type !Foo[39m
-[90mPasses at (ParenthesizedExpression) ctsMultifile/function_external_declare.ts:9:35, Should be type !number, was type !number[39m
-  [32m  ✓[0m[90m should run ctsMultifile/function_external_declare.ts as a test [0m[31m(2148ms)[0m
-[31mFailed to compile 'ctsMultifile/function_external_declare_class.ts'[39m
-  [31m  28) should run ctsMultifile/function_external_declare_class.ts as a test[0m
-[31mFailed to compile 'ctsMultifile/global_external_declare.ts'[39m
-  [31m  29) should run ctsMultifile/global_external_declare.ts as a test[0m
-[31mFailed to compile 'ctsMultifile/global_external_declare_class.ts'[39m
-  [31m  30) should run ctsMultifile/global_external_declare_class.ts as a test[0m
-Passed assertions inline in ctsMultifile/ files: 2 / 2
-
-[0m  ctsStandardLibrary[0m
-[31mFAILURE executing at (ParenthesizedExpression) ctsStandardLibrary/concrete_string_method_returns_concrete.ts:0:0, Should be type !string, was type string[39m
-  [31m  31) **KNOWN TO FAIL** should compile ctsStandardLibrary/concrete_string_method_returns_concrete.ts[0m
-Passed assertions inline in ctsStandardLibrary/ files: 0 / 1
-
-[0m  ctsThisDeclare[0m
-  [32m  ✓[0m[90m shouldnt compile ctsThisDeclare/bare_declare.ts [0m[31m(1693ms)[0m
-  [32m  ✓[0m[90m should compile ctsThisDeclare/exported_constructor.ts [0m[31m(1536ms)[0m
-  [32m  ✓[0m[90m should compile ctsThisDeclare/extending.ts [0m[31m(1921ms)[0m
-[90mPasses at (ThisKeyword) ctsThisDeclare/method_infer_this.ts:6:33, Should be type !Foo, was type !Foo[39m
-  [32m  ✓[0m[90m shouldnt compile ctsThisDeclare/method_infer_this.ts [0m[31m(1871ms)[0m
-  [31m  32) **KNOWN TO FAIL** shouldnt compile ctsThisDeclare/method_redefinition.ts[0m
-  [32m  ✓[0m[90m should run ctsThisDeclare/this_declare_brand_prototype_object.ts as a test [0m[31m(2059ms)[0m
-  [32m  ✓[0m[90m should run ctsThisDeclare/this_declare_constructor_checks_prototype.ts as a test [0m[31m(2028ms)[0m
-  [31m  33) should run ctsThisDeclare/this_declare_function_not_check_prototype.ts as a test[0m
-  [31m  34) should run ctsThisDeclare/this_declare_method_cemented.ts as a test[0m
-  [31m  35) should run ctsThisDeclare/this_declare_method_checks_prototype.ts as a test[0m
-Passed assertions inline in ctsThisDeclare/ files: 1 / 1
-
-[0m  ctsThisTypes[0m
-[31mFAILURE executing at (ExpressionStatement) ctsThisTypes/different_this_assignment.ts:6:10, Asserted that we have an error containing '/'string'.*'number'/', but no errors matched.[39m
-  [31m  36) shouldnt compile ctsThisTypes/different_this_assignment.ts[0m
-[31mFailed to compile 'ctsThisTypes/implicit_this_is_any.ts'[39m
-  [31m  37) should compile ctsThisTypes/implicit_this_is_any.ts[0m
-Passed assertions inline in ctsThisTypes/ files: 0 / 1
-
-
-[92m [0m[32m 38 passing[0m[90m (2m)[0m
-

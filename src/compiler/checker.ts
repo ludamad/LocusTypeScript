@@ -4575,7 +4575,7 @@ namespace ts {
 
         function getTypeFromTypeNode(node: TypeNode): Type {
             let type = getTypeFromTypeNodePrime(node);
-
+            node.resolvedType = type;
             if ((<TypeNode> node).isConcrete || node.brandTypeDeclaration) {
                 if (isRuntimeCheckable(type)) {
                     type = createConcreteType(type);
@@ -11525,6 +11525,7 @@ namespace ts {
             checkGrammarTypeArguments(node, node.typeArguments);
             let type = getTypeFromTypeReference(node);
             // [ConcreteTypeScript]
+            node.resolvedType = type;
             if (node.brandTypeDeclaration) {
                 let bdecl = node.brandTypeDeclaration;
                 for (let key of Object.keys(bdecl.symbol.members)) {

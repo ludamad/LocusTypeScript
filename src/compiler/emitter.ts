@@ -2409,7 +2409,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         writeTextOfNode(currentSourceFile, qualifiedName.right);
                     }
                 }
-
                 switch (type.kind) {
                     case SyntaxKind.AnyKeyword:
                     case SyntaxKind.VoidKeyword:
@@ -2424,7 +2423,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     case SyntaxKind.BooleanKeyword:
                         return write("Boolean");
                     case SyntaxKind.TypeReference:
-                        if (type.symbol && type.symbol.flags & SymbolFlags.Brand) {
+                        if (type.resolvedType && type.resolvedType.flags & TypeFlags.Brand) {
                             write("$$cts$$runtime.brandTypes.");
                         }
                         return emitEntityName((<TypeReferenceNode>type).typeName);
@@ -4130,7 +4129,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 }
 
                 // Now check each of the arguments
-                forEach(node.parameters, param => {
+                for (let param of node.parameters) {
                     if (param.type && (<TypeNode>param.type).isConcrete) {
                         writeLine();
                         emitStart(param);
@@ -4143,7 +4142,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         emitEnd(param);
                         didEmitProtectors = true;
                     }
-                });
+                }
 
                 return didEmitProtectors;
             }
