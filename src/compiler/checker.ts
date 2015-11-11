@@ -6615,17 +6615,18 @@ namespace ts {
                     assumeTrue = !assumeTrue;
                 }
                 if (assumeTrue) {
+                    // Assumed result is true. If check was not for a primitive type, remove all primitive types
+                    if (!typeInfo) {
+                        return removeTypesFromUnionType(type, /*typeKind*/ TypeFlags.StringLike | TypeFlags.NumberLike | TypeFlags.Boolean | TypeFlags.ESSymbol,
+                            /*isOfTypeKind*/ true, /*allowEmptyUnionResult*/ false);
+                    }
+
                     let checkType = typeInfo.type;
                     // [ConcreteTypeScript]
                     // We can safely assume that the type is concrete here
                     if (checkType !== emptyObjectType) checkType = createConcreteType(checkType);
                     // [/ConcreteTypeScript]
 
-                    // Assumed result is true. If check was not for a primitive type, remove all primitive types
-                    if (!typeInfo) {
-                        return removeTypesFromUnionType(type, /*typeKind*/ TypeFlags.StringLike | TypeFlags.NumberLike | TypeFlags.Boolean | TypeFlags.ESSymbol,
-                            /*isOfTypeKind*/ true, /*allowEmptyUnionResult*/ false);
-                    }
                     // Check was for a primitive type, return that primitive type if it is a subtype
                     if (isTypeSubtypeOf(checkType, type)) {
                         return checkType;

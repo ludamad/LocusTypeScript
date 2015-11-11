@@ -1,5 +1,3 @@
-// @KnownDefect
-
 var x : (y : any) => void;
 var y : any;
 
