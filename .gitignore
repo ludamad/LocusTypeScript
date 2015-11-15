@@ -5,6 +5,8 @@ node_modules/
 *.result
 *.output
 built/*
+cts_tests/*/*.js
+cts_tests/*.js
 tests/cases/*.js
 tests/cases/*.js
 tests/cases/*/*.js
