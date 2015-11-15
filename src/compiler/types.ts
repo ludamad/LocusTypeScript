@@ -15,7 +15,23 @@ namespace ts {
         // If the 'this' type of a function
         functionDeclaration?: FunctionLikeDeclaration;
     }
+    // [/ConcreteTypeScript]
 
+    export interface VariableMemberAssignedType {
+        member:string;
+        type:Type; // 'null' if no assignment
+        assignmentLocations:Node[]; // For error messages 
+    }
+
+    // [ConcreteTypeScript] Results of flow analysis
+    // An implicit declare type's members are computed by performing
+    // assignment analysis from the start to the end of the variable's scope.
+    export interface VariableMemberAssignedTypes {
+        // All assignments to objects that alias 'object'
+        object:Node;
+        assignments:{[member:string]:VariableMemberAssignedType};
+    }
+ 
     // [/ConcreteTypeScript]
 
     // [ConcreteTypeScript] We resolve the type of a brand property based on
@@ -494,7 +510,7 @@ namespace ts {
         decorators?: NodeArray<Decorator>;              // Array of decorators (in document order)
         modifiers?: ModifiersArray;                     // Array of modifiers
         /* @internal */ id?: number;                    // Unique id (used to look up NodeLinks)
-        parent?: Node;                                  // Parent node (initialized by binding
+        parent?: Node;                                  // Parent node (initialized by binding)
         /* @internal */ jsDocComment?: JSDocComment;    // JSDoc for the node, if it has any.  Only for .js files.
         /* @internal */ symbol?: Symbol;                // Symbol declared by node (initialized by binding)
         /* @internal */ locals?: SymbolTable;           // Locals associated with node (initialized by binding)
@@ -503,6 +519,14 @@ namespace ts {
 
         
         // [ConcreteTypeScript]
+        lastChild?: Node; // Last child node (initialized by binding)
+        prevInParent?: Node; // previous child node of parent (initialized by binding)
+        // Set during checker.ts.
+        // Cached results of assignment-analysis, one per object being analyzed through this node. 
+        // We keep an array because it is default to make a true map.
+        // as our key is a sample node used for very simple alias analysis.
+        // Furthermore, we don't expect many overlapping assignment analyses, so this should be a small set (of AssignmentSet's).
+        variableMemberAssignedTypes?: VariableMemberAssignedTypes[]; 
         mustCheck?: Type;             // If this node must be type-checked at runtime, the type to check
         mustFloat?: boolean;          // If set, this value must be explicitly coerced to float instead of generic number
         mustInt?: boolean;            // If set, this value must be explicitly coerced to int instead of generic number

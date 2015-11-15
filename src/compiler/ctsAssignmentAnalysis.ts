@@ -12,10 +12,6 @@
 
 module ts {
     
-    function flowLog(arg, ...args) {
-        console.log(arg, ...args);
-    }
-
     // As our binder passes through the function
     // we collect the relevant assignments of the brand property 
     // for once it leaves the block, and for when it 
@@ -25,8 +21,8 @@ module ts {
         // must be subtypes. 
         // 
         // However, we special case assignments such as:
-        // let a = 1;
-        // if (actuallyItsAString) a = "string";
+        // analyzed.member = 1;
+        // if (actuallyItsAString) analyzed.member = "string";
         //
         // The reason being that this sort of conditional assignment is idiomatic.
         constructor(private binder:BrandTypeBinder, 
@@ -349,7 +345,7 @@ module ts {
             let propAccess = <PropertyAccessExpression>node;
             if (!this.isBrandPrototypeAccess(propAccess.expression)) {
                 return null;
-            }
+             }
             return this.getProtoPropId(propAccess.name.text);
         }
         scanInitializer(initializer:Expression, prev:BrandPropertyTypes):BrandPropertyTypes {

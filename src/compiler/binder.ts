@@ -867,11 +867,17 @@ namespace ts {
         }
 
         function bind(node: Node) {
-            // [ConcreteTypeScript]
-            getNodeId(node); // force node ids to generate in traversal order,
-            // so that we can rely on their order later
-            // [/ConcreteTypeScript]
             node.parent = parent;
+            // [ConcreteTypeScript]
+            // Set up pointers for convenient recursive navigation.
+            // Use parent.lastChild to remember the previous child within the parent.
+            if (parent != null) {
+                node.prevInParent = parent.lastChild;
+                parent.lastChild = node; 
+            }
+            getNodeId(node); // Force node ids to generate in traversal order,
+            // so that we can rely on their order later.
+            // [/ConcreteTypeScript]
 
             let savedInStrictMode = inStrictMode;
             if (!savedInStrictMode) {

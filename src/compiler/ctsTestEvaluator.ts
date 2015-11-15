@@ -188,10 +188,10 @@ namespace ts {
                 return node.kind === SyntaxKind.SourceFile;
             },
             toType,
-            assert,
             getType,
             hasType,
             writeLine,
+            assert,
             assertEmitted,
             assertNotEmitted,
             assertError,
