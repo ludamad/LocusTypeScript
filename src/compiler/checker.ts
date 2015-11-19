@@ -16743,5 +16743,271 @@ namespace ts {
                 return true;
             }
         }
+        /***********************************************************************************************************
+         * [ConcreteTypeScript] Assignment analysis 
+         ***********************************************************************************************************/
+        function _unionTypes(typesA:Type[], typesB:Type[]) : Type[] {
+            let result:Type[] = [].concat(typesA);
+            for (let type of typesB) {
+                if (result.indexOf(type) < 0) {
+                    result.push(type);
+                }
+            }
+            return result;
+        }
+        function _unionMembers(memberA:Member, memberB:Member) : Member {
+            if (!memberA || !memberB) return memberA || memberB;
+            let {member} = memberA;
+            Debug.assert(member === memberB.member);
+            return {
+                member: member, 
+                conditionalBarrierPassed: memberA.conditionalBarrierPassed && memberB.conditionalBarrierPassed, 
+                definitelyAssigned: memberA.definitelyAssigned && memberB.definitelyAssigned, 
+                types: _unionTypes(memberA.types, memberB.types)
+            }; 
+        }
+        function union(setA:MemberSet, setB:MemberSet) : MemberSet {
+            let obj:MemberSet = {};
+            for (let member of Object.keys(setA)) {
+                obj[member] = setA[member];
+            }
+            for (let member of Object.keys(setB)) {
+                obj[member] = _unionMembers(obj[member], setB[member]);
+            }
+            return obj;
+        }
+        function addAssignment(set:MemberSet, field:string) {
+            if (!this.definitelyAssigned || this.conditionalBarrier) {
+                return new FlowTypeAnalysis(this.binder, this.index, [node], true);
+            }
+        }
+        if (!this.definitelyAssigned || this.conditionalBarrier) {
+            return new FlowTypeAnalysis(this.binder, this.index, [node], true);
+        }
+        return this;
+        function passConditionalBarrier(memberSet:MemberSet) : MemberSet{
+            let copy:MemberSet = {};
+            for (let member of Object.keys(memberSet)) {
+                let {types, definitelyAssigned} = memberSet[member];
+                copy[member] = {member, definitelyAssigned, conditionalBarrierPassed: true, types};
+            }
+            return copy;
+        }
+
+        function areSameVariable(objA:Identifier, objB:Identifier) {
+            if (objA.text !== objB.text) {
+                return false;
+            }
+            return findDeclarationForName(objA, objA.text) === findDeclarationForName(objB, objB.text);
+        }
+        
+        function areSameValue(objA:Node, objB:Node) {
+            if (objA.kind === objB.kind) {
+                if (objA.kind === SyntaxKind.Identifier) {
+                    return areSameVariable(<Identifier>objA, <Identifier>objB);
+                }
+                if (isPrototypeAccess(objA) && isPrototypeAccess(objB)) { 
+                    return areSameValue(objA.expression, objB.expression);
+                }
+            }
+            return false;
+        }
+        function getScopeContainer(obj:Node) {
+            if (isPrototypeAccess(obj)) {
+                return getScopeContainer(obj.expression);
+            }
+            if (obj.kind !== SyntaxKind.Identifier) {
+                return false;
+            }
+            return getSymbolScope(obj, (<Identifier>obj).text, SymbolFlags.Value);
+        }
+        type ReferenceDecider = (node:Node) => boolean;
+        
+        function scanAssignedMemberTypes(reference: Node):MemberSet {
+            let type = getTypeOfNode(reference);
+            if (!(type.flags & TypeFlags.ObjectType)) {
+                throw new Error("TODO make error");
+            }
+            return scanAssignedMemberTypesWorker((node) => areSameValue(node, reference), /*Node-links: */ {},  getScopeContainer(reference), 
+                        <InterfaceType>type, reference, /*Member-set: */ {});
+        }
+        function scanAssignedMemberTypesWorker(// Refer to the same object throughout a recursion instance:
+                                         isReference: ReferenceDecider, nodePostLinks, 
+                                         containerScope, extendedType:InterfaceType,
+                                         // Change per node scanned:
+                                         node:Node, prev:MemberSet):MemberSet {
+           
+            // Helper functions for recursion:
+            function recurse(node:Node, prev:MemberSet) {
+                return scanAssignedMemberTypesWorker(isReference, nodePostLinks, containerScope, extendedType, node, prev);
+            }
+            function descend() {
+                forEachChild(node, (subchild) => {
+                    prev = recurse(subchild, prev);
+                });
+            }
+
+            function isMemberAccess(node:Node): node is PropertyAccessExpression {
+                if (node.kind === SyntaxKind.PropertyAccessExpression) {
+                    return isReference((<PropertyAccessExpression> node).expression);
+                }
+                return false;
+            }
+
+            function scanReturnOrContinueOrBreakStatement(node: ReturnStatement|BreakOrContinueStatement) {
+                // Truncate the scope to only the topmost block we care about
+                let breakingContainer = node.breakingContainer;
+                if (isNodeDescendentOf(containerScope, breakingContainer)) {
+                    breakingContainer = containerScope;
+                }
+                let id = breakingContainer.id;
+                nodePostLinks[id] = (nodePostLinks[id] || []);
+                descend();
+                // This would allow for assignments in the return statement.
+                // However, branding occurs _before_ the return statement has a chance to execute.
+                nodePostLinks[id].push(prev);
+            }
+            function scanSwitchStatement(node: SwitchStatement) {
+                prev = recurse((<SwitchStatement>node).expression, prev);
+                let beforeCases = prev;
+                // Flow analysis: Merge the result of every case
+                for (let clause of (<SwitchStatement>node).caseBlock.clauses) {
+                    prev = union(prev, recurse(clause, passConditionalBarrier(beforeCases)));
+                }
+            }
+
+            function scanConditionalExpression(node: ConditionalExpression) {
+                prev = recurse((<ConditionalExpression>node).condition, prev);
+                let whenTrue = recurse((<ConditionalExpression>node).whenTrue, passConditionalBarrier(prev));
+                let whenFalse = recurse((<ConditionalExpression>node).whenFalse, passConditionalBarrier(prev));
+                // Flow analysis: Merge the result of the left and the right
+                prev = union(whenTrue, whenFalse);
+            }
+            function scanBinaryExpression(node: BinaryExpression) {
+                /* Check if we have a relevant binding assignment: */
+                if (node.operatorToken.kind === SyntaxKind.EqualsToken) {
+                    let {left, right} = node;
+                    if (isMemberAccess(left)) {
+                        let type = getTypeOfNode(node);
+                        
+                    }
+                }
+                // Consider the shortcircuting behaviour of && or ||
+                if (node.operatorToken.kind === SyntaxKind.AmpersandAmpersandToken ||
+                    node.operatorToken.kind === SyntaxKind.BarBarToken) {
+                    // Flow analysis: Merge the result of the left and of the left-then-right
+                    let left = recurse(node.left, prev);
+                    let right = recurse(node.right, left);
+                    prev = union(left, right);
+                } else {
+                    prev = recurse(node.left, prev);
+                    prev = recurse(node.right, prev);
+                }
+            }
+            function scanForStatement(node: ForStatement) {
+                prev = recurse((<ForStatement>node).initializer, prev);
+                prev = recurse((<ForStatement>node).condition, prev);
+                // Flow analysis: Merge the result of entering the loop and of not
+                prev = union(recurse((<ForStatement>node).statement, prev), prev);
+            }
+            function scanVariableDeclarationList(node: VariableDeclarationList) {
+                for (var decl of (<VariableDeclarationList>node).declarations) {
+                    prev = recurse(decl, prev);
+                }
+            }
+            function scanForInStatement(node: ForInStatement) {
+                prev = recurse((<ForInStatement>node).initializer, prev);
+                prev = recurse((<ForInStatement>node).expression, prev);
+                // Flow analysis: Merge the result of entering the loop and of not
+                prev = union(recurse((<ForInStatement>node).statement, prev), prev);
+            }
+            function scanFunctionLikeDeclaration(node: FunctionLikeDeclaration) {
+                // Special case so we don't consider our declaration scope as conditionally occuring:
+                let bodyScan = recurse(node.body, prev);
+                    // prev = bodyScan;
+                if (containerScope === node) {
+                    prev = bodyScan;
+                } else {
+                    throw new Error("embedded functions NYI");
+    //                prev = bodyScan.merge(prev);
+                }
+            }
+            function scanTryStatement(node: TryStatement) {
+                // Scan the try block:
+                let ifTry = recurse((<TryStatement>node).tryBlock, prev);
+                // Treat it as conditional, pass to 'catch' block:
+                let ifCatch = recurse((<TryStatement>node).catchClause, passConditionalBarrier(union(ifTry, prev)));
+                // Scan the finally block (possibly 'undefined'):
+                prev = recurse((<TryStatement>node).finallyBlock, union(ifCatch, prev));
+            }
+            function scanIfStatement(node: IfStatement) {
+                prev = recurse((<IfStatement>node).expression, prev);
+                let ifTrue = recurse((<IfStatement>node).thenStatement, passConditionalBarrier(prev));
+                let ifFalse = recurse((<IfStatement>node).elseStatement, passConditionalBarrier(prev));
+                prev = union(ifTrue, ifFalse);
+            }
+            function scanPropertyAccessExpression(node: PropertyAccessExpression) {
+                let {expression, name} = node;
+                if (isReference(expression)) {
+                    node.ctsAssignedType = prev[name.text];
+                }
+            }    
+            function scanWhileStatement(node: WhileStatement) {
+                prev = recurse((<WhileStatement>node).expression, prev);
+                // Flow analysis: Merge the result of entering the loop and of not
+                prev = union(recurse((<WhileStatement>node).statement, prev), prev);
+            }
+
+            // Switch statement segregated for cleanliness:
+            function scanWorker() {
+                if (!node) return;
+                // prev.mark(node, this);
+                switch (node.kind) {
+                    case SyntaxKind.PropertyAccessExpression:
+                        return scanPropertyAccessExpression(<PropertyAccessExpression> node);
+                    case SyntaxKind.SwitchStatement:
+                        return scanSwitchStatement(<SwitchStatement> node);
+                    case SyntaxKind.ConditionalExpression:
+                        return scanConditionalExpression(<ConditionalExpression> node);
+                    case SyntaxKind.BinaryExpression:
+                        return scanBinaryExpression(<BinaryExpression> node);
+                    case SyntaxKind.ForStatement:
+                        return scanForStatement(<ForStatement> node);
+                    case SyntaxKind.VariableDeclarationList:
+                        return scanVariableDeclarationList(<VariableDeclarationList> node);
+                    case SyntaxKind.ForInStatement:
+                        return scanForInStatement(<ForInStatement> node);
+                    case SyntaxKind.TryStatement:
+                        return scanTryStatement(<TryStatement> node);
+                    case SyntaxKind.IfStatement:
+                        return scanIfStatement(<IfStatement> node);
+                    case SyntaxKind.WhileStatement:
+                        return scanWhileStatement(<WhileStatement> node);
+
+                    // Handle 'goto-like' nodes:
+                    case SyntaxKind.BreakStatement:
+                    case SyntaxKind.ContinueStatement:
+                    case SyntaxKind.ReturnStatement:
+                        return scanReturnOrContinueOrBreakStatement(<ReturnStatement|BreakOrContinueStatement> node);
+
+                    // Handle function nodes:
+                    case SyntaxKind.ArrowFunction:
+                    case SyntaxKind.FunctionExpression:
+                    case SyntaxKind.FunctionDeclaration:
+                        return scanFunctionLikeDeclaration(<FunctionLikeDeclaration> node);
+
+                    default:
+                        descend();
+                }
+                if (typeof nodePostLinks[node.id] !== "undefined") {
+                    for (let links of nodePostLinks[node.id]) {
+                        prev = union(prev, links);
+                    }
+                }
+            }
+            scanWorker();
+            return prev;
+        }
+
     }
 }

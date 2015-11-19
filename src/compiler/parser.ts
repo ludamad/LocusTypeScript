@@ -2430,7 +2430,7 @@ namespace ts {
 
         function parseNonArrayType(): TypeNode {
             var specifiedConcrete: boolean = false; // [ConcreteTypeScript]
-            var isConcrete: boolean = !!options.defaultConcrete; // [ConcreteTypeScript]
+            var isConcrete: boolean = options && !!options.defaultConcrete; // [ConcreteTypeScript]
             while (1) { // [ConcreteTypeScript] to accept concrete/deconcrete
                 switch (token) {
                     // [ConcreteTypeScript] Specifications for concreteness

@@ -143,7 +143,21 @@ namespace ts {
             }
         }
     }
-          
+           
+      export function getSymbolScope(location: Node, text: string, flags: SymbolFlags): Node{
+          while (location) {
+              // If not a 'locals'-having context
+              if (!location.locals || !hasProperty(location.locals, text) || !(location.locals[text].flags & flags)) {
+                  location = location.parent;
+                  continue; 
+              }
+              return location;
+          }
+          // Not found, let checker handle error reporting:
+          return null;
+      }
+
+
       export function getSymbol(location: Node, text: string, flags: SymbolFlags): Symbol {
           while (location) {
               // If not a 'locals'-having context
@@ -157,7 +171,7 @@ namespace ts {
           return null;
       }
 
-      export function isPrototypeAccess(node: Node) : boolean {
+      export function isPrototypeAccess(node: Node) : node is PropertyAccessExpression {
           if (node.kind !== SyntaxKind.PropertyAccessExpression) return false;
           var propAccess = <PropertyAccessExpression> node;
           return (propAccess.name.text === "prototype");

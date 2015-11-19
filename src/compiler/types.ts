@@ -501,6 +501,18 @@ namespace ts {
         FailedAndReported = 3
     }
 
+    /* [ConcreteTypeScript] For assignment analysis */
+    export interface Member {
+        member: string;
+        definitelyAssigned: boolean;
+        conditionalBarrierPassed: boolean;
+        types:Type[];
+    };
+    export interface MemberSet {
+        [member:string]: Member;
+    }
+    /* [/ConcreteTypeScript] */
+
     export interface Node extends TextRange {
         kind: SyntaxKind;
         flags: NodeFlags;
@@ -535,8 +547,10 @@ namespace ts {
         direct?: boolean;             // If set, may use direct access (i.e., is an access with correct, concrete types)
         assertFloat?: boolean;        // If set, can assert that this value is always a float instead of generic number
         assertInt?: boolean;          // If set, can assert that this value is always an int instead of generic number
+        // Set in checker.ts
+        resolvedType?:            Type;
         // Set in ctsAssignmentAnalysis.ts
-        resolvedType?:Type;
+        ctsAssignedType?:         Member;
         ctsAssignmentAnalysis?:   FlowTypeAnalysis;
         ctsDowngradeToBaseClass?: boolean
         brandsToEmitAfterwards?:  BrandTypeDeclaration[];

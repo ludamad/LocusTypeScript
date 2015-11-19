@@ -866,7 +866,7 @@ module Harness {
             const shouldAssertInvariants = !Harness.lightMode;
             
             // Only set the parent nodes if we're asserting inletiants.  We don't need them otherwise.
-            let result = ts.createSourceFile(fileName, sourceText, languageVersion, /*setParentNodes:*/ shouldAssertInvariants);
+            let result = ts.createSourceFile(fileName, sourceText, languageVersion, {}, /*setParentNodes:*/ shouldAssertInvariants);
 
             if (shouldAssertInvariants) {
                 Utils.assertInvariants(result, /*parent:*/ undefined);

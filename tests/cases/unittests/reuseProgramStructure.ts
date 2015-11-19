@@ -99,7 +99,7 @@ module ts {
     function createTestCompilerHost(texts: NamedSourceText[], target: ScriptTarget): CompilerHost {
         let files: Map<SourceFileWithText> = {};
         for (let t of texts) {
-            let file = <SourceFileWithText>createSourceFile(t.name, t.text.getFullText(), target);
+            let file = <SourceFileWithText>createSourceFile(t.name, t.text.getFullText(), target, {});
             file.sourceText = t.text;
             files[t.name] = file;
         }
