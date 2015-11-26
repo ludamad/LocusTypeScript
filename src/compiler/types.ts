@@ -18,9 +18,8 @@ namespace ts {
     // [/ConcreteTypeScript]
 
     export interface VariableMemberAssignedType {
-        member:string;
         type:Type; // 'null' if no assignment
-        assignmentLocations:Node[]; // For error messages 
+        firstAs:Node[]; // For error messages 
     }
 
     // [ConcreteTypeScript] Results of flow analysis
@@ -501,15 +500,20 @@ namespace ts {
         FailedAndReported = 3
     }
 
+    export interface FlowType {
+        firstBindingSite:BinaryExpression;
+        type:Type;
+    }
+
     /* [ConcreteTypeScript] For assignment analysis */
-    export interface Member {
-        member: string;
+    export interface FlowMember {
+        key: string;
         definitelyAssigned: boolean;
         conditionalBarrierPassed: boolean;
-        types:Type[];
+        flowTypes:FlowType[];
     };
-    export interface MemberSet {
-        [member:string]: Member;
+    export interface FlowMemberSet {
+        [member:string]: FlowMember;
     }
     /* [/ConcreteTypeScript] */
 
@@ -550,7 +554,7 @@ namespace ts {
         // Set in checker.ts
         resolvedType?:            Type;
         // Set in ctsAssignmentAnalysis.ts
-        ctsAssignedType?:         Member;
+        ctsAssignedType?:         FlowMember;
         ctsAssignmentAnalysis?:   FlowTypeAnalysis;
         ctsDowngradeToBaseClass?: boolean
         brandsToEmitAfterwards?:  BrandTypeDeclaration[];

@@ -3,7 +3,7 @@
 
 namespace ts {
     export class NodeMap<N extends Node, T> {
-        private values:any = {};
+        private values:{[s:number]:T} = {};
         set(node:N, val:T) {
             this.values[getNodeId(node)] = val;
         }

@@ -20,7 +20,6 @@
         "program.ts",
         "ctsAssignmentAnalysis.ts",
         "ctsUtilities.ts",
-        "ctsChecker.ts",
         "ctsTestEvaluator.ts",
         "ctsTypes.ts",
         "commandLineParser.ts",

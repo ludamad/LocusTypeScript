@@ -1,3 +1,4 @@
+
 /// <reference path="binder.ts"/>
 /// <reference path="ctsAssignmentAnalysis.ts"/>
 /// <reference path="ctsTestEvaluator.ts"/>
@@ -16743,53 +16744,75 @@ namespace ts {
                 return true;
             }
         }
-        /***********************************************************************************************************
-         * [ConcreteTypeScript] Assignment analysis 
-         ***********************************************************************************************************/
-        function _unionTypes(typesA:Type[], typesB:Type[]) : Type[] {
-            let result:Type[] = [].concat(typesA);
-            for (let type of typesB) {
-                if (result.indexOf(type) < 0) {
-                    result.push(type);
+
+      /***********************************************************************************************************
+       * [ConcreteTypeScript] Assignment analysis section.
+       ***********************************************************************************************************/
+        function flowHasType(flowTypes:FlowType[], comparisonType:Type) {
+            for (let {type} of flowTypes) {
+                if (type === comparisonType) {
+                    return true;
                 }
             }
-            return result;
+            return false;
         }
-        function _unionMembers(memberA:Member, memberB:Member) : Member {
-            if (!memberA || !memberB) return memberA || memberB;
-            let {member} = memberA;
-            Debug.assert(member === memberB.member);
-            return {
-                member: member, 
-                conditionalBarrierPassed: memberA.conditionalBarrierPassed && memberB.conditionalBarrierPassed, 
-                definitelyAssigned: memberA.definitelyAssigned && memberB.definitelyAssigned, 
-                types: _unionTypes(memberA.types, memberB.types)
-            }; 
+
+        function flowUnionTypes(flowTypesA:FlowType[], flowTypesB:FlowType[]) : FlowType[] {
+            let hasType = ({type}) => flowHasType(flowTypesA, type);
+            return flowTypesA.concat(flowTypesB.filter(hasType));
         }
-        function union(setA:MemberSet, setB:MemberSet) : MemberSet {
-            let obj:MemberSet = {};
-            for (let member of Object.keys(setA)) {
-                obj[member] = setA[member];
+
+        function flowUnionMembers(memberA:FlowMember, memberB:FlowMember) : FlowMember {
+            if (!memberA || !memberB) {
+                return (memberA || memberB);
             }
-            for (let member of Object.keys(setB)) {
-                obj[member] = _unionMembers(obj[member], setB[member]);
-            }
-            return obj;
+            let {key} = memberA;
+            let conditionalBarrierPassed = (memberA.conditionalBarrierPassed && memberB.conditionalBarrierPassed);
+            let definitelyAssigned = (memberA.definitelyAssigned && memberB.definitelyAssigned);
+            let flowTypes = flowUnionTypes(memberA.flowTypes, memberB.flowTypes);
+            Debug.assert(key === memberB.key);
+            return {key, conditionalBarrierPassed, definitelyAssigned, flowTypes}; 
         }
-        function addAssignment(set:MemberSet, field:string) {
-            if (!this.definitelyAssigned || this.conditionalBarrier) {
-                return new FlowTypeAnalysis(this.binder, this.index, [node], true);
+        
+        function flowPrint(set:FlowMemberSet) {
+            for (let key of Object.keys(set)) {
+                console.log(key, " = ", JSON.stringify(set[key]));
             }
         }
-        if (!this.definitelyAssigned || this.conditionalBarrier) {
-            return new FlowTypeAnalysis(this.binder, this.index, [node], true);
+        function flowUnion(setA:FlowMemberSet, setB:FlowMemberSet) : FlowMemberSet {
+            let union:FlowMemberSet = {};
+            for (let key of Object.keys(setA)) {
+                union[key] = setA[key];
+            }
+            for (let key of Object.keys(setB)) {
+                union[key] = flowUnionMembers(union[key], setB[key]);
+            }
+            return union;
         }
-        return this;
-        function passConditionalBarrier(memberSet:MemberSet) : MemberSet{
-            let copy:MemberSet = {};
-            for (let member of Object.keys(memberSet)) {
-                let {types, definitelyAssigned} = memberSet[member];
-                copy[member] = {member, definitelyAssigned, conditionalBarrierPassed: true, types};
+        // Calculate the new member if there was an existing member:
+        function flowAssignmentMember({definitelyAssigned, conditionalBarrierPassed}:FlowMember, newMember:FlowMember): FlowMember {
+            if (definitelyAssigned && !conditionalBarrierPassed) {
+                throw new Error("***NYI");
+            }
+            // Not definitely assigned:
+            return newMember;
+            
+        }
+        function flowAssignment(set:FlowMemberSet, key: string, flowType: FlowType): FlowMemberSet {
+            let newMember:FlowMember = {key, conditionalBarrierPassed: false, definitelyAssigned: true, flowTypes: [flowType]}; 
+            let copy:FlowMemberSet = {[key]: newMember};
+            for (let setKey of Object.keys(set)) {
+                if (setKey === key) {
+                    copy[setKey] = flowAssignmentMember(set[setKey], newMember);
+                }
+            }
+            return copy;
+        }
+        function flowConditionalBarrier(memberSet:FlowMemberSet) : FlowMemberSet{
+            let copy:FlowMemberSet = {};
+            for (let key of Object.keys(memberSet)) {
+                let {flowTypes, definitelyAssigned} = memberSet[key];
+                copy[key] = {key, definitelyAssigned, conditionalBarrierPassed: true, flowTypes};
             }
             return copy;
         }
@@ -16823,10 +16846,10 @@ namespace ts {
         }
         type ReferenceDecider = (node:Node) => boolean;
         
-        function scanAssignedMemberTypes(reference: Node):MemberSet {
-            let type = getTypeOfNode(reference);
+        function scanAssignedMemberTypes(reference: Node):FlowMemberSet {
+            let type = stripConcreteType(getTypeOfNode(reference));
             if (!(type.flags & TypeFlags.ObjectType)) {
-                throw new Error("TODO make error");
+                throw new Error("TODO make error " + typeToString(type));
             }
             return scanAssignedMemberTypesWorker((node) => areSameValue(node, reference), /*Node-links: */ {},  getScopeContainer(reference), 
                         <InterfaceType>type, reference, /*Member-set: */ {});
@@ -16835,10 +16858,10 @@ namespace ts {
                                          isReference: ReferenceDecider, nodePostLinks, 
                                          containerScope, extendedType:InterfaceType,
                                          // Change per node scanned:
-                                         node:Node, prev:MemberSet):MemberSet {
+                                         node:Node, prev:FlowMemberSet):FlowMemberSet {
            
             // Helper functions for recursion:
-            function recurse(node:Node, prev:MemberSet) {
+            function recurse(node:Node, prev:FlowMemberSet) {
                 return scanAssignedMemberTypesWorker(isReference, nodePostLinks, containerScope, extendedType, node, prev);
             }
             function descend() {
@@ -16872,24 +16895,24 @@ namespace ts {
                 let beforeCases = prev;
                 // Flow analysis: Merge the result of every case
                 for (let clause of (<SwitchStatement>node).caseBlock.clauses) {
-                    prev = union(prev, recurse(clause, passConditionalBarrier(beforeCases)));
+                    prev = flowUnion(prev, recurse(clause, flowConditionalBarrier(beforeCases)));
                 }
             }
 
             function scanConditionalExpression(node: ConditionalExpression) {
                 prev = recurse((<ConditionalExpression>node).condition, prev);
-                let whenTrue = recurse((<ConditionalExpression>node).whenTrue, passConditionalBarrier(prev));
-                let whenFalse = recurse((<ConditionalExpression>node).whenFalse, passConditionalBarrier(prev));
+                let whenTrue = recurse((<ConditionalExpression>node).whenTrue, flowConditionalBarrier(prev));
+                let whenFalse = recurse((<ConditionalExpression>node).whenFalse, flowConditionalBarrier(prev));
                 // Flow analysis: Merge the result of the left and the right
-                prev = union(whenTrue, whenFalse);
+                prev = flowUnion(whenTrue, whenFalse);
             }
             function scanBinaryExpression(node: BinaryExpression) {
                 /* Check if we have a relevant binding assignment: */
                 if (node.operatorToken.kind === SyntaxKind.EqualsToken) {
                     let {left, right} = node;
                     if (isMemberAccess(left)) {
-                        let type = getTypeOfNode(node);
-                        
+                        let type = getTypeOfNode(right);
+                        prev = flowAssignment(prev, left.name.text, {firstBindingSite: node, type});
                     }
                 }
                 // Consider the shortcircuting behaviour of && or ||
@@ -16898,7 +16921,7 @@ namespace ts {
                     // Flow analysis: Merge the result of the left and of the left-then-right
                     let left = recurse(node.left, prev);
                     let right = recurse(node.right, left);
-                    prev = union(left, right);
+                    prev = flowUnion(left, right);
                 } else {
                     prev = recurse(node.left, prev);
                     prev = recurse(node.right, prev);
@@ -16908,7 +16931,7 @@ namespace ts {
                 prev = recurse((<ForStatement>node).initializer, prev);
                 prev = recurse((<ForStatement>node).condition, prev);
                 // Flow analysis: Merge the result of entering the loop and of not
-                prev = union(recurse((<ForStatement>node).statement, prev), prev);
+                prev = flowUnion(recurse((<ForStatement>node).statement, prev), prev);
             }
             function scanVariableDeclarationList(node: VariableDeclarationList) {
                 for (var decl of (<VariableDeclarationList>node).declarations) {
@@ -16919,7 +16942,7 @@ namespace ts {
                 prev = recurse((<ForInStatement>node).initializer, prev);
                 prev = recurse((<ForInStatement>node).expression, prev);
                 // Flow analysis: Merge the result of entering the loop and of not
-                prev = union(recurse((<ForInStatement>node).statement, prev), prev);
+                prev = flowUnion(recurse((<ForInStatement>node).statement, prev), prev);
             }
             function scanFunctionLikeDeclaration(node: FunctionLikeDeclaration) {
                 // Special case so we don't consider our declaration scope as conditionally occuring:
@@ -16936,15 +16959,15 @@ namespace ts {
                 // Scan the try block:
                 let ifTry = recurse((<TryStatement>node).tryBlock, prev);
                 // Treat it as conditional, pass to 'catch' block:
-                let ifCatch = recurse((<TryStatement>node).catchClause, passConditionalBarrier(union(ifTry, prev)));
+                let ifCatch = recurse((<TryStatement>node).catchClause, flowConditionalBarrier(flowUnion(ifTry, prev)));
                 // Scan the finally block (possibly 'undefined'):
-                prev = recurse((<TryStatement>node).finallyBlock, union(ifCatch, prev));
+                prev = recurse((<TryStatement>node).finallyBlock, flowUnion(ifCatch, prev));
             }
             function scanIfStatement(node: IfStatement) {
                 prev = recurse((<IfStatement>node).expression, prev);
-                let ifTrue = recurse((<IfStatement>node).thenStatement, passConditionalBarrier(prev));
-                let ifFalse = recurse((<IfStatement>node).elseStatement, passConditionalBarrier(prev));
-                prev = union(ifTrue, ifFalse);
+                let ifTrue = recurse((<IfStatement>node).thenStatement, flowConditionalBarrier(prev));
+                let ifFalse = recurse((<IfStatement>node).elseStatement, flowConditionalBarrier(prev));
+                prev = flowUnion(ifTrue, ifFalse);
             }
             function scanPropertyAccessExpression(node: PropertyAccessExpression) {
                 let {expression, name} = node;
@@ -16955,7 +16978,7 @@ namespace ts {
             function scanWhileStatement(node: WhileStatement) {
                 prev = recurse((<WhileStatement>node).expression, prev);
                 // Flow analysis: Merge the result of entering the loop and of not
-                prev = union(recurse((<WhileStatement>node).statement, prev), prev);
+                prev = flowUnion(recurse((<WhileStatement>node).statement, prev), prev);
             }
 
             // Switch statement segregated for cleanliness:
@@ -17001,7 +17024,7 @@ namespace ts {
                 }
                 if (typeof nodePostLinks[node.id] !== "undefined") {
                     for (let links of nodePostLinks[node.id]) {
-                        prev = union(prev, links);
+                        prev = flowUnion(prev, links);
                     }
                 }
             }
