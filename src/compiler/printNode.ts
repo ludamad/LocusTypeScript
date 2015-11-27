@@ -16,7 +16,7 @@ module ts {
     switch (node.kind) {
         case SyntaxKind.BrandTypeDeclaration: 
             print(node, "BrandTypeDeclaration");
-            print((<BrandTypeDeclaration>node).name, "BrandTypeDeclaration.name");
+            print((<DeclareTypeNode>node).name, "BrandTypeDeclaration.name");
             return;
         case SyntaxKind.Identifier: return print(node, "Identifier");
         case SyntaxKind.Parameter: return print(node, "Parameter");

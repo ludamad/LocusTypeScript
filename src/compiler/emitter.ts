@@ -2371,7 +2371,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     write("String");
                 } else if (type.flags & TypeFlags.Number) {
                     write("Number");
-                } else if (type.symbol && type.symbol.flags & SymbolFlags.Brand) {
+                } else if (type.symbol && type.symbol.flags & SymbolFlags.Declare) {
                     write("$$cts$$runtime.brandTypes." + type.symbol.name);
                 } else if (type.flags & TypeFlags.Null) {
                     emitCTSRT("Null");
@@ -2423,7 +2423,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     case SyntaxKind.BooleanKeyword:
                         return write("Boolean");
                     case SyntaxKind.TypeReference:
-                        if (type.resolvedType && type.resolvedType.flags & TypeFlags.Brand) {
+                        if (type.resolvedType && type.resolvedType.flags & TypeFlags.Declare) {
                             write("$$cts$$runtime.brandTypes.");
                         }
                         return emitEntityName((<TypeReferenceNode>type).typeName);
@@ -2723,8 +2723,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         emitCTSRT("protectProtoAssignment(");
                         emitCTSType((<ConcreteType>declaration.resolvedType).baseType);
                         let extendedPrototypeStr = "undefined";
-                        if (brandDecl.extendedTypeResolved && (brandDecl.extendedTypeResolved.flags & TypeFlags.Brand)) {
-                            let extendedBrandDecl = <BrandTypeDeclaration> getSymbolDecl(brandDecl.extendedTypeResolved.symbol, SyntaxKind.BrandTypeDeclaration);
+                        if (brandDecl.extendedTypeResolved && (brandDecl.extendedTypeResolved.flags & TypeFlags.Declare)) {
+                            let extendedBrandDecl = <DeclareTypeNode> getSymbolDecl(brandDecl.extendedTypeResolved.symbol, SyntaxKind.BrandTypeDeclaration);
                             if (extendedBrandDecl.prototypeBrandDeclaration) {
                                 extendedPrototypeStr = "$$cts$$runtime.brandTypes." + extendedBrandDecl.name.text + ".prototype";
                             }
@@ -2860,7 +2860,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 }
             }
             // [ConcreteTypeScript]
-            function emitBrandObject(brand:BrandTypeDeclaration) {
+            function emitBrandObject(brand:DeclareTypeNode) {
                 let brandName:Identifier = brand.name;
                 writeLine();
                 write("$$cts$$runtime.brandTypes.");
@@ -5908,7 +5908,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
 
             // [ConcretTypeScript]
 
-            function emitBrandTypeDeclaration(node: BrandTypeDeclaration) {
+            function emitBrandTypeDeclaration(node: DeclareTypeNode) {
 
                 // Nothing to do, for now.
 
@@ -7518,15 +7518,15 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             }
 
             // [ConcreteTypeScript]
-            function emitBranding(brand:BrandTypeDeclaration) {
+            function emitBranding(brand:DeclareTypeNode) {
                 let isBrandOfPrototypeObject:boolean = (brand.parent.kind === SyntaxKind.BrandTypeDeclaration);
                 if (isBrandOfPrototypeObject) {
                     writeLine();
                     write("$$cts$$runtime.brand($$cts$$runtime.brandTypes.");
-                    writeTextOfNode(currentSourceFile, (<BrandTypeDeclaration>brand.parent).name);
+                    writeTextOfNode(currentSourceFile, (<DeclareTypeNode>brand.parent).name);
                     write(".prototype")
                     write(", ");
-                    writeTextOfNode(currentSourceFile, (<BrandTypeDeclaration>brand.parent).functionDeclaration.name);
+                    writeTextOfNode(currentSourceFile, (<DeclareTypeNode>brand.parent).functionDeclaration.name);
                     write(".prototype);");
                 } else {
                     writeLine();
@@ -7809,7 +7809,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     case SyntaxKind.ClassDeclaration:
                         return emitClassDeclaration(<ClassDeclaration>node);
                     case SyntaxKind.BrandTypeDeclaration:
-                         return emitBrandTypeDeclaration(<BrandTypeDeclaration>node);
+                         return emitBrandTypeDeclaration(<DeclareTypeNode>node);
                     case SyntaxKind.InterfaceDeclaration:
                         return emitInterfaceDeclaration(<InterfaceDeclaration>node);
                     case SyntaxKind.EnumDeclaration:

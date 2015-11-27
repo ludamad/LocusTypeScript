@@ -204,7 +204,7 @@ module ts {
     }
 
     export class BrandTypeBinder {
-        brandTypeDecl:BrandTypeDeclaration;
+        brandTypeDecl:DeclareTypeNode;
         nodePostLinks:Map<BrandPropertyTypes[]> = {};
         declareSymbol:_declareSymbol;
         // Tie properties to an ID assigned sequentially upon first visit
@@ -572,7 +572,7 @@ module ts {
         }
         for (let key in scope.locals) {
             if (hasProperty(scope.locals, key)) {
-                if (scope.locals[key].flags & SymbolFlags.Brand) {
+                if (scope.locals[key].flags & SymbolFlags.Declare) {
                     return true;
                 }
             }
@@ -591,7 +591,7 @@ module ts {
     //  - the BrandTypeDeclaration will have all found brand property assignments declared as symbols
     //  - the resulting brand properties will have a list of relevant assignment expressions
     // As well, all 
-    function bindBrandTypeBasedOnVarScope(scope:Node, brandTypeDecl:BrandTypeDeclaration, declareSymbol:_declareSymbol, initializer: Expression) {
+    function bindBrandTypeBasedOnVarScope(scope:Node, brandTypeDecl:DeclareTypeNode, declareSymbol:_declareSymbol, initializer: Expression) {
         let brandTypeBinder = new BrandTypeBinder();
         brandTypeBinder.brandTypeDecl = brandTypeDecl;
         brandTypeBinder.declarationScope = scope;

@@ -396,13 +396,27 @@ namespace ts {
 
             return ContainerFlags.None;
         }
-        
-        // [ConcreteTypeScript]
-        function bindBrandTypeDeclaration(node: BrandTypeDeclaration) {
+
+        // [ConcreteTypeScript] TODO remove old code
+        function bindDeclareTypeDeclaration(node: DeclareTypeDeclaration) {
+            let scope = getModuleOrSourceFile(container);
+            // The parent of the declaration is expected to be the containing scope:
+            let symbolKind = SymbolFlags.Declare | SymbolFlags.Type | SymbolFlags.ExportType;
+            let symbolExcludes = SymbolFlags.BrandTypeExcludes;
+
+            if (scope.symbol && scope.symbol.flags & SymbolFlags.HasExports) {
+                declareSymbol(scope.symbol.exports, undefined, node, symbolKind, symbolExcludes);
+            } else {
+                declareSymbol(scope.locals, undefined, node, symbolKind, symbolExcludes);
+            }
+        }
+
+        // TODO OLD CODE
+        function bindBrandTypeDeclaration(node: DeclareTypeNode) {
             var scope = getModuleOrSourceFile(container);
             // The parent of the declaration is expected to be the containing scope:
             node.scope = scope;
-            var symbolKind = SymbolFlags.Brand | SymbolFlags.Type | SymbolFlags.ExportType, symbolExcludes = SymbolFlags.BrandTypeExcludes;
+            var symbolKind = SymbolFlags.Declare | SymbolFlags.Type | SymbolFlags.ExportType, symbolExcludes = SymbolFlags.BrandTypeExcludes;
 
             if (scope.symbol && scope.symbol.flags & SymbolFlags.HasExports) {
                 var retSymbol = declareSymbol(scope.symbol.exports, undefined, node, symbolKind, symbolExcludes);
@@ -444,7 +458,7 @@ namespace ts {
 
             if (hasPrototypeBrand) {
                 // Create the prototype brand type:
-                let protoBrandDecl = <BrandTypeDeclaration>createSynthesizedNode(SyntaxKind.BrandTypeDeclaration);
+                let protoBrandDecl = <DeclareTypeNode>createSynthesizedNode(SyntaxKind.BrandTypeDeclaration);
                 let synthProtoIdentifier = <Identifier>createSynthesizedNode(SyntaxKind.Identifier);
                 synthProtoIdentifier.text = "prototype";
                 synthProtoIdentifier.parent = protoBrandDecl;
@@ -505,14 +519,14 @@ namespace ts {
                 // handlers to take care of declaring these child members.
                 case SyntaxKind.ModuleDeclaration:
                     if (node.kind === SyntaxKind.BrandTypeDeclaration) {
-                        return bindBrandTypeDeclaration(<BrandTypeDeclaration>node);
+                        return bindBrandTypeDeclaration(<DeclareTypeNode>node);
                     } else {
                         return declareModuleMember(node, symbolFlags, symbolExcludes);
                     }
 
                 case SyntaxKind.SourceFile:
                     if (node.kind === SyntaxKind.BrandTypeDeclaration) {
-                        return bindBrandTypeDeclaration(<BrandTypeDeclaration>node);
+                        return bindBrandTypeDeclaration(<DeclareTypeNode>node);
                     } else {
                         return declareSourceFileMember(node, symbolFlags, symbolExcludes);
                     }
@@ -556,7 +570,7 @@ namespace ts {
                     // the type checker walks up the containers, checking them for matching names.
                     
                     if (node.kind === SyntaxKind.BrandTypeDeclaration) {
-                        return bindBrandTypeDeclaration(<BrandTypeDeclaration>node);
+                        return bindBrandTypeDeclaration(<DeclareTypeNode>node);
                     } else {
                         return declareSymbol(container.locals, undefined, node, symbolFlags, symbolExcludes);
                     }
@@ -954,7 +968,7 @@ namespace ts {
             }
         }
 
-        function bindWorker(node: Node) {
+        function bindWorker(node: Node): void {
             // [ConcreteTypeScript] Keep a breakingContainer property around for convenience
             if (node.kind === SyntaxKind.BreakStatement || node.kind === SyntaxKind.ContinueStatement || node.kind === SyntaxKind.ReturnStatement) {
                (<BreakOrContinueStatement>node).breakingContainer = findBreakingScope(node);
@@ -997,6 +1011,8 @@ namespace ts {
                     return bindPropertyOrMethodOrAccessor(<Declaration>node, SymbolFlags.Property, SymbolFlags.PropertyExcludes);
                 case SyntaxKind.EnumMember:
                     return bindPropertyOrMethodOrAccessor(<Declaration>node, SymbolFlags.EnumMember, SymbolFlags.EnumMemberExcludes);
+                case SyntaxKind.DeclareType:
+                    return bindDeclareTypeDeclaration(<DeclareTypeDeclaration>node);
                 case SyntaxKind.CallSignature:
                 case SyntaxKind.ConstructSignature:
                 case SyntaxKind.IndexSignature:

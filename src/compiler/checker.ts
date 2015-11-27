@@ -288,7 +288,7 @@ namespace ts {
             if (flags & SymbolFlags.SetAccessor) result |= SymbolFlags.SetAccessorExcludes;
             if (flags & SymbolFlags.TypeParameter) result |= SymbolFlags.TypeParameterExcludes;
             if (flags & SymbolFlags.TypeAlias) result |= SymbolFlags.TypeAliasExcludes;
-            if (flags & SymbolFlags.Brand) result |= SymbolFlags.BrandTypeExcludes;
+            if (flags & SymbolFlags.Declare) result |= SymbolFlags.BrandTypeExcludes;
             if (flags & SymbolFlags.Alias) result |= SymbolFlags.AliasExcludes;
             return result;
         }
@@ -1709,10 +1709,10 @@ namespace ts {
                     else if (type.flags & TypeFlags.Reference) {
                         writeTypeReference(<TypeReference>type, flags);
                     }
-                    else if (type.flags & TypeFlags.Brand) {
-                        let brandDecl = <BrandTypeDeclaration>getSymbolDecl(type.symbol, SyntaxKind.BrandTypeDeclaration);
+                    else if (type.flags & TypeFlags.Declare) {
+                        let brandDecl = <DeclareTypeNode>getSymbolDecl(type.symbol, SyntaxKind.BrandTypeDeclaration);
                         if (brandDecl.parent.kind === SyntaxKind.BrandTypeDeclaration) {
-                            writer.writeSymbol((<BrandTypeDeclaration>brandDecl.parent).name.text, (<BrandTypeDeclaration>brandDecl.parent).symbol);
+                            writer.writeSymbol((<DeclareTypeNode>brandDecl.parent).name.text, (<DeclareTypeNode>brandDecl.parent).symbol);
                             writer.writeOperator(".prototype");
                         } else 
                         buildSymbolDisplay(type.symbol, writer, enclosingDeclaration, SymbolFlags.Type);
@@ -1725,7 +1725,7 @@ namespace ts {
                             writeType((<BecomesType>type).before, flags);
                         }
                     }
-                    else if (type.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Brand | TypeFlags.Enum | TypeFlags.TypeParameter)) {
+                    else if (type.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Declare | TypeFlags.Enum | TypeFlags.TypeParameter)) {
                         // The specified symbol flags need to be reinterpreted as type flags
                         buildSymbolDisplay(type.symbol, writer, enclosingDeclaration, SymbolFlags.Type, SymbolFormatFlags.None, flags);
                     }
@@ -1844,7 +1844,7 @@ namespace ts {
                     let symbol = type.symbol;
                     if (symbol) {
                         // Always use 'typeof T' for type of class, enum, and module objects
-                        if (symbol.flags & (SymbolFlags.Class | SymbolFlags.Brand | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
+                        if (symbol.flags & (SymbolFlags.Class | SymbolFlags.Declare | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
                             writeTypeofSymbol(type, flags);
                         }
                         else if (shouldWriteTypeOfFunctionSymbol()) {
@@ -2020,7 +2020,7 @@ namespace ts {
 
             function buildTypeParameterDisplayFromSymbol(symbol: Symbol, writer: SymbolWriter, enclosingDeclaraiton?: Node, flags?: TypeFormatFlags) {
                 let targetSymbol = getTargetSymbol(symbol);
-                if (targetSymbol.flags & (SymbolFlags.Class | SymbolFlags.Brand) | targetSymbol.flags & SymbolFlags.Interface || targetSymbol.flags & SymbolFlags.TypeAlias) {
+                if (targetSymbol.flags & (SymbolFlags.Class | SymbolFlags.Declare) | targetSymbol.flags & SymbolFlags.Interface || targetSymbol.flags & SymbolFlags.TypeAlias) {
                     buildDisplayForTypeParametersAndDelimiters(getLocalTypeParametersOfClassOrInterfaceOrTypeAlias(symbol), writer, enclosingDeclaraiton, flags);
                 }
             }
@@ -2829,7 +2829,7 @@ namespace ts {
             if (symbol.flags & (SymbolFlags.Variable | SymbolFlags.Property)) {
                 return assertOk(getTypeOfVariableOrParameterOrProperty(symbol));
             }
-            if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method | SymbolFlags.Class | SymbolFlags.Brand | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
+            if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method | SymbolFlags.Class | SymbolFlags.Declare | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
                 return assertOk(getTypeOfFuncClassEnumModule(symbol));
             }
             if (symbol.flags & SymbolFlags.EnumMember) {
@@ -2842,7 +2842,7 @@ namespace ts {
                 return assertOk(getTypeOfAlias(symbol));
             }
             // [ConcreteTypeScript]
-            if (symbol.flags & SymbolFlags.Brand) {
+            if (symbol.flags & SymbolFlags.Declare) {
                 // This seems suspect for now.
                 throw new Error("ConcreteTypeScript bail: Cannot use Brand as value. Until this is handled gracefully, failing ungracefully...");
                 //return assertOk(createConcreteType(getTypeOfFuncClassEnumModule(symbol)));
@@ -3050,7 +3050,7 @@ namespace ts {
                     for (let node of getInterfaceBaseTypeNodes(<InterfaceDeclaration>declaration)) {
                         let baseType = getTypeFromTypeNode(node);
                         if (baseType !== unknownType) {
-                            if (getTargetType(baseType).flags & (TypeFlags.Class | TypeFlags.Brand | TypeFlags.Interface)) {
+                            if (getTargetType(baseType).flags & (TypeFlags.Class | TypeFlags.Declare | TypeFlags.Interface)) {
                                 if (type !== baseType && !hasBaseType(<InterfaceType>baseType, type)) {
                                     type.resolvedBaseTypes.push(baseType);
                                 }
@@ -3121,12 +3121,12 @@ namespace ts {
             let links = getSymbolLinks(symbol);
             if (!links.declaredType) {
                 /* On first occurrence */
-                let brandTypeDecl = <BrandTypeDeclaration>getSymbolDecl(symbol, SyntaxKind.BrandTypeDeclaration)
+                let brandTypeDecl = <DeclareTypeNode>getSymbolDecl(symbol, SyntaxKind.BrandTypeDeclaration)
                 if (brandTypeDecl.extendedType) {
                     brandTypeDecl.extendedTypeResolved = getTypeFromTypeNode(brandTypeDecl.extendedType);
                 }
                 Debug.assert(!!brandTypeDecl, "Not a BrandTypeDeclaration!");
-                let type = <InterfaceTypeWithDeclaredMembers>createObjectType(TypeFlags.Brand, symbol);
+                let type = <InterfaceTypeWithDeclaredMembers>createObjectType(TypeFlags.Declare, symbol);
                 type.declaredProperties = map(Object.keys(symbol.members), key => symbol.members[key]);
                 let baseTypes:Type[] = type.resolvedBaseTypes = [];
                 type.declaredCallSignatures = emptyArray;
@@ -3196,7 +3196,7 @@ namespace ts {
             // [ConcreteTypeScript]
             // This is required to be first because symbols can be marked as 'Class'
             // but should resolve to brands when used as a type.
-            if (symbol.flags & SymbolFlags.Brand) {
+            if (symbol.flags & SymbolFlags.Declare) {
                 return getDeclaredTypeOfBrand(symbol);
             }
             if (symbol.flags & (SymbolFlags.Class | SymbolFlags.Interface)) {
@@ -3521,7 +3521,7 @@ namespace ts {
 
         function resolveStructuredTypeMembers(type: ObjectType): ResolvedType {
             if (!(<ResolvedType>type).members) {
-                if (type.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Brand)) {
+                if (type.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Declare)) {
                     resolveClassOrInterfaceMembers(<InterfaceType>type);
                 }
                 else if (type.flags & TypeFlags.Anonymous) {
@@ -4357,10 +4357,19 @@ namespace ts {
             return type;
         }
 
-        function getTypeFromBecomeTypeNode(node: BecomesTypeNode): Type {
+        function getTypeFromBecomesTypeNode(node: BecomesTypeNode): Type {
             let links = getNodeLinks(node);
             if (!links.resolvedType) {
-                links.resolvedType = createNewBecomesType(getTypeFromTypeNode(node.before), getTypeFromTypeNode(node.after));
+                links.resolvedType = createNewBecomesType(getTypeFromTypeNode(node.startingType), getTypeFromTypeNode(node.endingType));
+            }
+            return links.resolvedType;
+        }
+        
+        function getTypeFromDeclareTypeNode(node: DeclareTypeNode): Type {
+            let links = getNodeLinks(node);
+            if (!links.resolvedType) {
+                throw new Error("")
+                // links.resolvedType = createNewBecomesType(getTypeFromTypeNode(node.startingType), getTypeFromTypeNode(node.endingType));
             }
             return links.resolvedType;
         }
@@ -4577,15 +4586,15 @@ namespace ts {
         function getTypeFromTypeNode(node: TypeNode): Type {
             let type = getTypeFromTypeNodePrime(node);
             node.resolvedType = type;
-            if ((<TypeNode> node).isConcrete || node.brandTypeDeclaration) {
+            if (node.isConcrete || node.brandTypeDeclaration) {
                 if (isRuntimeCheckable(type)) {
                     type = createConcreteType(type);
                 } else {
-                    if ((<TypeNode> node).specifiedConcrete) {
+                    if (node.specifiedConcrete) {
                         console.log(`WARNING: Could not create concrete type from ${getTextOfNode(node)}.`);
                     } else {
                         // Forget about concreteness
-                        (<TypeNode> node).isConcrete = false;
+                        node.isConcrete = false;
                     }
                 }
             }
@@ -4633,7 +4642,9 @@ namespace ts {
                 case SyntaxKind.TupleType:
                     return getTypeFromTupleTypeNode(<TupleTypeNode>node);
                 case SyntaxKind.BecomesType:
-                    return getTypeFromBecomeTypeNode(<BecomesTypeNode>node);
+                    return getTypeFromBecomesTypeNode(<BecomesTypeNode>node);
+                case SyntaxKind.DeclareType:
+                    return getTypeFromDeclareTypeNode(<DeclareTypeNode>node);
                 case SyntaxKind.UnionType:
                     return getTypeFromUnionTypeNode(<UnionTypeNode>node);
                 case SyntaxKind.IntersectionType:
@@ -5374,7 +5385,7 @@ namespace ts {
                 // [ConcreteTypeScript]
 		// TODO Make a test case for this and reevaluate if its needed
                 // We enforce that classes are only related if specified as such
-                if (result && target.flags & (TypeFlags.Class | TypeFlags.Brand) && source.flags & (TypeFlags.Class | TypeFlags.Brand)) {
+                if (result && target.flags & (TypeFlags.Class | TypeFlags.Declare) && source.flags & (TypeFlags.Class | TypeFlags.Declare)) {
                     if (hasBaseType(<InterfaceType> source, <InterfaceType> target)) {
                         result = Ternary.True;
                     } else {
@@ -8342,7 +8353,7 @@ namespace ts {
             }
             // An instance property must be accessed through an instance of the enclosing class
             // TODO: why is the first part of this check here?
-            if (!(getTargetType(type).flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Brand) && hasBaseType(<InterfaceType>type, enclosingClass))) {
+            if (!(getTargetType(type).flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Declare) && hasBaseType(<InterfaceType>type, enclosingClass))) {
                 error(node, Diagnostics.Property_0_is_protected_and_only_accessible_through_an_instance_of_class_1, symbolToString(prop), typeToString(enclosingClass));
                 return false;
             }
@@ -8374,14 +8385,14 @@ namespace ts {
                 if ((node).ctsDowngradeToBaseClass) {
                     let extended:Type = brandDecl.extendedType && getTypeFromTypeNode(brandDecl.extendedType);
                     if (extended) {
-                        let brandTypeExtension:BrandTypeDeclaration = <BrandTypeDeclaration>getSymbolDecl(extended.symbol, SyntaxKind.BrandTypeDeclaration);
+                        let brandTypeExtension:DeclareTypeNode = <DeclareTypeNode>getSymbolDecl(extended.symbol, SyntaxKind.BrandTypeDeclaration);
                         type = getDeclaredTypeOfSymbol(brandTypeExtension.symbol);
 
                     } else {
-                        let owner = (brandDecl.parent.kind === SyntaxKind.BrandTypeDeclaration) ? <BrandTypeDeclaration> brandDecl.parent : null;
+                        let owner = (brandDecl.parent.kind === SyntaxKind.BrandTypeDeclaration) ? <DeclareTypeNode> brandDecl.parent : null;
                         let baseExtended = owner && owner.extendedType && getTypeFromTypeNode(owner.extendedType);
                         if (baseExtended) {
-                            let brandTypeExtension:BrandTypeDeclaration = <BrandTypeDeclaration>getSymbolDecl(baseExtended.symbol, SyntaxKind.BrandTypeDeclaration);
+                            let brandTypeExtension:DeclareTypeNode = <DeclareTypeNode>getSymbolDecl(baseExtended.symbol, SyntaxKind.BrandTypeDeclaration);
                             type = getDeclaredTypeOfSymbol(brandTypeExtension.prototypeBrandDeclaration.symbol);
                         } else {
                             type = emptyObjectType;
@@ -8433,7 +8444,7 @@ namespace ts {
 
             // And may use direct access if the target object is concrete
             if (isConcreteType(type) &&
-                (<ConcreteType>type).baseType.flags & (TypeFlags.Class | TypeFlags.Brand)) {
+                (<ConcreteType>type).baseType.flags & (TypeFlags.Class | TypeFlags.Declare)) {
                 node.direct = true;
                 // As well as name-mangled access if the target value is concrete, or a method being called
                 if (isConcreteType(ptype) ||
@@ -9824,7 +9835,7 @@ namespace ts {
             let targetType = getTypeFromTypeNode(node.type);
             if (produceDiagnostics && targetType !== unknownType) {
                 let widenedType = getWidenedType(exprType);
-                let brandExemption = (exprType.flags & TypeFlags.Brand) || (targetType.flags & TypeFlags.Brand);
+                let brandExemption = (exprType.flags & TypeFlags.Declare) || (targetType.flags & TypeFlags.Declare);
                 if (!brandExemption && !isTypeAssignableTo(targetType, widenedType)) {
                     checkTypeAssignableTo(exprType, targetType, node, Diagnostics.Neither_type_0_nor_type_1_is_assignable_to_the_other);
                 }
@@ -10990,7 +11001,7 @@ namespace ts {
                 type = instantiateTypeWithSingleGenericCallSignature(<Expression>node, uninstantiatedType, contextualMapper);
             }
 
-            if (isConstEnumObjectType(type) /*ConcreteTypeScript*/ && !(type.symbol.flags & SymbolFlags.Brand) ) {
+            if (isConstEnumObjectType(type) /*ConcreteTypeScript*/ && !(type.symbol.flags & SymbolFlags.Declare) ) {
                 // enum object type for const enums are only permitted in:
                 // - 'left' in property access
                 // - 'object' in indexed access
@@ -11526,24 +11537,25 @@ namespace ts {
         function checkTypeReferenceNode(node: TypeReferenceNode | ExpressionWithTypeArguments) {
             checkGrammarTypeArguments(node, node.typeArguments);
             let type = getTypeFromTypeReference(node);
-            // [ConcreteTypeScript]
-            node.resolvedType = type;
-            if (node.brandTypeDeclaration) {
-                let bdecl = node.brandTypeDeclaration;
-                for (let key of Object.keys(bdecl.symbol.members)) {
-                    // Make sure resolvedType is set for emit
-                    getTypeOfBrandProperty(<BrandPropertyDeclaration> getSymbolDecl(bdecl.symbol.members[key], SyntaxKind.BrandProperty));
-                }
-                if (bdecl = bdecl.prototypeBrandDeclaration) {
-                    for (let key of Object.keys(bdecl.symbol.members)) {
-                        // Make sure resolvedType is set for emit
-                        getTypeOfBrandProperty(<BrandPropertyDeclaration> getSymbolDecl(bdecl.symbol.members[key], SyntaxKind.BrandProperty));
-                    }
-                }
-                type = createConcreteType(type);
-            }
-            // [/ConcreteTypeScript]
- 
+            // TODO Consider what happens here
+            // // [ConcreteTypeScript]
+            // node.resolvedType = type;
+            // if (node.brandTypeDeclaration) {
+            //     let bdecl = node.brandTypeDeclaration;
+            //     for (let key of Object.keys(bdecl.symbol.members)) {
+            //         // Make sure resolvedType is set for emit
+            //         getTypeOfBrandProperty(<BrandPropertyDeclaration> getSymbolDecl(bdecl.symbol.members[key], SyntaxKind.BrandProperty));
+            //     }
+            //     if (bdecl = bdecl.prototypeBrandDeclaration) {
+            //         for (let key of Object.keys(bdecl.symbol.members)) {
+            //             // Make sure resolvedType is set for emit
+            //             getTypeOfBrandProperty(<BrandPropertyDeclaration> getSymbolDecl(bdecl.symbol.members[key], SyntaxKind.BrandProperty));
+            //         }
+            //     }
+            //     type = createConcreteType(type);
+            // }
+            // // [/ConcreteTypeScript]
+                
             if (type !== unknownType && node.typeArguments) {
                 // Do type argument local checks only if referenced type is successfully resolved
                 forEach(node.typeArguments, checkSourceElement);
@@ -12703,7 +12715,7 @@ namespace ts {
             if (node === symbol.valueDeclaration) {
                 // Node is the primary declaration of the symbol, just validate the initializer
                 if (node.initializer) {
-                    let brandTypeDecl:BrandTypeDeclaration = null;
+                    let brandTypeDecl:DeclareTypeNode = null;
                     if (node.type && node.kind == SyntaxKind.VariableDeclaration) {
                         brandTypeDecl = (<VariableDeclaration>node).type.brandTypeDeclaration;
                     }
@@ -13554,7 +13566,7 @@ namespace ts {
                         let t = getTypeFromTypeNode(typeRefNode);
                         if (t !== unknownType) {
                             let declaredType = (t.flags & TypeFlags.Reference) ? (<TypeReference>t).target : t;
-                            if (declaredType.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Brand)) {
+                            if (declaredType.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Declare)) {
                                 checkTypeAssignableTo(type, t, node.name || node, Diagnostics.Class_0_incorrectly_implements_interface_1);
                             }
                             else {
@@ -13747,7 +13759,7 @@ namespace ts {
             return ok;
         }
 
-        function checkBecomesType(node: BecomesTypeNode) {
+        function checkBecomesType(node: BecomesOrDeclareTypeNode) {
             
         }
 
@@ -13804,7 +13816,7 @@ namespace ts {
             }
         }
         
-        function checkBrandTypeDeclaration(node: BrandTypeDeclaration) {
+        function checkBrandTypeDeclaration(node: DeclareTypeNode) {
             checkTypeNameIsReserved(node.name, Diagnostics.Class_name_cannot_be_0);
             
             // checkSourceElement(node.type);
@@ -14519,7 +14531,7 @@ namespace ts {
                     return;
                     // return checkBecomesType(<BrandTypeDeclaration>node);
                 case SyntaxKind.BrandTypeDeclaration:
-                    return checkBrandTypeDeclaration(<BrandTypeDeclaration>node);
+                    return checkBrandTypeDeclaration(<DeclareTypeNode>node);
                 case SyntaxKind.TypeAliasDeclaration:
                     return checkTypeAliasDeclaration(<TypeAliasDeclaration>node);
                 case SyntaxKind.EnumDeclaration:
@@ -16758,13 +16770,13 @@ namespace ts {
         }
 
         function flowUnionTypes(flowTypesA:FlowType[], flowTypesB:FlowType[]) : FlowType[] {
-            let hasType = ({type}) => flowHasType(flowTypesA, type);
+            let hasType = ({type}) => !flowHasType(flowTypesA, type);
             return flowTypesA.concat(flowTypesB.filter(hasType));
         }
 
         function flowUnionMembers(memberA:FlowMember, memberB:FlowMember) : FlowMember {
             if (!memberA || !memberB) {
-                return (memberA || memberB);
+                 return (memberA || memberB);
             }
             let {key} = memberA;
             let conditionalBarrierPassed = (memberA.conditionalBarrierPassed && memberB.conditionalBarrierPassed);
@@ -16774,10 +16786,34 @@ namespace ts {
             return {key, conditionalBarrierPassed, definitelyAssigned, flowTypes}; 
         }
         
-        function flowPrint(set:FlowMemberSet) {
-            for (let key of Object.keys(set)) {
-                console.log(key, " = ", JSON.stringify(set[key]));
+        function flowPrintMember(member:FlowMember) {
+            let {key, conditionalBarrierPassed, definitelyAssigned} = member;
+            let flowTypes = member.flowTypes.map(({type}) => typeToString(type));
+            let assignment = definitelyAssigned ? ':' : '??:';
+            let type = flowTypes.join(' | ');
+            if (conditionalBarrierPassed) {
+                type += ' [in conditional]';
             }
+            console.log(key, assignment, type);
+        }
+        function flowPrint(set:FlowMemberSet) {
+            console.log("<SET>")
+            for (let key of Object.keys(set)) {
+                flowPrintMember(set[key])
+            }
+            console.log("</SET>")
+        }
+        // Revert the 'conditionalBarrierPassed' mark values to those of the previous set.
+        function flowPopConditionalMarks(prevSet:FlowMemberSet, newSet:FlowMemberSet) : FlowMemberSet {
+            let copy:FlowMemberSet = {};
+            for (let key of Object.keys(newSet)) {
+                if (!prevSet[key]) {
+                    copy[key] = flowConditionalBarrierMember(newSet[key], false);
+                } else {
+                    copy[key] = flowConditionalBarrierMember(newSet[key], prevSet[key].conditionalBarrierPassed);
+                }
+            }
+            return copy;
         }
         function flowUnion(setA:FlowMemberSet, setB:FlowMemberSet) : FlowMemberSet {
             let union:FlowMemberSet = {};
@@ -16789,6 +16825,7 @@ namespace ts {
             }
             return union;
         }
+
         // Calculate the new member if there was an existing member:
         function flowAssignmentMember({definitelyAssigned, conditionalBarrierPassed}:FlowMember, newMember:FlowMember): FlowMember {
             if (definitelyAssigned && !conditionalBarrierPassed) {
@@ -16804,15 +16841,19 @@ namespace ts {
             for (let setKey of Object.keys(set)) {
                 if (setKey === key) {
                     copy[setKey] = flowAssignmentMember(set[setKey], newMember);
+                } else {
+                    copy[setKey] = set[setKey];
                 }
             }
             return copy;
         }
-        function flowConditionalBarrier(memberSet:FlowMemberSet) : FlowMemberSet{
+        function flowConditionalBarrierMember({key, flowTypes, definitelyAssigned}:FlowMember, conditionalBarrierPassed = true) : FlowMember {
+            return {key, definitelyAssigned, conditionalBarrierPassed, flowTypes};            
+        }
+        function flowConditionalBarrier(memberSet:FlowMemberSet, conditionalBarrierPassed = true) : FlowMemberSet{
             let copy:FlowMemberSet = {};
             for (let key of Object.keys(memberSet)) {
-                let {flowTypes, definitelyAssigned} = memberSet[key];
-                copy[key] = {key, definitelyAssigned, conditionalBarrierPassed: true, flowTypes};
+                copy[key] = flowConditionalBarrierMember(memberSet[key], conditionalBarrierPassed); 
             }
             return copy;
         }
@@ -16851,8 +16892,15 @@ namespace ts {
             if (!(type.flags & TypeFlags.ObjectType)) {
                 throw new Error("TODO make error " + typeToString(type));
             }
-            return scanAssignedMemberTypesWorker((node) => areSameValue(node, reference), /*Node-links: */ {},  getScopeContainer(reference), 
-                        <InterfaceType>type, reference, /*Member-set: */ {});
+            let containerScope = getScopeContainer(reference);
+            return scanAssignedMemberTypesWorker(
+                /*Reference decider: */ (node) => areSameValue(node, reference), 
+                /*Node-links: */ {},  
+                /*Container scope: */ containerScope, 
+                /*Type we're extending: */ <InterfaceType>type, 
+                /*Node to scan recursively: */ containerScope, 
+                /*Member-set: */ {}
+            );
         }
         function scanAssignedMemberTypesWorker(// Refer to the same object throughout a recursion instance:
                                          isReference: ReferenceDecider, nodePostLinks, 
@@ -16890,19 +16938,59 @@ namespace ts {
                 // However, branding occurs _before_ the return statement has a chance to execute.
                 nodePostLinks[id].push(prev);
             }
+
+            // We recursively scan become/declare function calls
+            function scanCallExpression(node: CallExpression) {
+                let declaration = getResolvedSignature(node).declaration;
+                let parameters = declaration && declaration.parameters;
+                let arguments = node.arguments;
+                if (!parameters) {
+                    // Something went wrong somewhere with resolution, but it's not our job to report the error.
+                    return;
+                }
+
+                for (let i = 0; i < parameters.length && i < arguments.length; i++) {
+                    let parameter:ParameterDeclaration = parameters[i];
+                    if (isReference(arguments[i])) {
+                        let brandTypeDeclaration = parameter.type.brandTypeDeclaration;
+                        if (brandTypeDeclaration) {
+                            console.log("SCANNING CALL W/ BRANDTYPEDECLARATION")
+                        }
+                        // brandTypeDeclaration.
+                        // parameter.type;
+                    }
+                    // argument.
+                }
+                // if (signature.typePredicate &&
+                //         expr.arguments[signature.typePredicate.parameterIndex] &&
+                //         getSymbolAtLocation(expr.arguments[signature.typePredicate.parameterIndex]) === symbol) {
+                // 
+                //         if (!assumeTrue) {
+                //             if (type.flags & TypeFlags.Union) {
+                //                 return getUnionType(filter((<UnionType>type).types, t => !isTypeSubtypeOf(t, signature.typePredicate.type)));
+                //             }
+                //             return type;
+                //         }
+                //         return getNarrowedType(type, signature.typePredicate.type);
+                //     }
+                //     return type;
+                // }
+
+            }
+
             function scanSwitchStatement(node: SwitchStatement) {
-                prev = recurse((<SwitchStatement>node).expression, prev);
+                prev = recurse(node.expression, prev);
                 let beforeCases = prev;
                 // Flow analysis: Merge the result of every case
-                for (let clause of (<SwitchStatement>node).caseBlock.clauses) {
+                for (let clause of node.caseBlock.clauses) {
                     prev = flowUnion(prev, recurse(clause, flowConditionalBarrier(beforeCases)));
                 }
             }
 
             function scanConditionalExpression(node: ConditionalExpression) {
-                prev = recurse((<ConditionalExpression>node).condition, prev);
-                let whenTrue = recurse((<ConditionalExpression>node).whenTrue, flowConditionalBarrier(prev));
-                let whenFalse = recurse((<ConditionalExpression>node).whenFalse, flowConditionalBarrier(prev));
+                prev = recurse(node.condition, prev);
+                let whenTrue = recurse(node.whenTrue, flowConditionalBarrier(prev));
+                let whenFalse = recurse(node.whenFalse, flowConditionalBarrier(prev));
                 // Flow analysis: Merge the result of the left and the right
                 prev = flowUnion(whenTrue, whenFalse);
             }
@@ -16928,21 +17016,21 @@ namespace ts {
                 }
             }
             function scanForStatement(node: ForStatement) {
-                prev = recurse((<ForStatement>node).initializer, prev);
-                prev = recurse((<ForStatement>node).condition, prev);
+                prev = recurse(node.initializer, prev);
+                prev = recurse(node.condition, prev);
                 // Flow analysis: Merge the result of entering the loop and of not
-                prev = flowUnion(recurse((<ForStatement>node).statement, prev), prev);
+                prev = flowUnion(recurse(node.statement, prev), prev);
             }
             function scanVariableDeclarationList(node: VariableDeclarationList) {
-                for (var decl of (<VariableDeclarationList>node).declarations) {
+                for (var decl of node.declarations) {
                     prev = recurse(decl, prev);
                 }
             }
             function scanForInStatement(node: ForInStatement) {
-                prev = recurse((<ForInStatement>node).initializer, prev);
-                prev = recurse((<ForInStatement>node).expression, prev);
+                prev = recurse(node.initializer, prev);
+                prev = recurse(node.expression, prev);
                 // Flow analysis: Merge the result of entering the loop and of not
-                prev = flowUnion(recurse((<ForInStatement>node).statement, prev), prev);
+                prev = flowUnion(recurse(node.statement, prev), prev);
             }
             function scanFunctionLikeDeclaration(node: FunctionLikeDeclaration) {
                 // Special case so we don't consider our declaration scope as conditionally occuring:
@@ -16951,22 +17039,23 @@ namespace ts {
                 if (containerScope === node) {
                     prev = bodyScan;
                 } else {
-                    throw new Error("embedded functions NYI");
+                    // Do nothing for now. In the future we need to treat these like become/declare function
+                    // throw new Error("embedded functions NYI");
     //                prev = bodyScan.merge(prev);
                 }
             }
             function scanTryStatement(node: TryStatement) {
                 // Scan the try block:
-                let ifTry = recurse((<TryStatement>node).tryBlock, prev);
+                let ifTry = recurse(node.tryBlock, prev);
                 // Treat it as conditional, pass to 'catch' block:
-                let ifCatch = recurse((<TryStatement>node).catchClause, flowConditionalBarrier(flowUnion(ifTry, prev)));
+                let ifCatch = recurse(node.catchClause, flowConditionalBarrier(flowUnion(ifTry, prev)));
                 // Scan the finally block (possibly 'undefined'):
-                prev = recurse((<TryStatement>node).finallyBlock, flowUnion(ifCatch, prev));
+                prev = recurse(node.finallyBlock, flowUnion(ifCatch, prev));
             }
             function scanIfStatement(node: IfStatement) {
-                prev = recurse((<IfStatement>node).expression, prev);
-                let ifTrue = recurse((<IfStatement>node).thenStatement, flowConditionalBarrier(prev));
-                let ifFalse = recurse((<IfStatement>node).elseStatement, flowConditionalBarrier(prev));
+                prev = recurse(node.expression, prev);
+                let ifTrue = recurse(node.thenStatement, flowConditionalBarrier(prev));
+                let ifFalse = recurse(node.elseStatement, flowConditionalBarrier(prev));
                 prev = flowUnion(ifTrue, ifFalse);
             }
             function scanPropertyAccessExpression(node: PropertyAccessExpression) {
@@ -16974,24 +17063,27 @@ namespace ts {
                 if (isReference(expression)) {
                     node.ctsAssignedType = prev[name.text];
                 }
-            }    
+            }
+
             function scanWhileStatement(node: WhileStatement) {
-                prev = recurse((<WhileStatement>node).expression, prev);
+                prev = recurse(node.expression, prev);
                 // Flow analysis: Merge the result of entering the loop and of not
-                prev = flowUnion(recurse((<WhileStatement>node).statement, prev), prev);
+                prev = flowUnion(recurse(node.statement, prev), prev);
             }
 
             // Switch statement segregated for cleanliness:
-            function scanWorker() {
+            function scanWorker(): void {
                 if (!node) return;
-                // prev.mark(node, this);
                 switch (node.kind) {
+                    // Handle nodes with their handling function:
                     case SyntaxKind.PropertyAccessExpression:
                         return scanPropertyAccessExpression(<PropertyAccessExpression> node);
                     case SyntaxKind.SwitchStatement:
                         return scanSwitchStatement(<SwitchStatement> node);
                     case SyntaxKind.ConditionalExpression:
                         return scanConditionalExpression(<ConditionalExpression> node);
+                    case SyntaxKind.CallExpression:
+                        return scanCallExpression(<CallExpression> node);
                     case SyntaxKind.BinaryExpression:
                         return scanBinaryExpression(<BinaryExpression> node);
                     case SyntaxKind.ForStatement:
@@ -17028,7 +17120,10 @@ namespace ts {
                     }
                 }
             }
-            scanWorker();
+            // Correct conditional marks: (TODO inefficient)
+            let orig = prev;
+            scanWorker();        
+            prev = flowPopConditionalMarks(orig, prev);
             return prev;
         }
 

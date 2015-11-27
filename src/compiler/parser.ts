@@ -104,8 +104,8 @@ namespace ts {
                     visitNode(cbNode, (<FunctionLikeDeclaration>node).body);
             // [ConcreteTypeScript]
             case SyntaxKind.BrandTypeDeclaration:
-                return visitNode(cbNode, (<BrandTypeDeclaration>node).name) || 
-                    visitNode(cbNode, (<BrandTypeDeclaration>node).extendedType);
+                return visitNode(cbNode, (<DeclareTypeNode>node).name) || 
+                    visitNode(cbNode, (<DeclareTypeNode>node).extendedType);
             // [/ConcreteTypeScript]
             case SyntaxKind.TypeReference:
                 return visitNode(cbNode, (<TypeReferenceNode>node).typeName) ||
@@ -1952,28 +1952,25 @@ namespace ts {
         }
 
         // [ConcreteTypeScript]
-
-        function parseBrandType(specifiedConcrete?: boolean, isConcrete?: boolean): TypeReferenceNode {
-              // For use in binder:
-              var declNode = <BrandTypeDeclaration>createNode(SyntaxKind.BrandTypeDeclaration);
-              nextToken();
-              // TODO consider interaction with generics
-
-              var node = <TypeReferenceNode>parseTypeReferenceOrTypePredicate(specifiedConcrete, isConcrete);
-              Debug.assert(node.kind !== SyntaxKind.TypePredicate);
-              node.brandTypeDeclaration = declNode; 
-
-              declNode.name = <Identifier>node.typeName;
-              Debug.assert(!!declNode.name);
-              declNode.parent = node;
-
-              if (token === SyntaxKind.ExtendsKeyword) {
-                  nextToken();
-                  declNode.extendedType = parseType();
-              }
-              finishNode(declNode);
-              return node;
+        // startingType can be 'undefined'
+        function parseBecomeType(startingType:TypeNode): BecomesTypeNode {
+            throw new Error("**NYI");
+            var becomesTypeNode = <BecomesTypeNode>createNode(SyntaxKind.BecomesType);
+            
         }
+        // startingType can be 'undefined'
+        function parseDeclareType(startingType:TypeNode): DeclareTypeNode {
+            var declareTypeNode = <DeclareTypeNode>createNode(SyntaxKind.DeclareType);
+            nextToken();
+            declareTypeNode.name = parseIdentifier();
+            declareTypeNode.startingType = startingType;
+            if (token === SyntaxKind.ExtendsKeyword) {
+                declareTypeNode.extendedType = parseType();
+            }
+            finishNode(declareTypeNode);
+            return declareTypeNode;
+        }
+        // [/ConcreteTypeScript]
  
         function parseTypeQuery(): TypeQueryNode {
             let node = <TypeQueryNode>createNode(SyntaxKind.TypeQuery);
@@ -2395,14 +2392,11 @@ namespace ts {
             return finishNode(node);
         }
         
-        function parseBecomesType(): BecomesTypeNode {
+        function parseBecomesType(extendedType:TypeNode): BecomesTypeNode {
             let node = <BecomesTypeNode>createNode(SyntaxKind.BecomesType);
             nextToken();
-            node.after = parseType();
-            if (token === SyntaxKind.ExtendsKeyword) {
-                parseExpected(SyntaxKind.ExtendsKeyword);
-                node.before = parseType();
-            }
+            node.startingType = parseType();
+            node.endingType = extendedType;
             return finishNode(node);
         }
 
@@ -2427,7 +2421,6 @@ namespace ts {
             let node = parseTokenNode<TypeNode>();
             return token === SyntaxKind.DotToken ? undefined : node;
         }
-
         function parseNonArrayType(): TypeNode {
             var specifiedConcrete: boolean = false; // [ConcreteTypeScript]
             var isConcrete: boolean = options && !!options.defaultConcrete; // [ConcreteTypeScript]
@@ -2473,9 +2466,9 @@ namespace ts {
                     case SyntaxKind.OpenParenToken:
                         return parseParenthesizedType();
                     case SyntaxKind.BecomesKeyword:
-                        return parseBecomesType();
+                        return parseBecomesType(undefined);
                     case SyntaxKind.DeclareKeyword:
-                        return parseBrandType(specifiedConcrete, isConcrete);
+                        return parseDeclareType(undefined);
                     // [ConcreteTypeScript] hackishly handle undefined as a type
                     case SyntaxKind.Identifier:
                         if (scanner.getTokenValue() === "undefined") {
@@ -2531,8 +2524,20 @@ namespace ts {
             nextToken();
             return token === SyntaxKind.CloseParenToken  || /* [ConcreteTypeScript]: */ token === SyntaxKind.ThisKeyword || isStartOfParameter() || isStartOfType();
         }
-
+        
+        // [ConcreteTypeScript] Check for 'X becomes Y' or 'X declare Y'
         function parseArrayTypeOrHigher(): TypeNode {
+            let typeNode =  parseArrayTypeOrHigherWorker();
+            if (token === SyntaxKind.DeclareKeyword) {
+                return parseDeclareType(typeNode);
+            }
+            if (token === SyntaxKind.BecomesType) {
+                return parseBecomesType(typeNode);
+            }
+            return typeNode;
+        }
+        function parseArrayTypeOrHigherWorker(): TypeNode {
+        // [/ConcreteTypeScript]
             let type = parseNonArrayType();
             while (!scanner.hasPrecedingLineBreak() && parseOptional(SyntaxKind.OpenBracketToken)) {
                 parseExpected(SyntaxKind.CloseBracketToken);
@@ -2619,7 +2624,7 @@ namespace ts {
                 return parseFunctionOrConstructorType(SyntaxKind.ConstructorType);
             }
             if (token === SyntaxKind.DeclareKeyword) {
-               return parseBrandType();
+               return parseDeclareType(null);
             }  
             return parseUnionTypeOrHigher();
         }

@@ -5,7 +5,7 @@ interface HasA {
 }
 
 function Foo() {
-    var val : declare FooType extends HasA = {a:1};
+    var val : HasA declare FooType = {a:1};
     val.a = true ? "hey" : 1;
     return val;
 }

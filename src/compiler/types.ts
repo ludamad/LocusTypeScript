@@ -1,42 +1,41 @@
 namespace ts {
 
     // [ConcreteTypeScript]
-    export interface BrandTypeDeclaration extends Declaration, Statement {
-        parent?: TypeReferenceNode | BrandTypeDeclaration;
+    export interface BecomesOrDeclareTypeNode extends TypeNode {
+        startingType?: TypeNode; // The empty object type by default
+        extendedType?: TypeNode; // Nothing extended by default
+    }
+    
+    export interface BecomesTypeNode extends BecomesOrDeclareTypeNode {
+        endingType: TypeNode;
+    }
+
+    export interface DeclareTypeDeclaration extends Declaration {
+        _declareTypeDeclarationBrand: any;
+    }
+
+    // Both a Declaration and a TypeNode
+    export interface DeclareTypeNode extends BecomesOrDeclareTypeNode, Declaration {
+        parent?: TypeReferenceNode | DeclareTypeNode;
         name: Identifier;
+
+        // REFACTORING: The fields below are for the old separate-pass flow type binder
+        
         scope: Node;
         // Set in checkerHelper.ts, null if a prototype-inferred brand
         varOrParamDeclaration?: VariableLikeDeclaration|ParameterDeclaration|ThisParameterDeclaration;
         // Defaults to the 'any' type.
         // TODO should parallel extension relationship for brand types.
-        extendedType?: TypeNode;
         extendedTypeResolved?: Type;
-        prototypeBrandDeclaration?: BrandTypeDeclaration;
+        prototypeBrandDeclaration?: DeclareTypeNode;
         // If the 'this' type of a function
         functionDeclaration?: FunctionLikeDeclaration;
     }
-    // [/ConcreteTypeScript]
 
-    export interface VariableMemberAssignedType {
-        type:Type; // 'null' if no assignment
-        firstAs:Node[]; // For error messages 
-    }
-
-    // [ConcreteTypeScript] Results of flow analysis
-    // An implicit declare type's members are computed by performing
-    // assignment analysis from the start to the end of the variable's scope.
-    export interface VariableMemberAssignedTypes {
-        // All assignments to objects that alias 'object'
-        object:Node;
-        assignments:{[member:string]:VariableMemberAssignedType};
-    }
- 
-    // [/ConcreteTypeScript]
-
-    // [ConcreteTypeScript] We resolve the type of a brand property based on
+    // We resolve the type of a brand property based on
     // the assignments in its declaration site.
     export interface BrandPropertyDeclaration extends PropertyDeclaration {
-        brandTypeDeclaration: BrandTypeDeclaration;
+        brandTypeDeclaration: DeclareTypeNode;
         // Set in checkerHelper.ts during binder.ts
         // bindingAssignments?: FlowTypeAnalysis;
         // Set in checker.ts
@@ -73,6 +72,7 @@ namespace ts {
         LikeKeyword,          // [ConcreteTypeScript]
         IntNumberKeyword,     // [ConcreteTypeScript]
         BecomesType, // [ConcreteTypeScript]
+        DeclareType, // [ConcreteTypeScript]
         BrandTypeDeclaration, // [ConcreteTypeScript]        
         BrandProperty, // [ConcreteTypeScript]        
         // [/ConcreteTypeScript]
@@ -542,7 +542,6 @@ namespace ts {
         // We keep an array because it is default to make a true map.
         // as our key is a sample node used for very simple alias analysis.
         // Furthermore, we don't expect many overlapping assignment analyses, so this should be a small set (of AssignmentSet's).
-        variableMemberAssignedTypes?: VariableMemberAssignedTypes[]; 
         mustCheck?: Type;             // If this node must be type-checked at runtime, the type to check
         mustFloat?: boolean;          // If set, this value must be explicitly coerced to float instead of generic number
         mustInt?: boolean;            // If set, this value must be explicitly coerced to int instead of generic number
@@ -557,8 +556,8 @@ namespace ts {
         ctsAssignedType?:         FlowMember;
         ctsAssignmentAnalysis?:   FlowTypeAnalysis;
         ctsDowngradeToBaseClass?: boolean
-        brandsToEmitAfterwards?:  BrandTypeDeclaration[];
-        brandsToEmitAtBeginning?: BrandTypeDeclaration[]; // Special case for parameter-this
+        brandsToEmitAfterwards?:  DeclareTypeNode[];
+        brandsToEmitAtBeginning?: DeclareTypeNode[]; // Special case for parameter-this
         // [/ConcreteTypeScript]
     }
 
@@ -759,7 +758,7 @@ namespace ts {
         specifiedConcrete: boolean; // [ConcreteTypeScript]
         isConcrete: boolean; // [ConcreteTypeScript]
         _typeNodeBrand: any;
-        brandTypeDeclaration?: BrandTypeDeclaration;
+        brandTypeDeclaration?: DeclareTypeNode;
     }
 
     export interface FunctionOrConstructorTypeNode extends TypeNode, SignatureDeclaration {
@@ -800,13 +799,6 @@ namespace ts {
     export interface UnionTypeNode extends UnionOrIntersectionTypeNode { }
 
     export interface IntersectionTypeNode extends UnionOrIntersectionTypeNode { }
-
-    // [ConcreteTypeScript]
-    export interface BecomesTypeNode extends TypeNode {
-        after: TypeNode;
-        // May be null:
-        before: TypeNode;
-    }
 
     export interface ParenthesizedTypeNode extends TypeNode {
         type: TypeNode;
@@ -950,7 +942,7 @@ namespace ts {
         // same scope, we collect a relevant list of expressions for determining 
         // the narrowed type of the expression.
         useProtoBrand?: boolean;
-        brandTypeDecl?:BrandTypeDeclaration;
+        brandTypeDecl?:DeclareTypeNode;
     }
 
     export interface ElementAccessExpression extends MemberExpression {
@@ -1093,7 +1085,7 @@ namespace ts {
         breakingContainer?:Node;
         // Keep a list of brand type declarations that are in defined 
         // somewhere within the block that we are exitting.
-        brandDeclExits?: BrandTypeDeclaration[];
+        brandDeclExits?: DeclareTypeNode[];
     }
 
     export interface BreakOrContinueStatement extends BlockExitStatement {
@@ -1776,7 +1768,7 @@ namespace ts {
         Function                = 0x00000010,  // Function
         Class                   = 0x00000020,  // Class
         // [ConcreteTypeScript]
-        Brand                  = 0x80000000,  // Brand
+        Declare                  = 0x80000000,  // Brand
         // [/ConcreteTypeScript]
         Interface               = 0x00000040,  // Interface
         ConstEnum               = 0x00000080,  // Const enum
@@ -1807,8 +1799,8 @@ namespace ts {
         Enum = RegularEnum | ConstEnum,
         Variable = FunctionScopedVariable | BlockScopedVariable,
         Value = Variable | Property | EnumMember | Function | Class |  Enum | ValueModule | Method | GetAccessor | SetAccessor,
-        Type = Class | Brand |  Interface | Enum | TypeLiteral | ObjectLiteral | TypeParameter | TypeAlias,
-        Namespace = ValueModule | NamespaceModule | Brand,
+        Type = Class | Declare |  Interface | Enum | TypeLiteral | ObjectLiteral | TypeParameter | TypeAlias,
+        Namespace = ValueModule | NamespaceModule | Declare,
         Module = ValueModule | NamespaceModule,
         Accessor = GetAccessor | SetAccessor,
 
@@ -1828,7 +1820,7 @@ namespace ts {
         InterfaceExcludes = Type & ~(Interface | Class),
         RegularEnumExcludes = (Value | Type) & ~(RegularEnum | ValueModule), // regular enums merge only with regular enums and modules
         ConstEnumExcludes = (Value | Type) & ~ConstEnum, // const enums merge only with const enums
-        ValueModuleExcludes = Value & ~(Function | Class | Brand |  RegularEnum | ValueModule),
+        ValueModuleExcludes = Value & ~(Function | Class | Declare |  RegularEnum | ValueModule),
         NamespaceModuleExcludes = 0,
         MethodExcludes = Value & ~Method,
         GetAccessorExcludes = Value & ~SetAccessor,
@@ -1837,14 +1829,14 @@ namespace ts {
         TypeAliasExcludes = Type,
         AliasExcludes = Alias,
 
-        ModuleMember = Variable | Function | Class | Brand | Interface | Enum | Module | TypeAlias | Alias,
+        ModuleMember = Variable | Function | Class | Declare | Interface | Enum | Module | TypeAlias | Alias,
 
-        ExportHasLocal = Function | Class | Brand | Enum | ValueModule,
+        ExportHasLocal = Function | Class | Declare | Enum | ValueModule,
 
-        HasExports = Class | Brand | Enum | Module,
-        HasMembers = Class | Brand |  Interface | TypeLiteral | ObjectLiteral,
+        HasExports = Class | Declare | Enum | Module,
+        HasMembers = Class | Declare |  Interface | TypeLiteral | ObjectLiteral,
 
-        BlockScoped = BlockScopedVariable | Class | Brand |  Enum,
+        BlockScoped = BlockScopedVariable | Class | Declare |  Enum,
 
         PropertyOrAccessor = Property | Accessor,
         Export = ExportNamespace | ExportType | ExportValue,
@@ -1852,7 +1844,7 @@ namespace ts {
         /* @internal */
         // The set of things we consider semantically classifiable.  Used to speed up the LS during
         // classification.
-        Classifiable = Class | Brand |  Enum | TypeAlias | Interface | TypeParameter | Module,
+        Classifiable = Class | Declare |  Enum | TypeAlias | Interface | TypeParameter | Module,
         BrandTypeExcludes = Type // [ConcreteTypeScript]
     }
 
@@ -1870,7 +1862,7 @@ namespace ts {
         /* @internal */ exportSymbol?: Symbol;  // Exported symbol associated with this symbol
         /* @internal */ constEnumOnlyModule?: boolean; // True if module contains only const enums or other modules with only const enums
         // [ConcreteTypeScript] set for .prototype properties
-        brandType?: BrandTypeDeclaration;
+        brandType?: DeclareTypeNode;
     }
 
     /* @internal */
@@ -1976,7 +1968,7 @@ namespace ts {
         // Flag for the int hint
         IntHint                 = 0x08000000,
         // Object brand, nominal typing stemming from a code location
-        Brand                   = 0x10000000,
+        Declare                 = 0x10000000,
         // For 'becomes' types, holds a 'before' type, the type the object resolves to now, and an 'after' type.
         // 'becomes' declarations are (always?) statically checked (?)
         Becomes                 = 0x20000000,
@@ -1988,8 +1980,8 @@ namespace ts {
         Primitive = String | Number | Boolean | ESSymbol | Void | Undefined | Null | StringLiteral | Enum,
         StringLike = String | StringLiteral,
         NumberLike = Number | Enum,
-        ObjectType = Class | Brand | Interface | Reference | Tuple | Anonymous,
-        RuntimeCheckable = Intrinsic  | StringLiteral | Class | Brand, // TODO Rename to RuntimeCheckablePrimitive
+        ObjectType = Class | Declare | Interface | Reference | Tuple | Anonymous,
+        RuntimeCheckable = Intrinsic  | StringLiteral | Class | Declare, // TODO Rename to RuntimeCheckablePrimitive
         UnionOrIntersection = Union | Intersection,
         StructuredType = ObjectType | Union | Intersection | Becomes,
         /* @internal */
@@ -2007,7 +1999,6 @@ namespace ts {
         symbol?: Symbol;                 // Symbol associated with type (if any)
         pattern?: DestructuringPattern;  // Destructuring pattern represented by type (if any)
         concreteType?: ConcreteType;
-        becomesType?: Type;
     }
 
     /* @internal */
@@ -2025,7 +2016,6 @@ namespace ts {
     export interface ObjectType extends Type { }
 
     // Class and interface types (TypeFlags.Class and TypeFlags.Interface)
-    // Brand types too (TypeFlags.Brand) // [ConcreteTypeScript]
     export interface InterfaceType extends ObjectType {
         typeParameters: TypeParameter[];           // Type parameters (undefined if non-generic)
         outerTypeParameters: TypeParameter[];      // Outer type parameters (undefined if none)
@@ -2043,17 +2033,17 @@ namespace ts {
         declaredStringIndexType: Type;             // Declared string index type
         declaredNumberIndexType: Type;             // Declared numeric index type
     }
+    
+    // [ConcreteTypeScript] Brand types
+    // Declare types are essentially an InterfaceType with TypeFlags.Brand // [ConcreteTypeScript]
+    export interface DeclareType extends InterfaceType {
+    }
 
     export interface BecomesType extends Type {
         before: Type;
         after: Type;
     }
 
-    // [ConcreteTypeScript] Brand types
-    export interface BrandType extends Type {
-        //TODO: Use this field
-        monomorphicProperties: Symbol[];  // Which fields are guaranteed to be in a fixed place in the object?
-    }
 
     // [ConcreteTypeScript] Concrete types
     export interface ConcreteType extends Type {

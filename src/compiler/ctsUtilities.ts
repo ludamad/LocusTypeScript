@@ -8,9 +8,10 @@
 /// <reference path="emitter.ts"/>
 /// <reference path="utilities.ts"/>
 
+declare var process;
+
 namespace ts {
 
-    declare var process;
     export var ENABLE_DEBUG_ANNOTATIONS:boolean = !!process.env.CTS_TEST; 
     export var DISABLE_PROTECTED_MEMBERS:boolean = !!process.env.CTS_DISABLE_TYPE_PROTECTION; 
 
@@ -32,12 +33,12 @@ namespace ts {
         }
         return false;
     }
-    export function getBrandTypesInScope(scope:Node):BrandTypeDeclaration[] {
+    export function getBrandTypesInScope(scope:Node):DeclareTypeNode[] {
         var useExports = (scope.symbol && scope.symbol.flags & SymbolFlags.HasExports);
         var symbols:SymbolTable =  (useExports? scope.symbol.exports : scope.locals) || {};
-        var declarations:BrandTypeDeclaration[] = [];
+        var declarations:DeclareTypeNode[] = [];
         for (var symbolName of Object.keys(symbols)) {
-            var brandType = <BrandTypeDeclaration> getSymbolDecl(symbols[symbolName], SyntaxKind.BrandTypeDeclaration);
+            var brandType = <DeclareTypeNode> getSymbolDecl(symbols[symbolName], SyntaxKind.BrandTypeDeclaration);
             if (brandType) {
                 declarations.push(brandType);
             }
@@ -237,7 +238,7 @@ namespace ts {
           return false;
       }
     
-      export function isFunctionLikeDeclarationCheckThisBrand(scope:Node, brandTypeDecl: BrandTypeDeclaration):scope is FunctionLikeDeclaration {
+      export function isFunctionLikeDeclarationCheckThisBrand(scope:Node, brandTypeDecl: DeclareTypeNode):scope is FunctionLikeDeclaration {
           if (isFunctionLikeDeclarationWithThisBrand(scope)) {
               return (<FunctionDeclaration>scope).parameters.thisParam.type.brandTypeDeclaration === brandTypeDecl;
           }
