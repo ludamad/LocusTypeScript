@@ -1954,9 +1954,11 @@ namespace ts {
         // [ConcreteTypeScript]
         // startingType can be 'undefined'
         function parseBecomeType(startingType:TypeNode): BecomesTypeNode {
-            throw new Error("**NYI");
             var becomesTypeNode = <BecomesTypeNode>createNode(SyntaxKind.BecomesType);
-            
+            nextToken();
+            becomesTypeNode.startingType = startingType;
+            becomesTypeNode.endingType = parseType();
+            return finishNode(becomesTypeNode);
         }
         // startingType can be 'undefined'
         function parseDeclareType(startingType:TypeNode): DeclareTypeNode {
@@ -1967,8 +1969,7 @@ namespace ts {
             if (token === SyntaxKind.ExtendsKeyword) {
                 declareTypeNode.extendedType = parseType();
             }
-            finishNode(declareTypeNode);
-            return declareTypeNode;
+            return finishNode(declareTypeNode);
         }
         // [/ConcreteTypeScript]
  

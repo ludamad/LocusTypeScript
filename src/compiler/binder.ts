@@ -503,12 +503,13 @@ namespace ts {
         }
 
         function postBind(node: Node) {
-            bindBrandPropertiesInScopeAfterInitialBinding(node, declareSymbol);
-            // [ConcreteTypeScript] Compute the contents of any brand-types in 
-            // our block based on relevant assignments.
-            forEachChild(node, (child) => {
-                postBind(child);
-            });
+            //TODO System replacing
+            // bindBrandPropertiesInScopeAfterInitialBinding(node, declareSymbol);
+            // // [ConcreteTypeScript] Compute the contents of any brand-types in 
+            // // our block based on relevant assignments.
+            // forEachChild(node, (child) => {
+            //     postBind(child);
+            // });
         }
 
         function declareSymbolAndAddToSymbolTableWorker(node: Declaration, symbolFlags: SymbolFlags, symbolExcludes: SymbolFlags): Symbol {
@@ -882,16 +883,6 @@ namespace ts {
 
         function bind(node: Node) {
             node.parent = parent;
-            // [ConcreteTypeScript]
-            // Set up pointers for convenient recursive navigation.
-            // Use parent.lastChild to remember the previous child within the parent.
-            if (parent != null) {
-                node.prevInParent = parent.lastChild;
-                parent.lastChild = node; 
-            }
-            getNodeId(node); // Force node ids to generate in traversal order,
-            // so that we can rely on their order later.
-            // [/ConcreteTypeScript]
 
             let savedInStrictMode = inStrictMode;
             if (!savedInStrictMode) {

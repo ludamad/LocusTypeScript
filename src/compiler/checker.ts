@@ -1,4 +1,5 @@
 
+
 /// <reference path="binder.ts"/>
 /// <reference path="ctsAssignmentAnalysis.ts"/>
 /// <reference path="ctsTestEvaluator.ts"/>
@@ -3117,16 +3118,13 @@ namespace ts {
         }
 
         //[ConcreteTypeScript]
-        function getDeclaredTypeOfBrand(symbol: Symbol): InterfaceType {
+        function getDeclaredTypeOfDeclareTypeSymbol(symbol: Symbol): InterfaceType {
             let links = getSymbolLinks(symbol);
             if (!links.declaredType) {
                 /* On first occurrence */
-                let brandTypeDecl = <DeclareTypeNode>getSymbolDecl(symbol, SyntaxKind.BrandTypeDeclaration)
-                if (brandTypeDecl.extendedType) {
-                    brandTypeDecl.extendedTypeResolved = getTypeFromTypeNode(brandTypeDecl.extendedType);
-                }
-                Debug.assert(!!brandTypeDecl, "Not a BrandTypeDeclaration!");
-                let type = <InterfaceTypeWithDeclaredMembers>createObjectType(TypeFlags.Declare, symbol);
+                let declareTypeDecl = <DeclareTypeDeclaration> getSymbolDecl(symbol, SyntaxKind.DeclareType);
+                Debug.assert(!!declareTypeDecl, "Not a BrandTypeDeclaration!");
+                let type = <DeclareType>createObjectType(TypeFlags.Declare, symbol);
                 type.declaredProperties = map(Object.keys(symbol.members), key => symbol.members[key]);
                 let baseTypes:Type[] = type.resolvedBaseTypes = [];
                 type.declaredCallSignatures = emptyArray;
@@ -3136,23 +3134,23 @@ namespace ts {
                 links.declaredType = type;
                 // BUG FIX
                 // Do after creating our type, to prevent infinite recursion
-                let initializer = brandTypeDecl.varOrParamDeclaration && 
-                    brandTypeDecl.varOrParamDeclaration.kind === SyntaxKind.VariableDeclaration && 
-                    (<VariableDeclaration>brandTypeDecl.varOrParamDeclaration).initializer;
-                if (initializer) {
-                    if (initializer.kind !== SyntaxKind.ObjectLiteralExpression) {
-                        let initType = stripConcreteType(checkExpressionCached(initializer));
-                        baseTypes.push(initType);
-                    }
-                } else {
-                    // Before the branding has finished, this is the type of local 'this':
-                    if (brandTypeDecl.extendedType) {
-                        baseTypes.push(stripConcreteType(getTypeFromTypeNode(brandTypeDecl.extendedType)));
-                    } 
-                    if (brandTypeDecl.prototypeBrandDeclaration) {
-                        baseTypes.push(stripConcreteType( getDeclaredTypeOfSymbol(brandTypeDecl.prototypeBrandDeclaration.symbol)));
-                    }
-                }
+                // let initializer = declareTypeDecl.varOrParamDeclaration && 
+                //     declareTypeDecl.varOrParamDeclaration.kind === SyntaxKind.VariableDeclaration && 
+                //     (<VariableDeclaration>declareTypeDecl.varOrParamDeclaration).initializer;
+                // if (initializer) {
+                //     if (initializer.kind !== SyntaxKind.ObjectLiteralExpression) {
+                //         let initType = stripConcreteType(checkExpressionCached(initializer));
+                //         baseTypes.push(initType);
+                //     }
+                // } else {
+                //     // Before the branding has finished, this is the type of local 'this':
+                //     if (declareTypeDecl.extendedType) {
+                //         baseTypes.push(stripConcreteType(getTypeFromTypeNode(declareTypeDecl.extendedType)));
+                //     } 
+                //     if (declareTypeDecl.prototypeBrandDeclaration) {
+                //         baseTypes.push(stripConcreteType( getDeclaredTypeOfSymbol(declareTypeDecl.prototypeBrandDeclaration.symbol)));
+                //     }
+                // }
                 if (baseTypes.length === 0) {
                     baseTypes.push(emptyObjectType);
                 }
@@ -3197,7 +3195,7 @@ namespace ts {
             // This is required to be first because symbols can be marked as 'Class'
             // but should resolve to brands when used as a type.
             if (symbol.flags & SymbolFlags.Declare) {
-                return getDeclaredTypeOfBrand(symbol);
+                return getDeclaredTypeOfDeclareTypeSymbol(symbol);
             }
             if (symbol.flags & (SymbolFlags.Class | SymbolFlags.Interface)) {
                 return getDeclaredTypeOfClassOrInterface(symbol);
@@ -4357,6 +4355,13 @@ namespace ts {
             return type;
         }
 
+        function createNewDeclareType(extendedType: Type) {
+            let type = <DeclareType>createObjectType(TypeFlags.Declare);
+            // type.before = before;
+            // type.after = after;
+            return type;
+        }
+
         function getTypeFromBecomesTypeNode(node: BecomesTypeNode): Type {
             let links = getNodeLinks(node);
             if (!links.resolvedType) {
@@ -4368,11 +4373,11 @@ namespace ts {
         function getTypeFromDeclareTypeNode(node: DeclareTypeNode): Type {
             let links = getNodeLinks(node);
             if (!links.resolvedType) {
-                throw new Error("")
-                // links.resolvedType = createNewBecomesType(getTypeFromTypeNode(node.startingType), getTypeFromTypeNode(node.endingType));
+                links.resolvedType = getDeclaredTypeOfSymbol(node.symbol);
             }
             return links.resolvedType;
         }
+        // [/ConcreteTypeScript]
 
         function getTypeFromTupleTypeNode(node: TupleTypeNode): Type {
             let links = getNodeLinks(node);
@@ -8179,7 +8184,7 @@ namespace ts {
             return prop || unknownSymbol;
         }
 
-        let jsxElementClassType: Type = undefined;
+        var jsxElementClassType: Type = undefined;
         function getJsxGlobalElementClassType(): Type {
             if (!jsxElementClassType) {
                 jsxElementClassType = getExportedTypeFromNamespace(JsxNames.JSX, JsxNames.ElementClass);
@@ -17061,7 +17066,7 @@ namespace ts {
             function scanPropertyAccessExpression(node: PropertyAccessExpression) {
                 let {expression, name} = node;
                 if (isReference(expression)) {
-                    node.ctsAssignedType = prev[name.text];
+                    getNodeLinks(node).ctsFlowTypes = prev[name.text].flowTypes;
                 }
             }
 
@@ -17070,7 +17075,6 @@ namespace ts {
                 // Flow analysis: Merge the result of entering the loop and of not
                 prev = flowUnion(recurse(node.statement, prev), prev);
             }
-
             // Switch statement segregated for cleanliness:
             function scanWorker(): void {
                 if (!node) return;

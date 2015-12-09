@@ -3,7 +3,6 @@ namespace ts {
     // [ConcreteTypeScript]
     export interface BecomesOrDeclareTypeNode extends TypeNode {
         startingType?: TypeNode; // The empty object type by default
-        extendedType?: TypeNode; // Nothing extended by default
     }
     
     export interface BecomesTypeNode extends BecomesOrDeclareTypeNode {
@@ -11,13 +10,13 @@ namespace ts {
     }
 
     export interface DeclareTypeDeclaration extends Declaration {
-        _declareTypeDeclarationBrand: any;
+        name: Identifier;
+        extendedType?: TypeNode; // Nothing extended by default
     }
 
     // Both a Declaration and a TypeNode
-    export interface DeclareTypeNode extends BecomesOrDeclareTypeNode, Declaration {
+    export interface DeclareTypeNode extends BecomesOrDeclareTypeNode, DeclareTypeDeclaration {
         parent?: TypeReferenceNode | DeclareTypeNode;
-        name: Identifier;
 
         // REFACTORING: The fields below are for the old separate-pass flow type binder
         
@@ -515,6 +514,11 @@ namespace ts {
     export interface FlowMemberSet {
         [member:string]: FlowMember;
     }
+    export interface FlowAnalysis {
+        initializerType: Type;
+        relevantObject: Node;
+        finalMembers: FlowMemberSet;
+    }
     /* [/ConcreteTypeScript] */
 
     export interface Node extends TextRange {
@@ -532,11 +536,7 @@ namespace ts {
         /* @internal */ locals?: SymbolTable;           // Locals associated with node (initialized by binding)
         /* @internal */ nextContainer?: Node;           // Next container in declaration order (initialized by binding)
         /* @internal */ localSymbol?: Symbol;           // Local symbol declared by node (initialized by binding only for exported nodes)
-
         
-        // [ConcreteTypeScript]
-        lastChild?: Node; // Last child node (initialized by binding)
-        prevInParent?: Node; // previous child node of parent (initialized by binding)
         // Set during checker.ts.
         // Cached results of assignment-analysis, one per object being analyzed through this node. 
         // We keep an array because it is default to make a true map.
@@ -553,7 +553,6 @@ namespace ts {
         // Set in checker.ts
         resolvedType?:            Type;
         // Set in ctsAssignmentAnalysis.ts
-        ctsAssignedType?:         FlowMember;
         ctsAssignmentAnalysis?:   FlowTypeAnalysis;
         ctsDowngradeToBaseClass?: boolean
         brandsToEmitAfterwards?:  DeclareTypeNode[];
@@ -1912,6 +1911,9 @@ namespace ts {
 
     /* @internal */
     export interface NodeLinks {
+        /* [ConcreteTypeScript] */
+        ctsFlowTypes?:         FlowType[];
+        /* [/ConcreteTypeScript] */
         resolvedType?: Type;              // Cached type of type node
         resolvedAwaitedType?: Type;       // Cached awaited type of type node
         resolvedSignature?: Signature;    // Cached signature of signature node or call expression
@@ -2033,10 +2035,11 @@ namespace ts {
         declaredStringIndexType: Type;             // Declared string index type
         declaredNumberIndexType: Type;             // Declared numeric index type
     }
-    
-    // [ConcreteTypeScript] Brand types
-    // Declare types are essentially an InterfaceType with TypeFlags.Brand // [ConcreteTypeScript]
-    export interface DeclareType extends InterfaceType {
+   
+    // [ConcreteTypeScript] Declare types
+    // Declare types are essentially an InterfaceType with TypeFlags.Declare 
+    export interface DeclareType extends InterfaceTypeWithDeclaredMembers {
+        flowMemberSet: FlowMemberSet;
     }
 
     export interface BecomesType extends Type {
