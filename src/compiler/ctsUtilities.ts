@@ -8,12 +8,11 @@
 /// <reference path="emitter.ts"/>
 /// <reference path="utilities.ts"/>
 
-declare var process;
-
 namespace ts {
+    declare var process;
 
-    export var ENABLE_DEBUG_ANNOTATIONS:boolean = !!process.env.CTS_TEST; 
-    export var DISABLE_PROTECTED_MEMBERS:boolean = !!process.env.CTS_DISABLE_TYPE_PROTECTION; 
+    export var ENABLE_DEBUG_ANNOTATIONS:boolean = !!process.env.CTS_TEST;
+    export var DISABLE_PROTECTED_MEMBERS:boolean = !!process.env.CTS_DISABLE_TYPE_PROTECTION;
 
     export function forEachChildRecursive(node:Node, callback: (Node)=>void) {
         function callbackPrime(node:Node) {
@@ -45,7 +44,7 @@ namespace ts {
         }
         return declarations;
     }
-    
+
     export function getDeclarations(block:Node, filter: (node:Declaration)=>boolean):Declaration[] {
         if (!block.locals) return [];
         var declarations:Declaration[] = [];
@@ -66,7 +65,7 @@ namespace ts {
         }
         return null
     }
-    
+
     export function getFunctionDeclarationsWithThisBrand(block:Node):FunctionDeclaration[] {
         return <FunctionDeclaration[]> getDeclarations(block, isFunctionLikeDeclarationWithThisBrand);
     }
@@ -102,7 +101,7 @@ namespace ts {
         }
         return false;
     }
-    
+
     export function findBreakingScope(node:Node):Node {
         if (node.kind === SyntaxKind.BreakStatement || node.kind === SyntaxKind.ContinueStatement) {
             var label = (<BreakOrContinueStatement>node).label;
@@ -144,13 +143,13 @@ namespace ts {
             }
         }
     }
-           
+
       export function getSymbolScope(location: Node, text: string, flags: SymbolFlags): Node{
           while (location) {
               // If not a 'locals'-having context
               if (!location.locals || !hasProperty(location.locals, text) || !(location.locals[text].flags & flags)) {
                   location = location.parent;
-                  continue; 
+                  continue;
               }
               return location;
           }
@@ -164,7 +163,7 @@ namespace ts {
               // If not a 'locals'-having context
               if (!location.locals || !hasProperty(location.locals, text) || !(location.locals[text].flags & flags)) {
                   location = location.parent;
-                  continue; 
+                  continue;
               }
               return location.locals[text];
           }
@@ -177,7 +176,7 @@ namespace ts {
           var propAccess = <PropertyAccessExpression> node;
           return (propAccess.name.text === "prototype");
       }
-  
+
     // [ConcreteTypeScript] Find variable declaration associated with identifier, or 'null' if not a VariableDeclaration
     export function findDeclarationForName(location: Node, text: string): VariableDeclaration|ThisParameterDeclaration|ParameterDeclaration {
         if (text === "this") {
@@ -195,13 +194,13 @@ namespace ts {
         // Matched, return declaration (if exists):
         return <VariableDeclaration|ParameterDeclaration> (getSymbolDecl(symbol, SyntaxKind.VariableDeclaration) || getSymbolDecl(symbol, SyntaxKind.Parameter));
     }
-        
+
       export function getExportedSymbol(location: Node, text: string, symbolFlag:SymbolFlags) {
           while (location) {
               let exports = (location.symbol && location.symbol.exports);
               if (!exports || !hasProperty(exports, text) || !(exports[text].flags & symbolFlag)) {
                   location = location.parent;
-                  continue; 
+                  continue;
               }
               return location.locals[text];
           }
@@ -237,14 +236,14 @@ namespace ts {
           }
           return false;
       }
-    
+
       export function isFunctionLikeDeclarationCheckThisBrand(scope:Node, brandTypeDecl: DeclareTypeNode):scope is FunctionLikeDeclaration {
           if (isFunctionLikeDeclarationWithThisBrand(scope)) {
               return (<FunctionDeclaration>scope).parameters.thisParam.type.brandTypeDeclaration === brandTypeDecl;
           }
           return false;
       }
-      
+
       export function getModuleOrSourceFile(scope:Node) {
           while (scope.kind !== SyntaxKind.ModuleDeclaration && scope.kind !== SyntaxKind.SourceFile) {
               // Should always terminate; all incoming nodes should be children of the SourceFile:
@@ -252,4 +251,12 @@ namespace ts {
           }
           return scope;
       }
+
+      // [ConcreteTypeScript+Become]
+      // Is this node able to progressively build up members/intersected-types?
+      export function nodeRequiresFlowAnalysis(node: Node): boolean {
+        // Generally any raw identifier is a candidate:
+        return (node.kind == SyntaxKind.Identifier);
+      }
+      // [/ConcreteTypeScript+Become]
 }

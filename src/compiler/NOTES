@@ -1,0 +1,36 @@
+getIntermediateFlowTypeCompleteness:
+    -If we are doing a getTypeFromIntermediateFlowType, we need to compute completeness
+    - Store enough information to LAZILY resolve with getTypeFromIntermediateFlowType at the latest point possible
+    - Call getIntermediateFlowTypeCompleteness.
+        - Figure out the "trivial" cases where completeness is certain; return those. This should handle the bulk of cases.
+        - Otherwise, compute resolveStructuredTypeMembers on the DeclareType.
+            - Mark it as 'RESOLVING' state and return false if circular logic ensues.
+            - All type comparisons while the DeclareType is in RESOLVING state assume completeness
+              - Push those onto a list of things to check when the type is finally resolved
+            - In the end, we either leave our DeclareType as RESOLVING (because we hit impossible cases)
+            or we have correctly computed completeness.
+
+  - getContextualType will drive the analysis if nodeRequiresFlowAnalysis()
+    - "completeness" not important here yet
+  - resolveStructuredTypeMembers will drive the analysis if we are a DeclareType
+      - presence of .members field determines this
+  - IntermediateFlowType
+     - resolve to explicit/named types upon getTypeFromIntermediateFlowType
+     - use targetType field to drive resolution
+     - normally drop extra types
+     - When there are no ephermal fields / becomings, do not create unnecessarily
+     - for debugging, store the scope it is not intended to leave?
+     - getTypeOfNode should check that all the ephermal members have firstAssigned
+
+     within the same scope. (assertValidIntermediateType)
+
+       - Resolution algorithm should pass around an IntermediateFlowType
+          - every relevant node gets a copy
+
+[ META ]
+  - Use FreshObjectLiteralType to check whether an initializer should be emulated
+  as a series of assignments (as opposed to making the future types inflexible)
+
+  - Use separate types to model fields that can be added!?
+    - Relies on fields being results of memoized functions for there to be a clean 'getter'
+    - I like the idea of a resolved and unresolved declare type.

@@ -4,7 +4,7 @@ namespace ts {
     export interface BecomesOrDeclareTypeNode extends TypeNode {
         startingType?: TypeNode; // The empty object type by default
     }
-    
+
     export interface BecomesTypeNode extends BecomesOrDeclareTypeNode {
         endingType: TypeNode;
     }
@@ -19,16 +19,16 @@ namespace ts {
         parent?: TypeReferenceNode | DeclareTypeNode;
 
         // REFACTORING: The fields below are for the old separate-pass flow type binder
-        
+
         scope: Node;
         // Set in checkerHelper.ts, null if a prototype-inferred brand
         varOrParamDeclaration?: VariableLikeDeclaration|ParameterDeclaration|ThisParameterDeclaration;
         // Defaults to the 'any' type.
         // TODO should parallel extension relationship for brand types.
         extendedTypeResolved?: Type;
-        prototypeBrandDeclaration?: DeclareTypeNode;
         // If the 'this' type of a function
         functionDeclaration?: FunctionLikeDeclaration;
+        prototypeBrandDeclaration?: DeclareTypeNode;
     }
 
     // We resolve the type of a brand property based on
@@ -70,10 +70,10 @@ namespace ts {
         FloatNumberKeyword,   // [ConcreteTypeScript]
         LikeKeyword,          // [ConcreteTypeScript]
         IntNumberKeyword,     // [ConcreteTypeScript]
-        BecomesType, // [ConcreteTypeScript]
+        IntermediateFlowType, // [ConcreteTypeScript]
         DeclareType, // [ConcreteTypeScript]
-        BrandTypeDeclaration, // [ConcreteTypeScript]        
-        BrandProperty, // [ConcreteTypeScript]        
+        BrandTypeDeclaration, // [ConcreteTypeScript]
+        BrandProperty, // [ConcreteTypeScript]
         // [/ConcreteTypeScript]
         Unknown,
         EndOfFileToken,
@@ -499,12 +499,11 @@ namespace ts {
         FailedAndReported = 3
     }
 
+    /* [ConcreteTypeScript] For assignment analysis */
     export interface FlowType {
         firstBindingSite:BinaryExpression;
         type:Type;
     }
-
-    /* [ConcreteTypeScript] For assignment analysis */
     export interface FlowMember {
         key: string;
         definitelyAssigned: boolean;
@@ -513,11 +512,6 @@ namespace ts {
     };
     export interface FlowMemberSet {
         [member:string]: FlowMember;
-    }
-    export interface FlowAnalysis {
-        initializerType: Type;
-        relevantObject: Node;
-        finalMembers: FlowMemberSet;
     }
     /* [/ConcreteTypeScript] */
 
@@ -536,9 +530,9 @@ namespace ts {
         /* @internal */ locals?: SymbolTable;           // Locals associated with node (initialized by binding)
         /* @internal */ nextContainer?: Node;           // Next container in declaration order (initialized by binding)
         /* @internal */ localSymbol?: Symbol;           // Local symbol declared by node (initialized by binding only for exported nodes)
-        
+
         // Set during checker.ts.
-        // Cached results of assignment-analysis, one per object being analyzed through this node. 
+        // Cached results of assignment-analysis, one per object being analyzed through this node.
         // We keep an array because it is default to make a true map.
         // as our key is a sample node used for very simple alias analysis.
         // Furthermore, we don't expect many overlapping assignment analyses, so this should be a small set (of AssignmentSet's).
@@ -553,7 +547,7 @@ namespace ts {
         // Set in checker.ts
         resolvedType?:            Type;
         // Set in ctsAssignmentAnalysis.ts
-        ctsAssignmentAnalysis?:   FlowTypeAnalysis;
+        ctsAssignmentAnalysis?:   any;
         ctsDowngradeToBaseClass?: boolean
         brandsToEmitAfterwards?:  DeclareTypeNode[];
         brandsToEmitAtBeginning?: DeclareTypeNode[]; // Special case for parameter-this
@@ -937,8 +931,8 @@ namespace ts {
         expression: LeftHandSideExpression;
         dotToken: Node;
         name: Identifier;
-        // [ConcreteTypeScript] Accesses to a brand type property within the 
-        // same scope, we collect a relevant list of expressions for determining 
+        // [ConcreteTypeScript] Accesses to a brand type property within the
+        // same scope, we collect a relevant list of expressions for determining
         // the narrowed type of the expression.
         useProtoBrand?: boolean;
         brandTypeDecl?:DeclareTypeNode;
@@ -1082,7 +1076,7 @@ namespace ts {
         _blockExitBrand: any;
         // Set by binder.ts
         breakingContainer?:Node;
-        // Keep a list of brand type declarations that are in defined 
+        // Keep a list of brand type declarations that are in defined
         // somewhere within the block that we are exitting.
         brandDeclExits?: DeclareTypeNode[];
     }
@@ -1095,7 +1089,7 @@ namespace ts {
         expression?: Expression;
         breakingContainer?: Node;
     }
-    
+
     export interface WithStatement extends Statement {
         expression: Expression;
         statement: Statement;
@@ -1380,7 +1374,7 @@ namespace ts {
         moduleName: string;
         referencedFiles: FileReference[];
         languageVariant: LanguageVariant;
-        
+
         // this map is used by transpiler to supply alternative names for dependencies (i.e. in case of bundling)
         /* @internal */
         renamedDependencies?: Map<string>;
@@ -1448,12 +1442,12 @@ namespace ts {
     }
 
     export interface Program extends ScriptReferenceHost {
-        
+
         /**
          * Get a list of root file names that were passed to a 'createProgram'
          */
         getRootFileNames(): string[]
-        
+
         /**
          * Get a list of files in the program
          */
@@ -1569,7 +1563,7 @@ namespace ts {
         objectType?:Type;
         getTypeOfSymbol(symbol: Symbol): Type;
         createType(flags: TypeFlags): Type;
-        createConcreteType:any, 
+        createConcreteType:any,
         stripConcreteType:any,
         isTypeIdenticalTo(source: Type, target: Type): boolean;
         resolveName(location: Node, name: string, meaning: SymbolFlags, nameNotFoundMessage: DiagnosticMessage, nameArg: string | Identifier): Symbol;
@@ -1754,7 +1748,7 @@ namespace ts {
         getConstantValue(node: EnumMember | PropertyAccessExpression | ElementAccessExpression): number;
         getBlockScopedVariableId(node: Identifier): number;
         getReferencedValueDeclaration(reference: Identifier): Declaration;
-        getTypeReferenceSerializationKind(typeName: EntityName): TypeReferenceSerializationKind; 
+        getTypeReferenceSerializationKind(typeName: EntityName): TypeReferenceSerializationKind;
         isOptionalParameter(node: ParameterDeclaration): boolean;
     }
 
@@ -1973,7 +1967,7 @@ namespace ts {
         Declare                 = 0x10000000,
         // For 'becomes' types, holds a 'before' type, the type the object resolves to now, and an 'after' type.
         // 'becomes' declarations are (always?) statically checked (?)
-        Becomes                 = 0x20000000,
+        IntermediateFlow                 = 0x20000000,
         // [/ConcreteTypeScript]
 
         /* @internal */
@@ -1985,7 +1979,7 @@ namespace ts {
         ObjectType = Class | Declare | Interface | Reference | Tuple | Anonymous,
         RuntimeCheckable = Intrinsic  | StringLiteral | Class | Declare, // TODO Rename to RuntimeCheckablePrimitive
         UnionOrIntersection = Union | Intersection,
-        StructuredType = ObjectType | Union | Intersection | Becomes,
+        StructuredType = ObjectType | Union | Intersection | IntermediateFlow,
         /* @internal */
         RequiresWidening = ContainsUndefinedOrNull | ContainsObjectLiteral,
         /* @internal */
@@ -2018,6 +2012,7 @@ namespace ts {
     export interface ObjectType extends Type { }
 
     // Class and interface types (TypeFlags.Class and TypeFlags.Interface)
+    // [ConcreteTypeScript] And TypeFlags.Declare
     export interface InterfaceType extends ObjectType {
         typeParameters: TypeParameter[];           // Type parameters (undefined if non-generic)
         outerTypeParameters: TypeParameter[];      // Outer type parameters (undefined if none)
@@ -2026,6 +2021,12 @@ namespace ts {
         resolvedBaseConstructorType?: Type;        // Resolved base constructor type of class
         /* @internal */
         resolvedBaseTypes: ObjectType[];           // Resolved base types
+
+        // [ConcreteTypeScript+Become]
+        // Declare types are essentially an InterfaceType with TypeFlags.Declare
+        // and potentially a computed flowMemberSet member (after resolution for implicit declare types)
+        /* @internal */
+        flowMemberSet?: FlowMemberSet;
     }
 
     export interface InterfaceTypeWithDeclaredMembers extends InterfaceType {
@@ -2035,24 +2036,20 @@ namespace ts {
         declaredStringIndexType: Type;             // Declared string index type
         declaredNumberIndexType: Type;             // Declared numeric index type
     }
-   
-    // [ConcreteTypeScript] Declare types
-    // Declare types are essentially an InterfaceType with TypeFlags.Declare 
-    export interface DeclareType extends InterfaceTypeWithDeclaredMembers {
-        flowMemberSet: FlowMemberSet;
-    }
 
-    export interface BecomesType extends Type {
-        before: Type;
-        after: Type;
+    export interface IntermediateFlowType extends Type {
+        startingType: Type;
+        // If analysis is driven by a 'becomes' declaration, this is the type
+        // we wish to become. This is important for the effects of
+        targetType?: Type;
     }
-
+    // [ConcreteTypeScript+Become]
 
     // [ConcreteTypeScript] Concrete types
     export interface ConcreteType extends Type {
         baseType: IntrinsicType | ObjectType | UnionType;
     }
- 
+
     // Type references (TypeFlags.Reference)
     export interface TypeReference extends ObjectType {
         target: GenericType;    // Type reference target
@@ -2216,12 +2213,12 @@ namespace ts {
         Error,
         Message,
     }
-    
+
     export const enum ModuleResolutionKind {
         Classic  = 1,
         NodeJs  = 2
     }
-    
+
     export interface CompilerOptions {
         allowNonTsExtensions?: boolean;
         charset?: string;
@@ -2480,31 +2477,31 @@ namespace ts {
         byteOrderMark = 0xFEFF,
         tab = 0x09,                   // \t
         verticalTab = 0x0B,           // \v
-    }   
-    
+    }
+
     export interface ModuleResolutionHost {
         fileExists(fileName: string): boolean;
         // readFile function is used to read arbitrary text files on disk, i.e. when resolution procedure needs the content of 'package.json'
-        // to determine location of bundled typings for node module 
+        // to determine location of bundled typings for node module
         readFile(fileName: string): string;
     }
-    
+
     export interface ResolvedModule {
         resolvedFileName: string;
         /*
          * Denotes if 'resolvedFileName' is isExternalLibraryImport and thus should be proper external module:
-         * - be a .d.ts file 
+         * - be a .d.ts file
          * - use top level imports\exports
          * - don't use tripleslash references
          */
         isExternalLibraryImport?: boolean;
     }
-    
+
     export interface ResolvedModuleWithFailedLookupLocations {
         resolvedModule: ResolvedModule;
         failedLookupLocations: string[];
     }
-    
+
     export interface CompilerHost extends ModuleResolutionHost {
         getSourceFile(fileName: string, languageVersion: ScriptTarget, onError?: (message: string) => void): SourceFile;
         getCancellationToken?(): CancellationToken;
@@ -2514,13 +2511,13 @@ namespace ts {
         getCanonicalFileName(fileName: string): string;
         useCaseSensitiveFileNames(): boolean;
         getNewLine(): string;
-        
+
         /*
-         * CompilerHost must either implement resolveModuleNames (in case if it wants to be completely in charge of 
-         * module name resolution) or provide implementation for methods from ModuleResolutionHost (in this case compiler 
+         * CompilerHost must either implement resolveModuleNames (in case if it wants to be completely in charge of
+         * module name resolution) or provide implementation for methods from ModuleResolutionHost (in this case compiler
          * will appply built-in module resolution logic and use members of ModuleResolutionHost to ask host specific questions).
-         * If resolveModuleNames is implemented then implementation for members from ModuleResolutionHost can be just 
-         * 'throw new Error("NotImplemented")'  
+         * If resolveModuleNames is implemented then implementation for members from ModuleResolutionHost can be just
+         * 'throw new Error("NotImplemented")'
          */
         resolveModuleNames?(moduleNames: string[], containingFile: string): ResolvedModule[];
     }
@@ -2553,7 +2550,7 @@ namespace ts {
         // operation caused diagnostics to be returned by storing and comparing the return value
         // of this method before/after the operation is performed.
         getModificationCount(): number;
-        
+
         /* @internal */ reattachFileDiagnostics(newFile: SourceFile): void;
     }
 }

@@ -97,8 +97,8 @@ namespace ts {
         }
 
         return true;
-    }    
-   
+    }
+
     export function hasResolvedModule(sourceFile: SourceFile, moduleNameText: string): boolean {
         return sourceFile.resolvedModules && hasProperty(sourceFile.resolvedModules, moduleNameText);
     }
@@ -1518,12 +1518,12 @@ namespace ts {
         function getModificationCount() {
             return modificationCount;
         }
-        
+
         function reattachFileDiagnostics(newFile: SourceFile): void {
             if (!hasProperty(fileDiagnostics, newFile.fileName)) {
                 return;
             }
-            
+
             for (let diagnostic of fileDiagnostics[newFile.fileName]) {
                 diagnostic.file = newFile;
             }

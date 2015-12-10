@@ -104,7 +104,7 @@ namespace ts {
                     visitNode(cbNode, (<FunctionLikeDeclaration>node).body);
             // [ConcreteTypeScript]
             case SyntaxKind.BrandTypeDeclaration:
-                return visitNode(cbNode, (<DeclareTypeNode>node).name) || 
+                return visitNode(cbNode, (<DeclareTypeNode>node).name) ||
                     visitNode(cbNode, (<DeclareTypeNode>node).extendedType);
             // [/ConcreteTypeScript]
             case SyntaxKind.TypeReference:
@@ -662,7 +662,7 @@ namespace ts {
                 }
             }
         }
-        
+
 
         // [ConcreteTypeScript] TODO rethinking after refactoring to 1.6
         export function concreteTypeScriptHackSetCompilerOptions(_options) {
@@ -822,7 +822,7 @@ namespace ts {
                 // console.log((<any> new Error).stack);
                 parseDiagnostics.push(createFileDiagnostic(sourceFile, start, length, message, arg0));
             }
-            
+
             // Mark that we've encountered an error.  We'll set an appropriate bit on the next
             // node we finish so that it can't be reused incrementally.
             parseErrorBeforeNextFinishedNode = true;
@@ -1954,7 +1954,7 @@ namespace ts {
         // [ConcreteTypeScript]
         // startingType can be 'undefined'
         function parseBecomeType(startingType:TypeNode): BecomesTypeNode {
-            var becomesTypeNode = <BecomesTypeNode>createNode(SyntaxKind.BecomesType);
+            var becomesTypeNode = <BecomesTypeNode>createNode(SyntaxKind.IntermediateFlowType);
             nextToken();
             becomesTypeNode.startingType = startingType;
             becomesTypeNode.endingType = parseType();
@@ -1972,7 +1972,7 @@ namespace ts {
             return finishNode(declareTypeNode);
         }
         // [/ConcreteTypeScript]
- 
+
         function parseTypeQuery(): TypeQueryNode {
             let node = <TypeQueryNode>createNode(SyntaxKind.TypeQuery);
             parseExpected(SyntaxKind.TypeOfKeyword);
@@ -2043,7 +2043,7 @@ namespace ts {
             //      BindingElement[?Yield,?Await]
 
             node.name = parseIdentifierOrPattern();
-    
+
             if (getFullWidth(node.name) === 0 && node.flags === 0 && isModifier(token)) {
                 // in cases like
                 // 'use strict'
@@ -2392,9 +2392,9 @@ namespace ts {
             node.elementTypes = parseBracketedList(ParsingContext.TupleElementTypes, parseType, SyntaxKind.OpenBracketToken, SyntaxKind.CloseBracketToken);
             return finishNode(node);
         }
-        
+
         function parseBecomesType(extendedType:TypeNode): BecomesTypeNode {
-            let node = <BecomesTypeNode>createNode(SyntaxKind.BecomesType);
+            let node = <BecomesTypeNode>createNode(SyntaxKind.IntermediateFlowType);
             nextToken();
             node.startingType = parseType();
             node.endingType = extendedType;
@@ -2455,7 +2455,7 @@ namespace ts {
                         }
                         // [/ConcreteTypeScript]
                         return node || parseTypeReferenceOrTypePredicate(specifiedConcrete, isConcrete /* [ConcreteTypeScript] */);
-     
+
                     case SyntaxKind.VoidKeyword:
                         return parseTokenNode<TypeNode>();
                     case SyntaxKind.TypeOfKeyword:
@@ -2525,14 +2525,14 @@ namespace ts {
             nextToken();
             return token === SyntaxKind.CloseParenToken  || /* [ConcreteTypeScript]: */ token === SyntaxKind.ThisKeyword || isStartOfParameter() || isStartOfType();
         }
-        
+
         // [ConcreteTypeScript] Check for 'X becomes Y' or 'X declare Y'
         function parseArrayTypeOrHigher(): TypeNode {
             let typeNode =  parseArrayTypeOrHigherWorker();
             if (token === SyntaxKind.DeclareKeyword) {
                 return parseDeclareType(typeNode);
             }
-            if (token === SyntaxKind.BecomesType) {
+            if (token === SyntaxKind.IntermediateFlowType) {
                 return parseBecomesType(typeNode);
             }
             return typeNode;
@@ -2626,7 +2626,7 @@ namespace ts {
             }
             if (token === SyntaxKind.DeclareKeyword) {
                return parseDeclareType(null);
-            }  
+            }
             return parseUnionTypeOrHigher();
         }
 
@@ -4605,7 +4605,7 @@ namespace ts {
             if (!isInOrOfKeyword(token)) {
                 node.initializer = parseInitializer(/*inParameter*/ false);
             }
- 
+
             return finishNode(node);
         }
 
