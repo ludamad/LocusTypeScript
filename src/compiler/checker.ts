@@ -4330,24 +4330,12 @@ namespace ts {
         }
 
         // [ConcreteTypeScript]
-        function createNewBecomesType(before: Type, after: Type) {
-            let type = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
-            type.before = before;
-            type.after = after;
-            return type;
-        }
-
-        function createNewDeclareType(extendedType: Type) {
-            let type = <DeclareType>createObjectType(TypeFlags.Declare);
-            // type.before = before;
-            // type.after = after;
-            return type;
-        }
-
+        // The formal Type (non-contextual) of a BecomesTypeNode is the starting type.
+        // This allows assignability checking to be done naturally, and getContextualType to handle the rest.
         function getTypeFromBecomesTypeNode(node: BecomesTypeNode): Type {
             let links = getNodeLinks(node);
             if (!links.resolvedType) {
-                links.resolvedType = createNewBecomesType(getTypeFromTypeNode(node.startingType), getTypeFromTypeNode(node.endingType));
+                links.resolvedType = getTypeFromTypeNode(node.startingType);
             }
             return links.resolvedType;
         }
@@ -4628,7 +4616,7 @@ namespace ts {
                     return getTypeFromArrayTypeNode(<ArrayTypeNode>node);
                 case SyntaxKind.TupleType:
                     return getTypeFromTupleTypeNode(<TupleTypeNode>node);
-                case SyntaxKind.IntermediateFlowType:
+                case SyntaxKind.BecomesType:
                     return getTypeFromBecomesTypeNode(<BecomesTypeNode>node);
                 case SyntaxKind.DeclareType:
                     return getTypeFromDeclareTypeNode(<DeclareTypeNode>node);
@@ -8153,7 +8141,7 @@ namespace ts {
             }
 
             return links.resolvedJsxType;
-        }
+        } 
 
         /**
          * Given a JSX attribute, returns the symbol for the corresponds property
@@ -14514,7 +14502,7 @@ namespace ts {
                     return checkClassDeclaration(<ClassDeclaration>node);
                 case SyntaxKind.InterfaceDeclaration:
                     return checkInterfaceDeclaration(<InterfaceDeclaration>node);
-                case SyntaxKind.IntermediateFlowType:
+                case SyntaxKind.BecomesType:
                     return;
                     // return checkBecomesType(<BrandTypeDeclaration>node);
                 case SyntaxKind.BrandTypeDeclaration:

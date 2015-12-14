@@ -7,7 +7,7 @@ namespace ts {
 
     export function getNodeConstructor(kind: SyntaxKind): new () => Node {
         return nodeConstructors[kind] || (nodeConstructors[kind] = objectAllocator.getNodeConstructor(kind));
-    }
+    } 
 
     export function createNode(kind: SyntaxKind): Node {
         return new (getNodeConstructor(kind))();
@@ -1954,7 +1954,7 @@ namespace ts {
         // [ConcreteTypeScript]
         // startingType can be 'undefined'
         function parseBecomeType(startingType:TypeNode): BecomesTypeNode {
-            var becomesTypeNode = <BecomesTypeNode>createNode(SyntaxKind.IntermediateFlowType);
+            var becomesTypeNode = <BecomesTypeNode>createNode(SyntaxKind.BecomesType);
             nextToken();
             becomesTypeNode.startingType = startingType;
             becomesTypeNode.endingType = parseType();
@@ -2394,7 +2394,7 @@ namespace ts {
         }
 
         function parseBecomesType(extendedType:TypeNode): BecomesTypeNode {
-            let node = <BecomesTypeNode>createNode(SyntaxKind.IntermediateFlowType);
+            let node = <BecomesTypeNode>createNode(SyntaxKind.BecomesType);
             nextToken();
             node.startingType = parseType();
             node.endingType = extendedType;
@@ -2532,7 +2532,7 @@ namespace ts {
             if (token === SyntaxKind.DeclareKeyword) {
                 return parseDeclareType(typeNode);
             }
-            if (token === SyntaxKind.IntermediateFlowType) {
+            if (token === SyntaxKind.BecomesType) {
                 return parseBecomesType(typeNode);
             }
             return typeNode;

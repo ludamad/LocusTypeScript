@@ -70,7 +70,7 @@ namespace ts {
         FloatNumberKeyword,   // [ConcreteTypeScript]
         LikeKeyword,          // [ConcreteTypeScript]
         IntNumberKeyword,     // [ConcreteTypeScript]
-        IntermediateFlowType, // [ConcreteTypeScript]
+        BecomesType, // [ConcreteTypeScript]
         DeclareType, // [ConcreteTypeScript]
         BrandTypeDeclaration, // [ConcreteTypeScript]
         BrandProperty, // [ConcreteTypeScript]
