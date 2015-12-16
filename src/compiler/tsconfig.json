@@ -4,7 +4,8 @@
         "noImplicitAny": false,
         "removeComments": false,
         "preserveConstEnums": true,
-        "sourceMap": true
+        "sourceMap": true,
+        "out": "main.js"
     },
     "files": [
         "core.ts",
