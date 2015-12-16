@@ -5,7 +5,8 @@
         "removeComments": false,
         "preserveConstEnums": true,
         "sourceMap": true,
-        "out": "main.js"
+        "out": "unit_tests/harness.js",
+        "declaration": true
     },
     "files": [
         "core.ts",
@@ -23,7 +24,7 @@
         "ctsTestEvaluator.ts",
         "ctsTypes.ts",
         "commandLineParser.ts",
-        "tsc.ts",
-        "diagnosticInformationMap.generated.ts"
+        "diagnosticInformationMap.generated.ts",
+        "../harness/harness.ts"
     ]
 }

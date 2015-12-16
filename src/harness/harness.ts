@@ -957,7 +957,8 @@ module Harness {
             };
         }
 
-        interface HarnessOptions {
+        // [ConcreteTypeScript] Make visible for easy .d.ts generation.
+        export interface HarnessOptions {
             useCaseSensitiveFileNames?: boolean;
             includeBuiltFile?: string;
             baselineFile?: string;
@@ -1067,6 +1068,56 @@ module Harness {
                 function writeFile(file: GeneratedFile) {
                     ioHost.writeFile(file.fileName, file.code, false);
                 }
+            }
+
+            // [ConcreteTypeScript] Exposed for intrusive testing.
+            // TODO de-duplicate code.
+            public createProgram(inputFiles: { unitName: string; content: string }[],
+                otherFiles: { unitName: string; content: string }[],
+                onComplete: (result: CompilerResult, program: ts.Program) => void,
+                settingsCallback?: (settings: ts.CompilerOptions) => void,
+                options?: ts.CompilerOptions & HarnessOptions,
+                // Current directory is needed for rwcRunner to be able to use currentDirectory defined in json file
+                currentDirectory?: string) {
+
+                options = options || { noResolve: false };
+                options.target = options.target || ts.ScriptTarget.ES3;
+                options.module = options.module || ts.ModuleKind.None;
+                options.newLine = options.newLine || ts.NewLineKind.CarriageReturnLineFeed;
+                options.noErrorTruncation = true;
+                options.skipDefaultLibCheck = true;
+
+                if (settingsCallback) {
+                    settingsCallback(null);
+                }
+
+                let newLine = "\r\n";
+
+                // Parse settings
+                setCompilerOptionsFromHarnessSetting(this.settings, options);
+
+                // Files from built\local that are requested by test "@includeBuiltFiles" to be in the context.
+                // Treat them as library files, so include them in build, but not in baselines.
+                let includeBuiltFiles: { unitName: string; content: string }[] = [];
+                if (options.includeBuiltFile) {
+                    let builtFileName = libFolder + options.includeBuiltFile;
+                    includeBuiltFiles.push({ unitName: builtFileName, content: normalizeLineEndings(IO.readFile(builtFileName), newLine) });
+                }
+
+                let useCaseSensitiveFileNames = options.useCaseSensitiveFileNames !== undefined ? options.useCaseSensitiveFileNames : Harness.IO.useCaseSensitiveFileNames();
+               
+                let fileOutputs: GeneratedFile[] = [];
+
+                let programFiles = inputFiles.concat(includeBuiltFiles).map(file => file.unitName);
+
+                let compilerHost = createCompilerHost(
+                    inputFiles.concat(includeBuiltFiles).concat(otherFiles),
+                    (fn, contents, writeByteOrderMark) => fileOutputs.push({ fileName: fn, code: contents, writeByteOrderMark: writeByteOrderMark }),
+                    options.target, useCaseSensitiveFileNames, currentDirectory, options.newLine);
+                let program = ts.createProgram(programFiles, options, compilerHost);
+                return {
+                    program, emit: () => { program.emit() ; return fileOutputs; }
+                };
             }
 
             public compileFiles(inputFiles: { unitName: string; content: string }[],
