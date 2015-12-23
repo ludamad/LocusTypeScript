@@ -1561,6 +1561,7 @@ namespace ts {
         getReturnTypeOfSignature(signature: Signature): Type;
         // [ConcreteTypeScript]
         objectType?:Type;
+        scanAssignedMemberTypes(reference: Node): FlowMemberSet;
         getTypeOfSymbol(symbol: Symbol): Type;
         createType(flags: TypeFlags): Type;
         createConcreteType:any,
@@ -2039,6 +2040,7 @@ namespace ts {
 
     export interface IntermediateFlowType extends Type {
         startingType: Type;
+        members: {}[]; 
         // If analysis is driven by a 'becomes' declaration, this is the type
         // we wish to become. This is important for the effects of
         targetType?: Type;

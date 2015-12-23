@@ -52,6 +52,7 @@ module ts {
         case SyntaxKind.ParenthesizedExpression: return print(node, "ParenthesizedExpression");
         case SyntaxKind.FunctionDeclaration: return print(node, "FunctionDeclaration");
         case SyntaxKind.FunctionExpression: return print(node, "FunctionExpression");
+        case SyntaxKind.DeclareType: return print(node, "DeclareType");
         case SyntaxKind.ArrowFunction: return print(node, "ArrowFunction");
         case SyntaxKind.DeleteExpression: return print(node, "DeleteExpression");
         case SyntaxKind.TypeOfExpression: return print(node, "TypeOfExpression");
@@ -104,13 +105,12 @@ module ts {
                 indentStr += '  ';
             }
             var addendum:any[] = [];
-            for (var str in node) {
-                if (hasProperty(<any>node, str)) {
-                    if (typeof <any>node[str] === "string") {
-                        addendum.push(`${str}: ${node[str]}`);
-                    } else if (node[str] != null && node[str].kind == SyntaxKind.Identifier) {
-                        addendum.push(`${str}: ${node[str].text}`);
-                    }
+            let keys = Object.keys(node);
+            for (let str of keys) {
+                if (typeof <any>node[str] === "string" || typeof <any>node[str] === "number") {
+                    addendum.push(`${str}: ${node[str]}`);
+                } else if (node[str] != null && node[str].kind == SyntaxKind.Identifier) {
+                    addendum.push(`${str}: ${node[str].text}`);
                 }
             }
             console.log(`${indentStr}${name} (${addendum.join(', ')})`);
@@ -127,11 +127,10 @@ module ts {
                 indentStr += '  ';
             }
             var addendum:any[] = [];
-            for (var str in node) {
-                if (hasProperty(<any>node, str)) {
-                    if (typeof <any>node[str] === "string") {
-                        addendum.push(`${str}: ${node[str]}`);
-                    }
+            let keys = Object.keys(node);
+            for (let str of keys) {
+                if (typeof <any>node[str] === "string" || typeof <any>node[str] === "number") {
+                    addendum.push(`${str}: ${node[str]}`);
                 }
             }
             console.log(`${indentStr}${name} (${addendum.join(', ')})`);

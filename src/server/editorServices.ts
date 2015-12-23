@@ -1,5 +1,5 @@
-/// <reference path="..\compiler\commandLineParser.ts" />
-/// <reference path="..\services\services.ts" />
+/// <reference path="../compiler/commandLineParser.ts" />
+/// <reference path="../services/services.ts" />
 /// <reference path="protocol.d.ts" />
 /// <reference path="session.ts" />
 

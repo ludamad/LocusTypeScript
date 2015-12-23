@@ -68,6 +68,7 @@ namespace ts {
             getDiagnostics,
             getGlobalDiagnostics,
             // [ConcreteTypeScript]
+            scanAssignedMemberTypes,
             createType,
             getPrimitiveTypeInfo,
             getTypeOfSymbol,
@@ -1711,23 +1712,27 @@ namespace ts {
                         writeTypeReference(<TypeReference>type, flags);
                     }
                     else if (type.flags & TypeFlags.Declare) {
-                        let brandDecl = <DeclareTypeNode>getSymbolDecl(type.symbol, SyntaxKind.BrandTypeDeclaration);
-                        if (brandDecl.parent.kind === SyntaxKind.BrandTypeDeclaration) {
-                            writer.writeSymbol((<DeclareTypeNode>brandDecl.parent).name.text, (<DeclareTypeNode>brandDecl.parent).symbol);
+/*                        let declareTypeDecl = <DeclareTypeDeclaration>getSymbolDecl(type.symbol, SyntaxKind.DeclareType);
+                        if (declareTypeDecl.parent.kind === SyntaxKind.BrandTypeDeclaration) {
+                            writer.writeSymbol((<DeclareTypeNode>declareTypeDecl.parent).name.text, (<DeclareTypeNode>declareTypeDecl.parent).symbol);
                             writer.writeOperator(".prototype");
-                        } else
-                        buildSymbolDisplay(type.symbol, writer, enclosingDeclaration, SymbolFlags.Type);
+                        } else { */
+                            //writer.writeOperator("declare");
+                        buildSymbolDisplay(type.symbol, writer, enclosingDeclaration, SymbolFlags.Type, SymbolFormatFlags.None, flags);
+ //                       }
                     }
                     else if (type.flags & TypeFlags.IntermediateFlow) {
-                      // TODO drawing for internal
-                        writer.writeOperator("<INTERMEDIATE TYPE, TODO>");
-                        // writeType((<IntermediateFlowType>type).after, flags);
-                        // if ((<IntermediateFlowType>type).before) {
-                        //     writer.writeOperator(" extends ");
-                        //     writeType((<IntermediateFlowType>type).before, flags);
-                        // }
+                        buildTypeDisplay((<IntermediateFlowType>type).startingType, writer, enclosingDeclaration, globalFlags, symbolStack);
+                        writer.writeOperator("becomes");
+                        if ((<IntermediateFlowType>type).targetType) {
+                            buildTypeDisplay((<IntermediateFlowType>type).targetType, writer, enclosingDeclaration, globalFlags, symbolStack);
+                        } else {
+                            writer.writeOperator("(unnamed)");
+                        }
                     }
-                    else if (type.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Declare | TypeFlags.Enum | TypeFlags.TypeParameter)) {
+                    // [ConcreteTypeScript]
+                    else if (type.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Declare | TypeFlags.Enum | TypeFlags.TypeParameter | TypeFlags.Declare)) {
+                    // [/ConcreteTypeScript]
                         // The specified symbol flags need to be reinterpreted as type flags
                         buildSymbolDisplay(type.symbol, writer, enclosingDeclaration, SymbolFlags.Type, SymbolFormatFlags.None, flags);
                     }
@@ -16882,6 +16887,7 @@ namespace ts {
                                          containerScope, extendedType:InterfaceType,
                                          // Change per node scanned:
                                          node:Node, prev:FlowMemberSet):FlowMemberSet {
+            console.log("CALLING MEMBER SCANNER");
 
             // Helper functions for recursion:
             function recurse(node:Node, prev:FlowMemberSet) {

@@ -106,6 +106,9 @@ namespace ts {
             case SyntaxKind.BrandTypeDeclaration:
                 return visitNode(cbNode, (<DeclareTypeNode>node).name) ||
                     visitNode(cbNode, (<DeclareTypeNode>node).extendedType);
+            case SyntaxKind.DeclareType:
+                return visitNode(cbNode, (<DeclareTypeNode>node).name) ||
+                    visitNode(cbNode, (<DeclareTypeNode>node).extendedType);
             // [/ConcreteTypeScript]
             case SyntaxKind.TypeReference:
                 return visitNode(cbNode, (<TypeReferenceNode>node).typeName) ||
@@ -1963,12 +1966,14 @@ namespace ts {
         // startingType can be 'undefined'
         function parseDeclareType(startingType:TypeNode): DeclareTypeNode {
             var declareTypeNode = <DeclareTypeNode>createNode(SyntaxKind.DeclareType);
+            declareTypeNode.pos = (startingType ? startingType.pos : getNodePos());
             nextToken();
             declareTypeNode.name = parseIdentifier();
             declareTypeNode.startingType = startingType;
             if (token === SyntaxKind.ExtendsKeyword) {
                 declareTypeNode.extendedType = parseType();
             }
+            declareTypeNode.end = getNodeEnd();
             return finishNode(declareTypeNode);
         }
         // [/ConcreteTypeScript]
@@ -2138,8 +2143,8 @@ namespace ts {
                     let thisParam = <ThisParameterDeclaration>createNode(SyntaxKind.ThisParameter);
                     thisParam.type = thisType;
                     thisParam.name = thisIdentifier;
-                    this.pos = startPos;
-                    this.end = getNodeEnd();
+                    thisParam.pos = thisIdentifier.pos;
+                    thisParam.end = getNodeEnd();
                     result.thisParam = thisParam;
                 }
 

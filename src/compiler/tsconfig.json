@@ -25,6 +25,7 @@
         "ctsTypes.ts",
         "commandLineParser.ts",
         "diagnosticInformationMap.generated.ts",
-        "../harness/harness.ts"
+        "../harness/harness.ts",
+        "unitTestPre.ts"
     ]
 }
