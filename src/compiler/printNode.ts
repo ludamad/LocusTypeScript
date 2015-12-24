@@ -13,6 +13,7 @@ module ts {
         return result;
     }
     function printRecursor(node:Node, print:any) {
+        return print(node, (<any>ts).SyntaxKind[node.kind]);
     switch (node.kind) {
         case SyntaxKind.BrandTypeDeclaration: 
             print(node, "BrandTypeDeclaration");
@@ -99,6 +100,7 @@ module ts {
     }
     
     export function printNode(parent:Node, indent = 0) {
+        console.log("WHAT");
         function print(node:Node, name:string) {
             var indentStr = '';
             for (var i = 0; i < indent; i++) {
@@ -121,6 +123,7 @@ module ts {
         printSwitch(parent);
     }
     export function printNodeDeep(parent:Node, indent = 0) {
+        console.log("WHAT");
         function print(node:Node, name:string) {
             var indentStr = '';
             for (var i = 0; i < indent; i++) {
@@ -142,5 +145,26 @@ module ts {
             printRecursor(node, print)
         }
         printSwitch(parent);
+    }
+    const USE_COLOUR:boolean = true;
+    var CHECKER:TypeChecker = null;
+    function flowTypeToString({firstBindingSite, type}: FlowType): string {
+        return `${CHECKER.typeToString(type)}@${ts.nodePosToString(firstBindingSite)}`;
+    }
+    function flowMemberToString({key, definitelyAssigned, conditionalBarrierPassed, flowTypes}: FlowMember): string {
+        let ofType = definitelyAssigned ? ':' : '??:';
+        let conditionality = conditionalBarrierPassed ? '' : ' [in conditional]';
+        return `${key} ${ofType} ${flowTypes.map(flowTypeToString).join(" | ")}${conditionality}`;
+    }
+    export function flowMemberSetToString(checker: TypeChecker, memberSet: FlowMemberSet) {
+
+        CHECKER = checker;
+        let setAsString = "FlowMemberSet {\n";
+        for (let key of Object.keys(memberSet)) {
+            setAsString += '    ' + flowMemberToString(memberSet[key]) + "\n";
+        }
+        setAsString += "}\n";
+        CHECKER = null; 
+        return setAsString;
     }
 }  

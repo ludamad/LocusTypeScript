@@ -81,6 +81,7 @@ namespace ts {
             checkTypeAssignableTo,
             isSignatureAssignableTo,
             checkTypeRelatedTo,
+            isTypeAny,
             // [/ConcreteTypeScript]
             // The language service will always care about the narrowed type of a symbol, because that is
             // the type the language says the symbol should have.
@@ -1723,7 +1724,7 @@ namespace ts {
                     }
                     else if (type.flags & TypeFlags.IntermediateFlow) {
                         buildTypeDisplay((<IntermediateFlowType>type).startingType, writer, enclosingDeclaration, globalFlags, symbolStack);
-                        writer.writeOperator("becomes");
+                        writer.writeOperator(" becomes ");
                         if ((<IntermediateFlowType>type).targetType) {
                             buildTypeDisplay((<IntermediateFlowType>type).targetType, writer, enclosingDeclaration, globalFlags, symbolStack);
                         } else {
@@ -3181,6 +3182,7 @@ namespace ts {
             // This is required to be first because symbols can be marked as 'Class'
             // but should resolve to brands when used as a type.
             if (symbol.flags & SymbolFlags.Declare) {
+                console.log("getDeclaredTypeOfDeclareTypeSymbol");
                 return getDeclaredTypeOfDeclareTypeSymbol(symbol);
             }
             if (symbol.flags & (SymbolFlags.Class | SymbolFlags.Interface)) {
@@ -4323,6 +4325,15 @@ namespace ts {
             return links.resolvedType;
         }
 
+        // [ConcreteTypeScript]
+        function createFlowTypeIntermediate(startingType: Type, targetType?: Type) {
+            let type = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
+            type.startingType = startingType;
+            type.targetType = targetType;
+            return type;
+        }
+        // [/ConcreteTypeScript]
+
         function createTupleType(elementTypes: Type[]) {
             let id = getTypeListId(elementTypes);
             return tupleTypes[id] || (tupleTypes[id] = createNewTupleType(elementTypes));
@@ -4348,7 +4359,12 @@ namespace ts {
         function getTypeFromDeclareTypeNode(node: DeclareTypeNode): Type {
             let links = getNodeLinks(node);
             if (!links.resolvedType) {
-                links.resolvedType = getDeclaredTypeOfSymbol(node.symbol);
+                // Resolve like we resolve becomes-types:
+                let startingType = node.startingType ? getTypeFromTypeNode(node.startingType) : emptyObjectType;
+                let targetType = getDeclaredTypeOfSymbol(node.symbol);
+                Debug.assert(!isTypeAny(startingType));
+                Debug.assert(!isTypeAny(targetType));
+                links.resolvedType = createFlowTypeIntermediate(startingType, targetType);
             }
             return links.resolvedType;
         }
@@ -4564,7 +4580,7 @@ namespace ts {
         // [ConcreteTypeScript] Modified to support concrete
 
         function getTypeFromTypeNode(node: TypeNode): Type {
-            let type = getTypeFromTypeNodePrime(node);
+            let type = getTypeFromTypeNodeWorker(node);
             node.resolvedType = type;
             if (node.isConcrete || node.brandTypeDeclaration) {
                 if (isRuntimeCheckable(type)) {
@@ -4582,7 +4598,7 @@ namespace ts {
             return type;
         }
 
-        function getTypeFromTypeNodePrime(node: TypeNode): Type {
+        function getTypeFromTypeNodeWorker(node: TypeNode): Type {
         // [/ConcreteTypeScript]
             switch (node.kind) {
                 case SyntaxKind.AnyKeyword:
@@ -4600,6 +4616,10 @@ namespace ts {
                     return nullType;
                 case SyntaxKind.UndefinedKeyword:
                     return undefinedType;
+                case SyntaxKind.BecomesType:
+                    return getTypeFromBecomesTypeNode(<BecomesTypeNode>node);
+                case SyntaxKind.DeclareType:
+                    return getTypeFromDeclareTypeNode(<DeclareTypeNode>node);
                 // [/ConcreteTypeScript]
                 case SyntaxKind.BooleanKeyword:
                     return booleanType;
@@ -4621,10 +4641,6 @@ namespace ts {
                     return getTypeFromArrayTypeNode(<ArrayTypeNode>node);
                 case SyntaxKind.TupleType:
                     return getTypeFromTupleTypeNode(<TupleTypeNode>node);
-                case SyntaxKind.BecomesType:
-                    return getTypeFromBecomesTypeNode(<BecomesTypeNode>node);
-                case SyntaxKind.DeclareType:
-                    return getTypeFromDeclareTypeNode(<DeclareTypeNode>node);
                 case SyntaxKind.UnionType:
                     return getTypeFromUnionTypeNode(<UnionTypeNode>node);
                 case SyntaxKind.IntersectionType:
@@ -16870,7 +16886,7 @@ namespace ts {
         function scanAssignedMemberTypes(reference: Node):FlowMemberSet {
             let type = stripConcreteType(getTypeOfNode(reference));
             if (!(type.flags & TypeFlags.ObjectType)) {
-                throw new Error("TODO make error " + typeToString(type));
+                throw new Error("Expected object type, got " + typeToString(type));
             }
             let containerScope = getScopeContainer(reference);
             return scanAssignedMemberTypesWorker(
@@ -16887,7 +16903,6 @@ namespace ts {
                                          containerScope, extendedType:InterfaceType,
                                          // Change per node scanned:
                                          node:Node, prev:FlowMemberSet):FlowMemberSet {
-            console.log("CALLING MEMBER SCANNER");
 
             // Helper functions for recursion:
             function recurse(node:Node, prev:FlowMemberSet) {

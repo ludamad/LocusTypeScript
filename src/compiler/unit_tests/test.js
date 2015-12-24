@@ -1,19 +1,30 @@
 /// <reference path="./harness.d.ts"/>
 require('./harness');
-describe("Suite", function () {
-    it("Test", function () {
-        var _a = mockCompile(["\n            function ParameterFunction(param: declare DeclaredParamType) {\n                param.x = 1;\n                param.y = 1;\n            }"
-        ]), rootNode = _a.sourceFiles[0], checker = _a.checker;
-        var firstThisNode = find(rootNode, function (_a) {
-            var kind = _a.kind, parent = _a.parent;
-            return kind === 105 /* ThisKeyword */ &&
-                parent != null &&
-                parent.kind === 175 /* PropertyAccessExpression */;
-        });
-        var memberSet = checker.scanAssignedMemberTypes(firstThisNode);
-        console.log(memberSet);
-        //ts.printNodeDeep(rootNode);
-        //console.log(checker.typeToString((checker.getTypeAtLocation(func))));
+Harness.lightMode = true;
+function paramTest(paramName, expectedKind) {
+    var _a = mockCompile([("\n        function ParameterFunction(" + paramName + ": declare DeclaredParamType) {\n            " + paramName + ".x = 1;\n            " + paramName + ".y = 1;\n        }")
+    ]), rootNode = _a.sourceFiles[0], checker = _a.checker;
+    //    let declareNode = find<ts.DeclareTypeNode>(rootNode, ({kind}) => kind === ts.SyntaxKind.DeclareType);
+    var firstInstanceOfParam = find(rootNode, function (_a) {
+        var kind = _a.kind, parent = _a.parent;
+        return kind === expectedKind &&
+            parent !== null &&
+            parent.kind === 175 /* PropertyAccessExpression */;
+    });
+    assert(firstInstanceOfParam, "Did not find '" + paramName + "' node");
+    var firstInstanceType = checker.getTypeAtLocation(firstInstanceOfParam);
+    assert(!checker.isTypeAny(firstInstanceType), "Type of parameter should not resolve to 'any'!");
+    var memberSet = checker.scanAssignedMemberTypes(firstInstanceOfParam);
+    console.log(ts.flowMemberSetToString(checker, memberSet));
+    //ts.printNodeDeep(rootNode);
+    //console.log(checker.typeToString((checker.getTypeAtLocation(func))));
+}
+describe("DeclareTypeNode in parameter", function () {
+    //    it("'this' pseudo-parameter test", () => {
+    //        paramTest("this", ts.SyntaxKind.ThisKeyword);
+    //    });
+    it("parameter test", function () {
+        paramTest("param", 76 /* Identifier */);
     });
 });
 function find(node, filter) {
@@ -45,7 +56,6 @@ function mockCompile(inputContents, options) {
     var harnessCompiler = Harness.Compiler.getCompiler();
     var nUnits = 0;
     var inputFiles = inputContents.map(function (content) { return ({ unitName: "simulated_file" + ++nUnits + ".ts", content: content }); });
-    console.log(inputFiles);
     var _a = harnessCompiler.createProgram(inputFiles, 
     /* otherFiles: */ [], function (newCompilerResults) { compilerResult = newCompilerResults; }, 
     /*settingsCallback*/ undefined, options), program = _a.program, emit = _a.emit;

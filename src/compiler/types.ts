@@ -1579,6 +1579,7 @@ namespace ts {
             errorNode: Node,
             headMessage?: DiagnosticMessage,
             containingMessageChain?: DiagnosticMessageChain): boolean;
+        isTypeAny(type: Type): boolean;
         // [/ConcreteTypeScript]
         getPrimitiveTypeInfo():Map<{ type: Type; flags: TypeFlags }>;
         getSymbolsInScope(location: Node, meaning: SymbolFlags): Symbol[];
@@ -1977,7 +1978,7 @@ namespace ts {
         Primitive = String | Number | Boolean | ESSymbol | Void | Undefined | Null | StringLiteral | Enum,
         StringLike = String | StringLiteral,
         NumberLike = Number | Enum,
-        ObjectType = Class | Declare | Interface | Reference | Tuple | Anonymous,
+        ObjectType = Class | Declare | Interface | Reference | Tuple | Anonymous | IntermediateFlow,
         RuntimeCheckable = Intrinsic  | StringLiteral | Class | Declare, // TODO Rename to RuntimeCheckablePrimitive
         UnionOrIntersection = Union | Intersection,
         StructuredType = ObjectType | Union | Intersection | IntermediateFlow,
@@ -2038,9 +2039,10 @@ namespace ts {
         declaredNumberIndexType: Type;             // Declared numeric index type
     }
 
-    export interface IntermediateFlowType extends Type {
+    // Intermediate types during type analysis (TypeFlags.IntermediateFlow)
+    export interface IntermediateFlowType extends ObjectType {
         startingType: Type;
-        members: {}[]; 
+        intermediateMembers: FlowMemberSet;
         // If analysis is driven by a 'becomes' declaration, this is the type
         // we wish to become. This is important for the effects of
         targetType?: Type;
