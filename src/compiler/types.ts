@@ -1561,7 +1561,8 @@ namespace ts {
         getReturnTypeOfSignature(signature: Signature): Type;
         // [ConcreteTypeScript]
         objectType?:Type;
-        scanAssignedMemberTypes(reference: Node): FlowMemberSet;
+        getFlowMembersAtLocation(reference: Node): FlowMemberSet;
+        getFinalFlowMembers(reference: Node): FlowMemberSet;
         getTypeOfSymbol(symbol: Symbol): Type;
         createType(flags: TypeFlags): Type;
         createConcreteType:any,
@@ -1908,7 +1909,8 @@ namespace ts {
     /* @internal */
     export interface NodeLinks {
         /* [ConcreteTypeScript] */
-        ctsFlowTypes?:         FlowType[];
+        ctsFlowMembers?:       FlowMemberSet; // What flow-members have been calculated for this specific node instance?
+        ctsFinalFlowMembers?:  FlowMemberSet; // What are the final flow members for this node, after all assignments?
         /* [/ConcreteTypeScript] */
         resolvedType?: Type;              // Cached type of type node
         resolvedAwaitedType?: Type;       // Cached awaited type of type node

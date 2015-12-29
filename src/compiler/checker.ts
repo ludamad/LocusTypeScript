@@ -68,7 +68,8 @@ namespace ts {
             getDiagnostics,
             getGlobalDiagnostics,
             // [ConcreteTypeScript]
-            scanAssignedMemberTypes,
+            getFlowMembersAtLocation,
+            getFinalFlowMembers,
             createType,
             getPrimitiveTypeInfo,
             getTypeOfSymbol,
@@ -16882,21 +16883,33 @@ namespace ts {
             return getSymbolScope(obj, (<Identifier>obj).text, SymbolFlags.Value);
         }
         type ReferenceDecider = (node:Node) => boolean;
-
-        function scanAssignedMemberTypes(reference: Node):FlowMemberSet {
-            let type = stripConcreteType(getTypeOfNode(reference));
-            if (!(type.flags & TypeFlags.ObjectType)) {
-                throw new Error("Expected object type, got " + typeToString(type));
+        
+        function ensureAssignedMemberTypesAreScanned(reference: Node) {
+            Debug.assert(reference.kind === SyntaxKind.Identifier || reference.kind === SyntaxKind.ThisKeyword);
+            let links = getNodeLinks(reference);
+            if (!links.ctsFinalFlowMembers) {
+                let type = stripConcreteType(getTypeOfNode(reference));
+                if (!(type.flags & TypeFlags.ObjectType)) {
+                    throw new Error("Expected object type, got " + typeToString(type));
+                }
+                let containerScope = getScopeContainer(reference);
+                scanAssignedMemberTypesWorker(
+                    /*Reference decider: */ (node) => areSameValue(node, reference),
+                    /*Node-links: */ {},
+                    /*Container scope: */ containerScope,
+                    /*Type we're extending: */ <InterfaceType>type,
+                    /*Node to scan recursively: */ containerScope,
+                    /*Member-set: */ {}
+                );
             }
-            let containerScope = getScopeContainer(reference);
-            return scanAssignedMemberTypesWorker(
-                /*Reference decider: */ (node) => areSameValue(node, reference),
-                /*Node-links: */ {},
-                /*Container scope: */ containerScope,
-                /*Type we're extending: */ <InterfaceType>type,
-                /*Node to scan recursively: */ containerScope,
-                /*Member-set: */ {}
-            );
+        }
+        function getFinalFlowMembers(reference: Node):FlowMemberSet {
+            ensureAssignedMemberTypesAreScanned(reference);
+            return getNodeLinks(reference).ctsFinalFlowMembers;
+        }
+        function getFlowMembersAtLocation(reference: Node):FlowMemberSet {
+            ensureAssignedMemberTypesAreScanned(reference);
+            return getNodeLinks(reference).ctsFlowMembers;
         }
         function scanAssignedMemberTypesWorker(// Refer to the same object throughout a recursion instance:
                                          isReference: ReferenceDecider, nodePostLinks,
@@ -16991,6 +17004,19 @@ namespace ts {
                 prev = flowUnion(whenTrue, whenFalse);
             }
             function scanBinaryExpression(node: BinaryExpression) {
+                if (node.operatorToken.kind === SyntaxKind.AmpersandAmpersandToken ||
+                    node.operatorToken.kind === SyntaxKind.BarBarToken) {
+                    // Consider the shortcircuting behaviour of && or ||
+                    // Flow analysis: Merge the result of the left and of the left-then-right
+                    let left = recurse(node.left, prev);
+                    let right = recurse(node.right, left);
+                    prev = flowUnion(left, right);
+                } else {
+                    // Normal expression where left occurs first.
+                    prev = recurse(node.left, prev);
+                    prev = recurse(node.right, prev);
+                }
+
                 /* Check if we have a relevant binding assignment: */
                 if (node.operatorToken.kind === SyntaxKind.EqualsToken) {
                     let {left, right} = node;
@@ -16998,17 +17024,6 @@ namespace ts {
                         let type = getTypeOfNode(right);
                         prev = flowAssignment(prev, left.name.text, {firstBindingSite: node, type});
                     }
-                }
-                // Consider the shortcircuting behaviour of && or ||
-                if (node.operatorToken.kind === SyntaxKind.AmpersandAmpersandToken ||
-                    node.operatorToken.kind === SyntaxKind.BarBarToken) {
-                    // Flow analysis: Merge the result of the left and of the left-then-right
-                    let left = recurse(node.left, prev);
-                    let right = recurse(node.right, left);
-                    prev = flowUnion(left, right);
-                } else {
-                    prev = recurse(node.left, prev);
-                    prev = recurse(node.right, prev);
                 }
             }
             function scanForStatement(node: ForStatement) {
@@ -17023,7 +17038,6 @@ namespace ts {
                 }
             }
             function scanForInStatement(node: ForInStatement) {
-                prev = recurse(node.initializer, prev);
                 prev = recurse(node.expression, prev);
                 // Flow analysis: Merge the result of entering the loop and of not
                 prev = flowUnion(recurse(node.statement, prev), prev);
@@ -17055,10 +17069,12 @@ namespace ts {
                 prev = flowUnion(ifTrue, ifFalse);
             }
             function scanPropertyAccessExpression(node: PropertyAccessExpression) {
-                let {expression, name} = node;
-                if (isReference(expression)) {
-                    getNodeLinks(node).ctsFlowTypes = prev[name.text].flowTypes;
-                }
+// TODO replicate this logic into member access type checking
+//                let {expression, name} = node;
+//                if (isReference(expression)) {
+//                    getNodeLinks(node).ctsFlowTypes = prev[name.text].flowTypes;
+//                }
+                prev = recurse(node.expression, prev);
             }
 
             function scanWhileStatement(node: WhileStatement) {
@@ -17116,9 +17132,13 @@ namespace ts {
                 }
             }
             // Correct conditional marks: (TODO inefficient)
-            let orig = prev;
-            scanWorker();
-            prev = flowPopConditionalMarks(orig, prev);
+            if (isReference(node)) {
+                getNodeLinks(node).ctsFlowMembers = prev;
+            } else {
+                let orig = prev;
+                scanWorker();
+                prev = flowPopConditionalMarks(orig, prev);
+            }
             return prev;
         }
 

@@ -1,21 +1,32 @@
 /// <reference path="./harness.d.ts"/>
 require('./harness');
 Harness.lightMode = true;
-function paramTest(paramName, expectedKind) {
-    var _a = mockCompile([("\n        function ParameterFunction(" + paramName + ": declare DeclaredParamType) {\n            " + paramName + ".x = 1;\n            " + paramName + ".y = 1;\n        }")
+function paramTest(varName, expectedKind) {
+    var _a = mockCompile([("\n        function ParameterFunction(" + varName + ": declare DeclaredParamType) {\n            " + varName + ".x = 1;\n            " + varName + ".y = 1;\n        }")
     ]), rootNode = _a.sourceFiles[0], checker = _a.checker;
+    var x, y;
+    var getFlowMembersAtLocation = checker.getFlowMembersAtLocation, typeToString = checker.typeToString, getFinalFlowMembers = checker.getFinalFlowMembers;
     //    let declareNode = find<ts.DeclareTypeNode>(rootNode, ({kind}) => kind === ts.SyntaxKind.DeclareType);
-    var firstInstanceOfParam = find(rootNode, function (_a) {
-        var kind = _a.kind, parent = _a.parent;
-        return kind === expectedKind &&
-            parent !== null &&
-            parent.kind === 175 /* PropertyAccessExpression */;
+    var propertyAcceses = find(rootNode, function (_a) {
+        var kind = _a.kind;
+        return kind === 175 /* PropertyAccessExpression */;
     });
-    assert(firstInstanceOfParam, "Did not find '" + paramName + "' node");
-    var firstInstanceType = checker.getTypeAtLocation(firstInstanceOfParam);
-    assert(!checker.isTypeAny(firstInstanceType), "Type of parameter should not resolve to 'any'!");
-    var memberSet = checker.scanAssignedMemberTypes(firstInstanceOfParam);
-    console.log(ts.flowMemberSetToString(checker, memberSet));
+    var varRefs = findForEach(propertyAcceses, function (_a) {
+        var kind = _a.kind;
+        return kind === expectedKind;
+    });
+    var flowMemberSets = varRefs.map(getFlowMembersAtLocation);
+    assert(flowMemberSets[0] && flowMemberSets[1], "getFlowMembersAtLocation should never return null!");
+    (_b = flowMemberSets[0], x = _b.x, y = _b.y, _b);
+    assert(!x && !y, "Incorrect members before first assignment.");
+    (_c = flowMemberSets[1], x = _c.x, y = _c.y, _c);
+    assert(x && !y, "Incorrect members before second assignment.");
+    var _b, _c;
+    // let firstInstanceType = checker.getTypeAtLocation(firstInstanceOfParam);
+    // assert(!checker.isTypeAny(firstInstanceType), "Type of parameter should not resolve to 'any'!");
+    // let memberSet = checker.getFlowMembersAtLocation(xAssignment);
+    // assert(memberSet)
+    // console.log(ts.flowMemberSetToString(checker, memberSet));
     //ts.printNodeDeep(rootNode);
     //console.log(checker.typeToString((checker.getTypeAtLocation(func))));
 }
@@ -23,20 +34,33 @@ describe("DeclareTypeNode in parameter", function () {
     //    it("'this' pseudo-parameter test", () => {
     //        paramTest("this", ts.SyntaxKind.ThisKeyword);
     //    });
+    it("'this' pseudo-parameter test", function () {
+        paramTest("this", 105 /* ThisKeyword */);
+    });
     it("parameter test", function () {
         paramTest("param", 76 /* Identifier */);
     });
 });
+function findFirst(node, filter) {
+    var first = find(node, filter)[0];
+    return first;
+}
+function findForEach(nodes, filter) {
+    return nodes.map(function (node) { return findFirst(node, filter); });
+}
 function find(node, filter) {
     assert(node);
-    function iter(node) {
+    var ret = [];
+    function collectRecursively(node) {
         // Unsafe cast, don't use members beyond Node in filter 
         // unless type has been discriminated:
-        if (filter(node))
-            return node;
-        return ts.forEachChild(node, iter);
+        if (filter(node)) {
+            ret.push(node);
+        }
+        ts.forEachChild(node, collectRecursively);
     }
-    return iter(node);
+    collectRecursively(node);
+    return ret;
 }
 function filterSourceFiles(inputFiles, sourceFiles) {
     return sourceFiles.filter(function (_a) {
