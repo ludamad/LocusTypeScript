@@ -1,52 +1,60 @@
 /// <reference path="./harness.d.ts"/>
 require('./harness');
 Harness.lightMode = true;
-function paramTest(varName, expectedKind) {
-    var _a = mockCompile([("\n        function ParameterFunction(" + varName + ": declare DeclaredParamType) {\n            " + varName + ".x = 1;\n            " + varName + ".y = 1;\n        }")
-    ]), rootNode = _a.sourceFiles[0], checker = _a.checker;
-    var x, y;
-    var getFlowMembersAtLocation = checker.getFlowMembersAtLocation, typeToString = checker.typeToString, getFinalFlowMembers = checker.getFinalFlowMembers;
-    //    let declareNode = find<ts.DeclareTypeNode>(rootNode, ({kind}) => kind === ts.SyntaxKind.DeclareType);
-    var propertyAcceses = find(rootNode, function (_a) {
-        var kind = _a.kind;
-        return kind === 175 /* PropertyAccessExpression */;
+describe("Calling functions with a declare parameter", function () {
+    function callFunctionWithDeclareParameter(context, varName, expectedKind) {
+        var calledFunction = parameterFunctionContext(varName, "DeclaredType1", "\n            " + varName + ".x = 1;\n            " + varName + ".y = 1;\n        ");
+        var referrer = context(varName, "DeclaredType2", "\n            parameterFunction(" + varName + ");\n        ");
+        var _a = compileOne(calledFunction + referrer), rootNode = _a.rootNode, checker = _a.checker;
+        var callNode = findFirst(rootNode, 177 /* CallExpression */);
+        var reference = findFirst(callNode, 76 /* Identifier */);
+        var _b = checker.getFinalFlowMembers(reference), x = _b.x, y = _b.y;
+        assert(x && y);
+    }
+    it("should bind through function call for a 'this' parameter", function () {
+        callFunctionWithDeclareParameter(parameterFunctionContext, "this", 105 /* ThisKeyword */);
     });
-    var varRefs = findForEach(propertyAcceses, function (_a) {
-        var kind = _a.kind;
-        return kind === expectedKind;
+    it("should bind through function call for a normal parameter", function () {
+        callFunctionWithDeclareParameter(parameterFunctionContext, "testVar", 76 /* Identifier */);
     });
-    var flowMemberSets = varRefs.map(getFlowMembersAtLocation);
-    assert(flowMemberSets[0] && flowMemberSets[1], "getFlowMembersAtLocation should never return null!");
-    (_b = flowMemberSets[0], x = _b.x, y = _b.y, _b);
-    assert(!x && !y, "Incorrect members before first assignment.");
-    (_c = flowMemberSets[1], x = _c.x, y = _c.y, _c);
-    assert(x && !y, "Incorrect members before second assignment.");
-    var _b, _c;
-    // let firstInstanceType = checker.getTypeAtLocation(firstInstanceOfParam);
-    // assert(!checker.isTypeAny(firstInstanceType), "Type of parameter should not resolve to 'any'!");
-    // let memberSet = checker.getFlowMembersAtLocation(xAssignment);
-    // assert(memberSet)
-    // console.log(ts.flowMemberSetToString(checker, memberSet));
-    //ts.printNodeDeep(rootNode);
-    //console.log(checker.typeToString((checker.getTypeAtLocation(func))));
-}
-describe("DeclareTypeNode in parameter", function () {
-    //    it("'this' pseudo-parameter test", () => {
-    //        paramTest("this", ts.SyntaxKind.ThisKeyword);
-    //    });
-    it("'this' pseudo-parameter test", function () {
-        paramTest("this", 105 /* ThisKeyword */);
+    it("should bind x and y to a 'var'-declared variable", function () {
+        callFunctionWithDeclareParameter(varContext, "testVar", 76 /* Identifier */);
     });
-    it("parameter test", function () {
-        paramTest("param", 76 /* Identifier */);
+    it("should bind x and y to a 'let'-declared variable", function () {
+        callFunctionWithDeclareParameter(letContext, "testVar", 76 /* Identifier */);
+    });
+});
+describe("Simple sequential assignments", function () {
+    function basicAssignmentTest(context, varName, expectedKind) {
+        var sourceText = context(varName, "DeclaredType", "\n            " + varName + ".x = 1;\n            " + varName + ".y = 1;\n        ");
+        var _a = compileOne(sourceText), rootNode = _a.rootNode, checker = _a.checker;
+        var _b = find(rootNode, function (_a) {
+            var kind = _a.kind;
+            return kind === 175 /* PropertyAccessExpression */;
+        }), xAssign = _b[0], yAssign = _b[1];
+        var _c = checker.getFlowMembersAtLocation(findFirst(xAssign, expectedKind)), x1 = _c.x, y1 = _c.y;
+        var _d = checker.getFlowMembersAtLocation(findFirst(yAssign, expectedKind)), x2 = _d.x, y2 = _d.y;
+        var _e = checker.getFinalFlowMembers(xAssign), xFinal = _e.x, yFinal = _e.y;
+        assert(!x1 && !y1, "Incorrect members before first assignment.");
+        assert(x2 && !y2, "Incorrect members before second assignment.");
+        assert(xFinal && yFinal, "Incorrect members before second assignment.");
+    }
+    it("should bind x and y to a 'this' parameter", function () {
+        basicAssignmentTest(parameterFunctionContext, "this", 105 /* ThisKeyword */);
+    });
+    it("should bind x and y to a normal parameter", function () {
+        basicAssignmentTest(parameterFunctionContext, "testVar", 76 /* Identifier */);
+    });
+    it("should bind x and y to a 'var'-declared variable", function () {
+        basicAssignmentTest(varContext, "testVar", 76 /* Identifier */);
+    });
+    it("should bind x and y to a 'let'-declared variable", function () {
+        basicAssignmentTest(letContext, "testVar", 76 /* Identifier */);
     });
 });
 function findFirst(node, filter) {
     var first = find(node, filter)[0];
     return first;
-}
-function findForEach(nodes, filter) {
-    return nodes.map(function (node) { return findFirst(node, filter); });
 }
 function find(node, filter) {
     assert(node);
@@ -54,7 +62,7 @@ function find(node, filter) {
     function collectRecursively(node) {
         // Unsafe cast, don't use members beyond Node in filter 
         // unless type has been discriminated:
-        if (filter(node)) {
+        if (typeof filter === "number" ? node.kind === filter : filter(node)) {
             ret.push(node);
         }
         ts.forEachChild(node, collectRecursively);
@@ -74,7 +82,12 @@ function filterSourceFiles(inputFiles, sourceFiles) {
         return false;
     });
 }
-function mockCompile(inputContents, options) {
+function compileOne(inputContent, options) {
+    if (options === void 0) { options = {}; }
+    var _a = compile([inputContent], options), rootNode = _a.sourceFiles[0], checker = _a.checker;
+    return { rootNode: rootNode, checker: checker };
+}
+function compile(inputContents, options) {
     if (options === void 0) { options = {}; }
     var compilerResult = null;
     var harnessCompiler = Harness.Compiler.getCompiler();
@@ -88,4 +101,13 @@ function mockCompile(inputContents, options) {
         sourceFiles: filterSourceFiles(inputFiles, program.getSourceFiles()),
         checker: program.getTypeChecker()
     };
+}
+function parameterFunctionContext(varName, typeName, body) {
+    return "function parameterFunction(" + varName + ": declare " + typeName + ") {\n        " + body + "\n    }";
+}
+function varContext(varName, typeName, body) {
+    return "\n        var " + varName + ": declare " + typeName + " = {};\n        " + body + "\n    ";
+}
+function letContext(varName, typeName, body) {
+    return "\n        let " + varName + ": declare " + typeName + " = {};\n        " + body + "\n    ";
 }

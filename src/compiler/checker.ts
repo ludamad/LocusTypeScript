@@ -16783,23 +16783,6 @@ namespace ts {
             return {key, conditionalBarrierPassed, definitelyAssigned, flowTypes};
         }
 
-        function flowPrintMember(member:FlowMember) {
-            let {key, conditionalBarrierPassed, definitelyAssigned} = member;
-            let flowTypes = member.flowTypes.map(({type}) => typeToString(type));
-            let assignment = definitelyAssigned ? ':' : '??:';
-            let type = flowTypes.join(' | ');
-            if (conditionalBarrierPassed) {
-                type += ' [in conditional]';
-            }
-            console.log(key, assignment, type);
-        }
-        function flowPrint(set:FlowMemberSet) {
-            console.log("<SET>")
-            for (let key of Object.keys(set)) {
-                flowPrintMember(set[key])
-            }
-            console.log("</SET>")
-        }
         // Revert the 'conditionalBarrierPassed' mark values to those of the previous set.
         function flowPopConditionalMarks(prevSet:FlowMemberSet, newSet:FlowMemberSet) : FlowMemberSet {
             let copy:FlowMemberSet = {};
@@ -16884,7 +16867,16 @@ namespace ts {
         }
         type ReferenceDecider = (node:Node) => boolean;
         
-        function ensureAssignedMemberTypesAreScanned(reference: Node) {
+        function getFinalFlowMembers(reference: Node):FlowMemberSet {
+            ensureFlowMembersAreSet(reference);
+            return getNodeLinks(reference).ctsFinalFlowMembers;
+        }
+        function getFlowMembersAtLocation(reference: Node):FlowMemberSet {
+            ensureFlowMembersAreSet(reference);
+            return getNodeLinks(reference).ctsFlowMembers;
+        }
+
+        function ensureFlowMembersAreSet(reference: Node) {
             Debug.assert(reference.kind === SyntaxKind.Identifier || reference.kind === SyntaxKind.ThisKeyword);
             let links = getNodeLinks(reference);
             if (!links.ctsFinalFlowMembers) {
@@ -16893,47 +16885,41 @@ namespace ts {
                     throw new Error("Expected object type, got " + typeToString(type));
                 }
                 let containerScope = getScopeContainer(reference);
-                scanAssignedMemberTypesWorker(
+                // Analysis was not yet run for this scope
+                let finalFlowMembers = computeAndSetFlowMembersForReferencesInScope(
                     /*Reference decider: */ (node) => areSameValue(node, reference),
                     /*Node-links: */ {},
                     /*Container scope: */ containerScope,
                     /*Type we're extending: */ <InterfaceType>type,
-                    /*Node to scan recursively: */ containerScope,
+                    /*Current node in recursive scan: */ containerScope,
                     /*Member-set: */ {}
                 );
-            }
-        }
-        function getFinalFlowMembers(reference: Node):FlowMemberSet {
-            ensureAssignedMemberTypesAreScanned(reference);
-            return getNodeLinks(reference).ctsFinalFlowMembers;
-        }
-        function getFlowMembersAtLocation(reference: Node):FlowMemberSet {
-            ensureAssignedMemberTypesAreScanned(reference);
-            return getNodeLinks(reference).ctsFlowMembers;
-        }
-        function scanAssignedMemberTypesWorker(// Refer to the same object throughout a recursion instance:
-                                         isReference: ReferenceDecider, nodePostLinks,
-                                         containerScope, extendedType:InterfaceType,
-                                         // Change per node scanned:
-                                         node:Node, prev:FlowMemberSet):FlowMemberSet {
-
-            // Helper functions for recursion:
-            function recurse(node:Node, prev:FlowMemberSet) {
-                return scanAssignedMemberTypesWorker(isReference, nodePostLinks, containerScope, extendedType, node, prev);
-            }
-            function descend() {
-                forEachChild(node, (subchild) => {
-                    prev = recurse(subchild, prev);
+                forEachChildRecursive(containerScope, node => {
+                    if (areSameValue(node, reference)) {
+                        getNodeLinks(node).ctsFinalFlowMembers = finalFlowMembers;
+                    }
                 });
             }
+        }
 
-            function isMemberAccess(node:Node): node is PropertyAccessExpression {
-                if (node.kind === SyntaxKind.PropertyAccessExpression) {
-                    return isReference((<PropertyAccessExpression> node).expression);
-                }
-                return false;
+        // Recursively find all references to our node object descending from the node 'node'
+        function computeAndSetFlowMembersForReferencesInScope(// Refer to the same object throughout a recursion instance:
+                                         isReference: ReferenceDecider, nodePostLinks,
+                                         containerScope, extendedType:InterfaceType,
+                                         // Current node in recursive scan:
+                                         node:Node, prev:FlowMemberSet):FlowMemberSet {
+            /** Function skeleton: **/
+            // Correct conditional marks: (TODO inefficient)
+            if (isReference(node)) {
+                getNodeLinks(node).ctsFlowMembers = prev;
+            } else {
+                let orig = prev;
+                scanWorker();
+                prev = flowPopConditionalMarks(orig, prev);
             }
+            return prev;
 
+            /** Helper functions: **/
             function scanReturnOrContinueOrBreakStatement(node: ReturnStatement|BreakOrContinueStatement) {
                 // Truncate the scope to only the topmost block we care about
                 let breakingContainer = node.breakingContainer;
@@ -17131,15 +17117,23 @@ namespace ts {
                     }
                 }
             }
-            // Correct conditional marks: (TODO inefficient)
-            if (isReference(node)) {
-                getNodeLinks(node).ctsFlowMembers = prev;
-            } else {
-                let orig = prev;
-                scanWorker();
-                prev = flowPopConditionalMarks(orig, prev);
+            
+            function recurse(node:Node, prev:FlowMemberSet) {
+                return computeAndSetFlowMembersForReferencesInScope(isReference, nodePostLinks, containerScope, extendedType, node, prev);
             }
-            return prev;
+            function descend() {
+                forEachChild(node, (subchild) => {
+                    prev = recurse(subchild, prev);
+                });
+            }
+
+            function isMemberAccess(node:Node): node is PropertyAccessExpression {
+                if (node.kind === SyntaxKind.PropertyAccessExpression) {
+                    return isReference((<PropertyAccessExpression> node).expression);
+                }
+                return false;
+            }
+
         }
 
     }

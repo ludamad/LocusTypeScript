@@ -3,64 +3,89 @@ require('./harness');
 
 Harness.lightMode = true;
 
-function paramTest(varName: string, expectedKind: number) {
-    let {sourceFiles: [rootNode], checker} = mockCompile([`
-        function ParameterFunction(${varName}: declare DeclaredParamType) {
+describe("Calling functions with a declare parameter", () => {
+    function callFunctionWithDeclareParameter(context, varName: string, expectedKind: number) {
+        let calledFunction = parameterFunctionContext(varName, "DeclaredType1", `
             ${varName}.x = 1;
             ${varName}.y = 1;
-        }`
-    ]);
-    let x, y;
-    let {getFlowMembersAtLocation, typeToString, getFinalFlowMembers} = checker;
-//    let declareNode = find<ts.DeclareTypeNode>(rootNode, ({kind}) => kind === ts.SyntaxKind.DeclareType);
-    let propertyAcceses = find<ts.Node>(rootNode, ({kind}) => kind === ts.SyntaxKind.PropertyAccessExpression);
-    let varRefs = findForEach<ts.Node>(propertyAcceses, ({kind}) => kind === expectedKind);
-    let flowMemberSets = varRefs.map(getFlowMembersAtLocation);
-    assert(flowMemberSets[0] && flowMemberSets[1], "getFlowMembersAtLocation should never return null!");
-    ({x, y} = flowMemberSets[0]);
-    assert(!x && !y, "Incorrect members before first assignment.");
-    ({x, y} = flowMemberSets[1]);
-    assert(x && !y, "Incorrect members before second assignment.");
-    
-    // let firstInstanceType = checker.getTypeAtLocation(firstInstanceOfParam);
-    // assert(!checker.isTypeAny(firstInstanceType), "Type of parameter should not resolve to 'any'!");
-    // let memberSet = checker.getFlowMembersAtLocation(xAssignment);
-    // assert(memberSet)
-    // console.log(ts.flowMemberSetToString(checker, memberSet));
-    //ts.printNodeDeep(rootNode);
-    //console.log(checker.typeToString((checker.getTypeAtLocation(func))));
-}
+        `);
+        
+        let referrer = context(varName, "DeclaredType2", `
+            parameterFunction(${varName});
+        `);
 
-describe("DeclareTypeNode in parameter", () => {
-//    it("'this' pseudo-parameter test", () => {
-//        paramTest("this", ts.SyntaxKind.ThisKeyword);
-//    });
-    it("'this' pseudo-parameter test", () => {
-        paramTest("this", ts.SyntaxKind.ThisKeyword);
+        let {rootNode, checker} = compileOne(calledFunction + referrer);
+        let callNode = findFirst(rootNode, ts.SyntaxKind.CallExpression);
+        let reference = findFirst(callNode, ts.SyntaxKind.Identifier);
+        let {x, y} = checker.getFinalFlowMembers(reference);
+        assert(x && y);
+    }
+
+    it("should bind through function call for a 'this' parameter", () => {
+        callFunctionWithDeclareParameter(parameterFunctionContext, "this", ts.SyntaxKind.ThisKeyword);
     });
-    it("parameter test", () => {
-        paramTest("param", ts.SyntaxKind.Identifier);
+    it("should bind through function call for a normal parameter", () => {
+        callFunctionWithDeclareParameter(parameterFunctionContext, "testVar", ts.SyntaxKind.Identifier);
+    });
+    it("should bind x and y to a 'var'-declared variable", () => {
+        callFunctionWithDeclareParameter(varContext, "testVar", ts.SyntaxKind.Identifier);
+    });
+    it("should bind x and y to a 'let'-declared variable", () => {
+        callFunctionWithDeclareParameter(letContext, "testVar", ts.SyntaxKind.Identifier);
+    });
+});
+
+describe("Simple sequential assignments", () => {
+    function basicAssignmentTest(context, varName: string, expectedKind: number) {
+        let sourceText = context(varName, "DeclaredType", `
+            ${varName}.x = 1;
+            ${varName}.y = 1;
+        `);
+        
+        let {rootNode, checker} = compileOne(sourceText);
+
+        let [xAssign, yAssign] = find(rootNode, ({kind}) => kind === ts.SyntaxKind.PropertyAccessExpression);
+
+        let {x: x1, y: y1} = checker.getFlowMembersAtLocation(findFirst(xAssign, expectedKind));
+        let {x: x2, y: y2} = checker.getFlowMembersAtLocation(findFirst(yAssign, expectedKind));
+
+        let {x: xFinal, y: yFinal} = checker.getFinalFlowMembers(xAssign);
+
+        assert(!x1 && !y1, "Incorrect members before first assignment.");
+        assert(x2 && !y2, "Incorrect members before second assignment.");
+        assert(xFinal && yFinal, "Incorrect members before second assignment.");
+    }
+
+    it("should bind x and y to a 'this' parameter", () => {
+        basicAssignmentTest(parameterFunctionContext, "this", ts.SyntaxKind.ThisKeyword);
+    });
+    it("should bind x and y to a normal parameter", () => {
+        basicAssignmentTest(parameterFunctionContext, "testVar", ts.SyntaxKind.Identifier);
+    });
+    it("should bind x and y to a 'var'-declared variable", () => {
+        basicAssignmentTest(varContext, "testVar", ts.SyntaxKind.Identifier);
+    });
+    it("should bind x and y to a 'let'-declared variable", () => {
+        basicAssignmentTest(letContext, "testVar", ts.SyntaxKind.Identifier);
     });
 });
 
 /* Helper functions: */
 
-type Filter<T extends ts.Node> = (node: T) => boolean;
-function findFirst<T extends ts.Node>(node: ts.Node, filter: Filter<T>): T {
-    let [first] = find<T>(node, filter);
+type Filter = ts.SyntaxKind | ((node: ts.Node) => boolean);
+function findFirst(node: ts.Node, filter: Filter): ts.Node {
+    let [first] = find(node, filter);
     return first;
 }
-function findForEach<T extends ts.Node>(nodes: ts.Node[], filter: Filter<T>): T[] {
-    return nodes.map(node => findFirst<T>(node, filter));
-}
-function find<T extends ts.Node>(node: ts.Node, filter: Filter<T>): T[] {
+
+function find(node: ts.Node, filter: Filter): ts.Node[] {
     assert(node);
-    let ret:T[] = [];
+    let ret:ts.Node[] = [];
     function collectRecursively(node: ts.Node) {
         // Unsafe cast, don't use members beyond Node in filter 
         // unless type has been discriminated:
-        if (filter(<T>node)) {
-            ret.push(<T>node);
+        if (typeof filter === "number" ? node.kind === filter : filter(node)) {
+            ret.push(node);
         }
         ts.forEachChild(node, collectRecursively);
     }
@@ -80,7 +105,12 @@ function filterSourceFiles(inputFiles:HarnessFile[], sourceFiles:ts.SourceFile[]
     });
 }
 
-function mockCompile(inputContents: string[], options: ts.CompilerOptions & Harness.Compiler.HarnessOptions = {}) {
+function compileOne(inputContent: string, options: ts.CompilerOptions & Harness.Compiler.HarnessOptions = {}) {
+    let {sourceFiles: [rootNode], checker} = compile([inputContent], options);
+    return {rootNode, checker};
+}
+
+function compile(inputContents: string[], options: ts.CompilerOptions & Harness.Compiler.HarnessOptions = {}) {
     let compilerResult = null;
     let harnessCompiler = Harness.Compiler.getCompiler();
     let nUnits = 0;
@@ -97,5 +127,25 @@ function mockCompile(inputContents: string[], options: ts.CompilerOptions & Harn
         sourceFiles: filterSourceFiles(inputFiles, program.getSourceFiles()),
         checker: program.getTypeChecker()
     };
+}
+
+function parameterFunctionContext(varName: string, typeName: string, body: string) {
+    return `function parameterFunction(${varName}: declare ${typeName}) {
+        ${body}
+    }`;
+}
+
+function varContext(varName: string, typeName: string, body: string) {
+    return `
+        var ${varName}: declare ${typeName} = {};
+        ${body}
+    `;
+}
+
+function letContext(varName: string, typeName: string, body: string) {
+    return `
+        let ${varName}: declare ${typeName} = {};
+        ${body}
+    `;
 }
 
