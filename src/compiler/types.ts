@@ -2043,7 +2043,7 @@ namespace ts {
 
     // Intermediate types during type analysis (TypeFlags.IntermediateFlow)
     export interface IntermediateFlowType extends ObjectType {
-        startingType: Type;
+        startingType: ObjectType;
         intermediateMembers: FlowMemberSet;
         // If analysis is driven by a 'becomes' declaration, this is the type
         // we wish to become. This is important for the effects of

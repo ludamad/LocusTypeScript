@@ -35,6 +35,8 @@ describe("Calling functions with a declare parameter", () => {
     });
 });
 
+// TODO test getting the resolved members of an intermediate flow type
+
 describe("Simple sequential assignments", () => {
     function basicAssignmentTest(context, varName: string, expectedKind: number) {
         let sourceText = context(varName, "DeclaredType", `
@@ -44,12 +46,12 @@ describe("Simple sequential assignments", () => {
         
         let {rootNode, checker} = compileOne(sourceText);
 
-        let [xAssign, yAssign] = find(rootNode, ({kind}) => kind === ts.SyntaxKind.PropertyAccessExpression);
+        let [xAssign, yAssign] = find(rootNode, ts.SyntaxKind.PropertyAccessExpression);
 
         let {x: x1, y: y1} = checker.getFlowMembersAtLocation(findFirst(xAssign, expectedKind));
         let {x: x2, y: y2} = checker.getFlowMembersAtLocation(findFirst(yAssign, expectedKind));
 
-        let {x: xFinal, y: yFinal} = checker.getFinalFlowMembers(xAssign);
+        let {x: xFinal, y: yFinal} = checker.getFinalFlowMembers(findFirst(xAssign, expectedKind));
 
         assert(!x1 && !y1, "Incorrect members before first assignment.");
         assert(x2 && !y2, "Incorrect members before second assignment.");

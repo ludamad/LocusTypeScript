@@ -24,17 +24,15 @@ describe("Calling functions with a declare parameter", function () {
         callFunctionWithDeclareParameter(letContext, "testVar", 76 /* Identifier */);
     });
 });
+// TODO test getting the resolved members of an intermediate flow type
 describe("Simple sequential assignments", function () {
     function basicAssignmentTest(context, varName, expectedKind) {
         var sourceText = context(varName, "DeclaredType", "\n            " + varName + ".x = 1;\n            " + varName + ".y = 1;\n        ");
         var _a = compileOne(sourceText), rootNode = _a.rootNode, checker = _a.checker;
-        var _b = find(rootNode, function (_a) {
-            var kind = _a.kind;
-            return kind === 175 /* PropertyAccessExpression */;
-        }), xAssign = _b[0], yAssign = _b[1];
+        var _b = find(rootNode, 175 /* PropertyAccessExpression */), xAssign = _b[0], yAssign = _b[1];
         var _c = checker.getFlowMembersAtLocation(findFirst(xAssign, expectedKind)), x1 = _c.x, y1 = _c.y;
         var _d = checker.getFlowMembersAtLocation(findFirst(yAssign, expectedKind)), x2 = _d.x, y2 = _d.y;
-        var _e = checker.getFinalFlowMembers(xAssign), xFinal = _e.x, yFinal = _e.y;
+        var _e = checker.getFinalFlowMembers(findFirst(xAssign, expectedKind)), xFinal = _e.x, yFinal = _e.y;
         assert(!x1 && !y1, "Incorrect members before first assignment.");
         assert(x2 && !y2, "Incorrect members before second assignment.");
         assert(xFinal && yFinal, "Incorrect members before second assignment.");

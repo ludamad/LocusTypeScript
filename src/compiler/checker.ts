@@ -3507,11 +3507,17 @@ namespace ts {
         }
 
         function resolveStructuredTypeMembers(type: ObjectType): ResolvedType {
-          // TODO CONCRETETYPESCRIPT HOOK
             if (!(<ResolvedType>type).members) {
+                // [ConcreteTypeScript]
                 if (type.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Declare)) {
                     resolveClassOrInterfaceMembers(<InterfaceType>type);
                 }
+                else if (type.flags & (TypeFlags.IntermediateFlow)) {
+                    // TODO complete this logic by taking into account intermediate members
+                    let {startingType} = <IntermediateFlowType> type;
+                    return resolveStructuredTypeMembers(startingType);
+                }
+                // [/ConcreteTypeScript]
                 else if (type.flags & TypeFlags.Anonymous) {
                     resolveAnonymousTypeMembers(<ObjectType>type);
                 }
@@ -16878,8 +16884,7 @@ namespace ts {
 
         function ensureFlowMembersAreSet(reference: Node) {
             Debug.assert(reference.kind === SyntaxKind.Identifier || reference.kind === SyntaxKind.ThisKeyword);
-            let links = getNodeLinks(reference);
-            if (!links.ctsFinalFlowMembers) {
+            if (!getNodeLinks(reference).ctsFinalFlowMembers) {
                 let type = stripConcreteType(getTypeOfNode(reference));
                 if (!(type.flags & TypeFlags.ObjectType)) {
                     throw new Error("Expected object type, got " + typeToString(type));
