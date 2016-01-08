@@ -3265,27 +3265,30 @@ namespace ts {
                     stringIndexType = stringIndexType || getIndexTypeOfType(baseType, IndexKind.String);
                     numberIndexType = numberIndexType || getIndexTypeOfType(baseType, IndexKind.Number);
                 }
-                // [ConcreteTypeScript]
-                if (type.flags & TypeFlags.Declare) {
-                    // TODO add to type
-                    let declNode = <DeclareTypeNode> getSymbolDecl(type.symbol, SyntaxKind.DeclareType);
-                    if (!(<any>type).flowMembers) {
-                        let name = getVariableNameFromDeclareTypeNode(declNode);
-                        (<any>type).flowMembers = getFinalFlowMembers(name);
-                    }
-                    for (let {flowTypes, key} of (<any>type).flowMembers) {
-                        let symbol = createSymbol(SymbolFlags.Property, key);
-                        let typesToUnion = flowTypes.map(({type}) => type);
-                        getSymbolLinks(symbol).type = getUnionType(typesToUnion);
-                        if (members[key]) {
-                            throw new Error("TODO figure out inheritance");
-                        }
-                        console.log("Adding " + key + " to " +declNode.name);
-                        members[key] = symbol;
-                    }
-                }
-                // [/ConcreteTypeScript]
             }
+            // [ConcreteTypeScript]
+            if (type.flags & TypeFlags.Declare) {
+                // TODO add to type
+                let declNode = <DeclareTypeNode> getSymbolDecl(type.symbol, SyntaxKind.DeclareType);
+                if (!(<any>type).flowMembers) {
+                    // Placeholder:
+                    (<any>type).flowMembers = {};
+                    let name = getVariableNameFromDeclareTypeNode(declNode);
+                    (<ResolvedType><ObjectType>type).members = null; // We will have a cached value 
+                    (<any>type).flowMembers = getFinalFlowMembers(name, type);
+                }
+                for (let {flowTypes, key} of (<any>type).flowMembers) {
+                    let symbol = createSymbol(SymbolFlags.Property, key);
+                    let typesToUnion = flowTypes.map(({type}) => type);
+                    getSymbolLinks(symbol).type = getUnionType(typesToUnion);
+                    if (members[key]) {
+                        throw new Error("TODO figure out inheritance");
+                    }
+                    console.log("Adding " + key + " to " +declNode.name);
+                    members[key] = symbol;
+                }
+            }
+            // [/ConcreteTypeScript]
             setObjectTypeMembers(type, members, callSignatures, constructSignatures, stringIndexType, numberIndexType);
         }
 
@@ -3526,7 +3529,7 @@ namespace ts {
             setObjectTypeMembers(type, members, callSignatures, constructSignatures, stringIndexType, numberIndexType);
         }
 
-        function resolveStructuredTypeMembers(type: ObjectType): ResolvedType {
+          function resolveStructuredTypeMembers(type: ObjectType): ResolvedType {
             if (!(<ResolvedType>type).members) {
                 // [ConcreteTypeScript]
                 if (type.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Declare)) {
@@ -4390,7 +4393,7 @@ namespace ts {
                 case SyntaxKind.ThisParameter:
                 case SyntaxKind.VariableDeclaration:
                 case SyntaxKind.Parameter:
-                    return (<Declaration> node).name;
+                    return (<Declaration> <any> node.parent).name;
             }
         }
 
@@ -8201,7 +8204,7 @@ namespace ts {
             }
 
             return links.resolvedJsxType;
-        } 
+        }
 
         /**
          * Given a JSX attribute, returns the symbol for the corresponds property
@@ -16915,20 +16918,20 @@ namespace ts {
             return getSymbolScope(obj, (<Identifier>obj).text, SymbolFlags.Value);
         }
         type ReferenceDecider = (node:Node) => boolean;
-        
-        function getFinalFlowMembers(reference: Node):FlowMemberSet {
-            ensureFlowMembersAreSet(reference);
+
+        function getFinalFlowMembers(reference: Node, declType?: Type):FlowMemberSet {
+            ensureFlowMembersAreSet(reference, declType);
             return getNodeLinks(reference).ctsFinalFlowMembers;
         }
-        function getFlowMembersAtLocation(reference: Node):FlowMemberSet {
-            ensureFlowMembersAreSet(reference);
+        function getFlowMembersAtLocation(reference: Node, declType?: Type):FlowMemberSet {
+            ensureFlowMembersAreSet(reference, declType);
             return getNodeLinks(reference).ctsFlowMembers;
         }
 
-        function ensureFlowMembersAreSet(reference: Node) {
+        function ensureFlowMembersAreSet(reference: Node, declType?: Type) {
             Debug.assert(reference.kind === SyntaxKind.Identifier || reference.kind === SyntaxKind.ThisKeyword);
             if (!getNodeLinks(reference).ctsFinalFlowMembers) {
-                let type = stripConcreteType(getTypeOfNode(reference));
+                let type = declType || stripConcreteType(getTypeOfNode(reference));
                 if (!(type.flags & TypeFlags.ObjectType)) {
                     throw new Error("Expected object type, got " + typeToString(type));
                 }
@@ -16999,7 +17002,7 @@ namespace ts {
                         if (paramType.flags & TypeFlags.IntermediateFlow) {
                             let flowType = (<IntermediateFlowType>paramType);
                             let targetType = flowType.targetType;
-                            let properties:Symbol[] = getPropertiesOfObjectType(targetType); 
+                            let properties:Symbol[] = getPropertiesOfObjectType(targetType);
                             for (let property of properties) {
                                 let type = getTypeOfNode(arguments[i]);
                                 prev = flowAssignment(prev, property.name, {firstBindingSite: node, type});
@@ -17153,7 +17156,7 @@ namespace ts {
                     }
                 }
             }
-            
+
             function recurse(node:Node, prev:FlowMemberSet) {
                 return computeAndSetFlowMembersForReferencesInScope(isReference, nodePostLinks, containerScope, extendedType, node, prev);
             }

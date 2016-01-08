@@ -3,8 +3,8 @@ require('./harness');
 Harness.lightMode = true;
 describe("Calling functions with a declare parameter", function () {
     function callFunctionWithDeclareParameter(context, varName, expectedKind) {
-        var calledFunction = "function calledFunction(funcParam: declare DeclaredType2) {\n            funcParam.x = 1;\n            funcParam.y = 1;\n        ";
-        var referrer = context(varName, "DeclaredType2", "\n            parameterFunction(" + varName + ");\n        ");
+        var calledFunction = "function calledFunction(funcParam: declare DeclaredType1) {\n            funcParam.x = 1;\n            funcParam.y = 1;\n            funcParam;\n        ";
+        var referrer = context(varName, "DeclaredType2", "\n            calledFunction(" + varName + ");\n        ");
         var _a = compileOne(calledFunction + referrer), rootNode = _a.rootNode, checker = _a.checker;
         var callNode = findFirst(rootNode, 177 /* CallExpression */);
         var reference = findFirst(callNode, function (_a) {
@@ -56,7 +56,7 @@ describe("Simple sequential assignments", function () {
 });
 function findFirst(node, filter) {
     var first = find(node, filter)[0];
-    assert(first, "findFirst should not fail!");
+    assert(first != null, "findFirst should not fail!");
     return first;
 }
 function find(node, filter) {
