@@ -5,20 +5,20 @@ Harness.lightMode = true;
 
 describe("Calling functions with a declare parameter", () => {
     function callFunctionWithDeclareParameter(context, varName: string, expectedKind: number) {
-        let calledFunction = parameterFunctionContext(varName, "DeclaredType1", `
-            ${varName}.x = 1;
-            ${varName}.y = 1;
-        `);
+        let calledFunction = `function calledFunction(funcParam: declare DeclaredType2) {
+            funcParam.x = 1;
+            funcParam.y = 1;
+        `;
         
         let referrer = context(varName, "DeclaredType2", `
             parameterFunction(${varName});
-        `);
-
+        `)
         let {rootNode, checker} = compileOne(calledFunction + referrer);
         let callNode = findFirst(rootNode, ts.SyntaxKind.CallExpression);
-        let reference = findFirst(callNode, ts.SyntaxKind.Identifier);
+        let reference = findFirst(callNode, ({text}:any) => text == varName);
+        console.log(ts.printNodeDeep(reference));
         let {x, y} = checker.getFinalFlowMembers(reference);
-        assert(x && y);
+        assert(x && y, "Does not have 'x' and 'y' members.");
     }
 
     it("should bind through function call for a 'this' parameter", () => {
@@ -77,6 +77,7 @@ describe("Simple sequential assignments", () => {
 type Filter = ts.SyntaxKind | ((node: ts.Node) => boolean);
 function findFirst(node: ts.Node, filter: Filter): ts.Node {
     let [first] = find(node, filter);
+    assert(first, "findFirst should not fail!");
     return first;
 }
 

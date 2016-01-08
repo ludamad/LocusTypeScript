@@ -13,7 +13,13 @@ module ts {
         return result;
     }
     function printRecursor(node:Node, print:any) {
-        return print(node, (<any>ts).SyntaxKind[node.kind]);
+        if (node) {
+            return print(node, (<any>ts).SyntaxKind[node.kind]);
+        } else if (node === null) {
+            return "<null>";
+        } else if (node === undefined) {
+            return "<undefined>";
+        }
     switch (node.kind) {
         case SyntaxKind.BrandTypeDeclaration: 
             print(node, "BrandTypeDeclaration");

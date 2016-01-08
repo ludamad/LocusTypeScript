@@ -3,13 +3,17 @@ require('./harness');
 Harness.lightMode = true;
 describe("Calling functions with a declare parameter", function () {
     function callFunctionWithDeclareParameter(context, varName, expectedKind) {
-        var calledFunction = parameterFunctionContext(varName, "DeclaredType1", "\n            " + varName + ".x = 1;\n            " + varName + ".y = 1;\n        ");
+        var calledFunction = "function calledFunction(funcParam: declare DeclaredType2) {\n            funcParam.x = 1;\n            funcParam.y = 1;\n        ";
         var referrer = context(varName, "DeclaredType2", "\n            parameterFunction(" + varName + ");\n        ");
         var _a = compileOne(calledFunction + referrer), rootNode = _a.rootNode, checker = _a.checker;
         var callNode = findFirst(rootNode, 177 /* CallExpression */);
-        var reference = findFirst(callNode, 76 /* Identifier */);
+        var reference = findFirst(callNode, function (_a) {
+            var text = _a.text;
+            return text == varName;
+        });
+        console.log(ts.printNodeDeep(reference));
         var _b = checker.getFinalFlowMembers(reference), x = _b.x, y = _b.y;
-        assert(x && y);
+        assert(x && y, "Does not have 'x' and 'y' members.");
     }
     it("should bind through function call for a 'this' parameter", function () {
         callFunctionWithDeclareParameter(parameterFunctionContext, "this", 105 /* ThisKeyword */);
@@ -52,6 +56,7 @@ describe("Simple sequential assignments", function () {
 });
 function findFirst(node, filter) {
     var first = find(node, filter)[0];
+    assert(first, "findFirst should not fail!");
     return first;
 }
 function find(node, filter) {
@@ -109,3 +114,4 @@ function varContext(varName, typeName, body) {
 function letContext(varName, typeName, body) {
     return "\n        let " + varName + ": declare " + typeName + " = {};\n        " + body + "\n    ";
 }
+//# sourceMappingURL=test.js.map

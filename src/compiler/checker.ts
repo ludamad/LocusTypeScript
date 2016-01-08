@@ -3265,6 +3265,26 @@ namespace ts {
                     stringIndexType = stringIndexType || getIndexTypeOfType(baseType, IndexKind.String);
                     numberIndexType = numberIndexType || getIndexTypeOfType(baseType, IndexKind.Number);
                 }
+                // [ConcreteTypeScript]
+                if (type.flags & TypeFlags.Declare) {
+                    // TODO add to type
+                    let declNode = <DeclareTypeNode> getSymbolDecl(type.symbol, SyntaxKind.DeclareType);
+                    if (!(<any>type).flowMembers) {
+                        let name = getVariableNameFromDeclareTypeNode(declNode);
+                        (<any>type).flowMembers = getFinalFlowMembers(name);
+                    }
+                    for (let {flowTypes, key} of (<any>type).flowMembers) {
+                        let symbol = createSymbol(SymbolFlags.Property, key);
+                        let typesToUnion = flowTypes.map(({type}) => type);
+                        getSymbolLinks(symbol).type = getUnionType(typesToUnion);
+                        if (members[key]) {
+                            throw new Error("TODO figure out inheritance");
+                        }
+                        console.log("Adding " + key + " to " +declNode.name);
+                        members[key] = symbol;
+                    }
+                }
+                // [/ConcreteTypeScript]
             }
             setObjectTypeMembers(type, members, callSignatures, constructSignatures, stringIndexType, numberIndexType);
         }
@@ -4363,8 +4383,20 @@ namespace ts {
             return links.resolvedType;
         }
 
+        // [ConcreteTypeScript]
+        // May be the 'this' pseudo-variable.
+        function getVariableNameFromDeclareTypeNode(node: DeclareTypeNode): Node {
+            switch (node.parent.kind) {
+                case SyntaxKind.ThisParameter:
+                case SyntaxKind.VariableDeclaration:
+                case SyntaxKind.Parameter:
+                    return (<Declaration> node).name;
+            }
+        }
+
         function getTypeFromDeclareTypeNode(node: DeclareTypeNode): Type {
             let links = getNodeLinks(node);
+
             if (!links.resolvedType) {
                 // Resolve like we resolve becomes-types:
                 let startingType = node.startingType ? getTypeFromTypeNode(node.startingType) : emptyObjectType;
@@ -16853,6 +16885,17 @@ namespace ts {
 
         function areSameValue(objA:Node, objB:Node) {
             if (objA.kind === objB.kind) {
+                let isAThis = (objA.kind === SyntaxKind.ThisKeyword);
+                let isBThis = (objB.kind === SyntaxKind.ThisKeyword);
+                if (objA.kind === SyntaxKind.Identifier) {
+                    isAThis = isAThis || ((<Identifier>objA).text === "this");
+                }
+                if (objB.kind === SyntaxKind.Identifier) {
+                    isBThis = isBThis || ((<Identifier>objB).text === "this");
+                }
+                if (isAThis === isBThis) {
+                    return true;
+                }
                 if (objA.kind === SyntaxKind.Identifier) {
                     return areSameVariable(<Identifier>objA, <Identifier>objB);
                 }
@@ -16952,30 +16995,18 @@ namespace ts {
                 for (let i = 0; i < parameters.length && i < arguments.length; i++) {
                     let parameter:ParameterDeclaration = parameters[i];
                     if (isReference(arguments[i])) {
-                        let brandTypeDeclaration = parameter.type.brandTypeDeclaration;
-                        if (brandTypeDeclaration) {
-                            console.log("SCANNING CALL W/ BRANDTYPEDECLARATION")
+                        let paramType = getTypeFromTypeNode(parameter.type);
+                        if (paramType.flags & TypeFlags.IntermediateFlow) {
+                            let flowType = (<IntermediateFlowType>paramType);
+                            let targetType = flowType.targetType;
+                            let properties:Symbol[] = getPropertiesOfObjectType(targetType); 
+                            for (let property of properties) {
+                                let type = getTypeOfNode(arguments[i]);
+                                prev = flowAssignment(prev, property.name, {firstBindingSite: node, type});
+                            }
                         }
-                        // brandTypeDeclaration.
-                        // parameter.type;
                     }
-                    // argument.
                 }
-                // if (signature.typePredicate &&
-                //         expr.arguments[signature.typePredicate.parameterIndex] &&
-                //         getSymbolAtLocation(expr.arguments[signature.typePredicate.parameterIndex]) === symbol) {
-                //
-                //         if (!assumeTrue) {
-                //             if (type.flags & TypeFlags.Union) {
-                //                 return getUnionType(filter((<UnionType>type).types, t => !isTypeSubtypeOf(t, signature.typePredicate.type)));
-                //             }
-                //             return type;
-                //         }
-                //         return getNarrowedType(type, signature.typePredicate.type);
-                //     }
-                //     return type;
-                // }
-
             }
 
             function scanSwitchStatement(node: SwitchStatement) {

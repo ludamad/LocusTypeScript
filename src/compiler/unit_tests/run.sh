@@ -6,7 +6,7 @@ set -e
 #    echo "Need filename"
 #    exit
 #fi
-tsc test.ts
-mocha --reporter spec test.js 2>&1
+tsc --sourceMap test.ts
+mocha --grep "$1" --reporter spec test.js 2>&1
 #" 2>&1 | node /home/adomurad/sources/node-stack-context/context.js
 ##rm tmp_harness.js

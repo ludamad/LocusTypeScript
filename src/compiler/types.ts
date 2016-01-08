@@ -501,7 +501,7 @@ namespace ts {
 
     /* [ConcreteTypeScript] For assignment analysis */
     export interface FlowType {
-        firstBindingSite:BinaryExpression;
+        firstBindingSite:BinaryExpression|CallExpression;
         type:Type;
     }
     export interface FlowMember {
