@@ -513,21 +513,12 @@ namespace ts {
     export interface FlowMemberSet {
         [member:string]: FlowMember;
     }
-    // if (!isConcreteObjectLiteralElement(property)) {
-    //                     continue;
-    //                 }
-    //                 // Set in flowAnalysis.ts
-    //                 let declaration = property.ctsBrandPropertyDeclaration;
-    //                 Debug.assert(declaration.brandTypeDeclaration.varOrParamDeclaration.name.kind === SyntaxKind.Identifier);
-    //                 let varName = (<Identifier>declaration.brandTypeDeclaration.varOrParamDeclaration.name).text;
-    //                 write(";"); writeLine();
-    //                 emitCTSRT("protectAssignment");
-    //                 write("(");
-    //                 emitCTSType((<ConcreteType>declaration.resolvedType).baseType);
-    //                 write(", " + JSON.stringify((<Identifier>property.name).text) + ", ");
-    //                 write(varName + ", ");
-    //                 emit((<PropertyAssignment>property).initializer)
-    //                 write(")");
+
+    export interface FlowData {
+        memberSet:FlowMemberSet;
+        flowTypes:FlowType[];
+    }
+
     export interface EmitterFunctions {
         write;
         writeLine;
@@ -1897,7 +1888,9 @@ namespace ts {
         instantiations?: Map<Type>;         // Instantiations of generic type alias (undefined if non-generic)
         mapper?: TypeMapper;                // Type mapper for instantiation alias
         referenced?: boolean;               // True if alias symbol has been referenced as a value
-        containingType?: UnionOrIntersectionType; // Containing union or intersection type for synthetic property
+        // [ConcreteTypeScript]
+        containingType?: UnionOrIntersectionType | IntermediateFlowType; // Containing union or intersection type for synthetic property
+        // [/ConcreteTypeScript]
         resolvedExports?: SymbolTable;      // Resolved exports of module
         exportsChecked?: boolean;           // True if exports of external module have been checked
         isNestedRedeclaration?: boolean;    // True if symbol is block scoped redeclaration
@@ -2070,11 +2063,11 @@ namespace ts {
 
     // Intermediate types during type analysis (TypeFlags.IntermediateFlow)
     export interface IntermediateFlowType extends ObjectType {
-        startingType: ObjectType;
-        flowMemberSet: FlowMemberSet;
+        flowData: FlowData;
         // If analysis is driven by a 'becomes' declaration, this is the type
         // we wish to become. This is important for the effects of
         targetType?: Type;
+        resolvedProperties?: SymbolTable;
     }
     // [ConcreteTypeScript+Become]
 

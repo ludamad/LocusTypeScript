@@ -1724,7 +1724,7 @@ namespace ts {
  //                       }
                     }
                     else if (type.flags & TypeFlags.IntermediateFlow) {
-                        buildTypeDisplay((<IntermediateFlowType>type).startingType, writer, enclosingDeclaration, globalFlags, symbolStack);
+                        buildTypeDisplay(getFormalTypeFromIntermediateFlowType(<IntermediateFlowType>type), writer, enclosingDeclaration, globalFlags, symbolStack);
                         writer.writeOperator(" becomes ");
                         if ((<IntermediateFlowType>type).targetType) {
                             buildTypeDisplay((<IntermediateFlowType>type).targetType, writer, enclosingDeclaration, globalFlags, symbolStack);
@@ -3284,6 +3284,22 @@ namespace ts {
             setObjectTypeMembers(type, members, callSignatures, constructSignatures, stringIndexType, numberIndexType);
         }
 
+        function resolveIntermediateFlowType(type: IntermediateFlowType): void {
+            // The members and properties collections are empty for intermediate types. To get all properties of a union
+            // type use getPropertiesOfType (only the language service uses this).
+            let callSignatures: Signature[] = emptyArray;
+            let constructSignatures: Signature[] = emptyArray;
+            let stringIndexType: Type = undefined;
+            let numberIndexType: Type = undefined;
+            for (let t of type.flowData.flowTypes.map(({type}) => type)) {
+                callSignatures = concatenate(callSignatures, getSignaturesOfType(t, SignatureKind.Call));
+                constructSignatures = concatenate(constructSignatures, getSignaturesOfType(t, SignatureKind.Construct));
+                stringIndexType = intersectTypes(stringIndexType, getIndexTypeOfType(t, IndexKind.String));
+                numberIndexType = intersectTypes(numberIndexType, getIndexTypeOfType(t, IndexKind.Number));
+            }
+            setObjectTypeMembers(type, emptySymbols, callSignatures, constructSignatures, stringIndexType, numberIndexType);
+        }
+
         function resolveTypeReferenceMembers(type: TypeReference): void {
             let target = resolveDeclaredMembers(type.target);
             let mapper = createTypeMapper(target.typeParameters, type.typeArguments);
@@ -3528,9 +3544,7 @@ namespace ts {
                     resolveClassOrInterfaceMembers(<InterfaceType>type);
                 }
                 else if (type.flags & (TypeFlags.IntermediateFlow)) {
-                    // TODO complete this logic by taking into account intermediate members
-                    let {startingType} = <IntermediateFlowType> type;
-                    return resolveStructuredTypeMembers(startingType);
+                    resolveIntermediateFlowType(<IntermediateFlowType> type);
                 }
                 // [/ConcreteTypeScript]
                 else if (type.flags & TypeFlags.Anonymous) {
@@ -3604,6 +3618,18 @@ namespace ts {
             return type.resolvedProperties ? symbolsToArray(type.resolvedProperties) : emptyArray;
         }
 
+        function getPropertiesOfIntermediateFlowType(type: IntermediateFlowType): Symbol[] {
+            for (let current of type.flowData.flowTypes.map(({type}) => type)) {
+                for (let prop of getPropertiesOfType(current)) {
+                    getPropertyOfIntermediateFlowType(type, prop.name);
+                }
+            }
+            for (let memberName of Object.keys(type.flowData.memberSet)) {
+                getPropertyOfIntermediateFlowType(type, memberName);
+            }
+            return type.resolvedProperties ? symbolsToArray(type.resolvedProperties) : emptyArray;            
+        }
+
         function getPropertiesOfType(type: Type): Symbol[] {
             // [ConcreteTypeScript] In terms of member access, properties of
             // concrete types are the properties of their non-concrete
@@ -3611,6 +3637,9 @@ namespace ts {
             type = stripConcreteType(type);
             // [/ConcreteTypeScript]
             type = getApparentType(type);
+            if (type.flags & TypeFlags.IntermediateFlow) {
+                return getPropertiesOfIntermediateFlowType(<IntermediateFlowType>type) 
+            }
             return type.flags & TypeFlags.UnionOrIntersection ? getPropertiesOfUnionOrIntersectionType(<UnionType>type) : getPropertiesOfObjectType(type);
         }
 
@@ -3685,6 +3714,23 @@ namespace ts {
             return result;
         }
 
+        function getPropertyOfIntermediateFlowType(type: IntermediateFlowType, name: string): Symbol {
+            let properties = type.resolvedProperties || (type.resolvedProperties = {});
+            if (hasProperty(properties, name)) {
+                return properties[name];
+            }
+            let formalType = getFormalTypeFromIntermediateFlowType(type);
+            let property = getPropertyOfType(type, name);
+            if (!property && type.flowData.memberSet[name]) {
+                let result = <TransientSymbol>createSymbol(SymbolFlags.Property | SymbolFlags.Transient | SymbolFlags.SyntheticProperty, name);
+                result.containingType = type;
+                result.declarations = [];
+                result.type = flowTypeGet(type.flowData.memberSet[name]);
+                return result;
+            }
+            return property;
+        }
+
         function getPropertyOfUnionOrIntersectionType(type: UnionOrIntersectionType, name: string): Symbol {
             // [ConcreteTypeScript] In terms of member access, properties of
             // concrete types are the properties of their non-concrete
@@ -3727,7 +3773,9 @@ namespace ts {
                 }
                 return getPropertyOfObjectType(globalObjectType, name);
             }
-            if (type.flags & TypeFlags.UnionOrIntersection) {
+            if (type.flags & TypeFlags.IntermediateFlow) {
+                return getPropertyOfIntermediateFlowType(<IntermediateFlowType>type, name);
+            } else if (type.flags & TypeFlags.UnionOrIntersection) {
                 return getPropertyOfUnionOrIntersectionType(<UnionOrIntersectionType>type, name);
             }
             return undefined;
@@ -4348,10 +4396,11 @@ namespace ts {
         }
 
         // [ConcreteTypeScript]
-        function createFlowTypeIntermediate(startingType: Type, targetType?: Type) {
+        function createFlowTypeIntermediate(firstBindingSite:Node, startingType: Type, targetType?: Type) {
             let type = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
-            type.flowMemberSet = {};
-            type.startingType = startingType;
+            let flowTypes:FlowType[] = [{type: startingType, firstBindingSite}];
+            let memberSet:FlowMemberSet = {};
+            type.flowData = {flowTypes, memberSet};
             type.targetType = targetType;
             return type;
         }
@@ -4374,7 +4423,12 @@ namespace ts {
         function getTypeFromBecomesTypeNode(node: BecomesTypeNode): Type {
             let links = getNodeLinks(node);
             if (!links.resolvedType) {
-                links.resolvedType = getTypeFromTypeNode(node.startingType);
+                let startingType = getTypeFromTypeNode(node.startingType);
+                let targetType:Type  = emptyObjectType;
+                if (node.endingType) {
+                    targetType = getTypeFromTypeNode(node.endingType);
+                }
+                links.resolvedType = createFlowTypeIntermediate(startingType, targetType);
             }
             return links.resolvedType;
         }
@@ -13782,10 +13836,6 @@ namespace ts {
             return ok;
         }
 
-        function checkBecomesType(node: BecomesOrDeclareTypeNode) {
-
-        }
-
         function checkInterfaceDeclaration(node: InterfaceDeclaration) {
             // Grammar checking
             checkGrammarDecorators(node) || checkGrammarModifiers(node) || checkGrammarInterfaceDeclaration(node);
@@ -14552,7 +14602,6 @@ namespace ts {
                     return checkInterfaceDeclaration(<InterfaceDeclaration>node);
                 case SyntaxKind.BecomesType:
                     return;
-                    // return checkBecomesType(<BrandTypeDeclaration>node);
                 case SyntaxKind.BrandTypeDeclaration:
                     return checkBrandTypeDeclaration(<DeclareTypeNode>node);
                 case SyntaxKind.TypeAliasDeclaration:
@@ -15131,41 +15180,66 @@ namespace ts {
         }
 
         // [ConcreteTypeScript]
-        // TODO Piggyback this system on contextual type instead ?
-        function getTypeOfFlowDependentNode(node:Node, intermediateFlowType: IntermediateFlowType): Type {
-            let {startingType, targetType} = intermediateFlowType;
-            let currentFlowMembers = getFlowMembersAtLocation(node);
-            if (!currentFlowMembers) {
-                // If this node cannot take flow adjustments, strip:
-                // TODO reconsider this 
-                return startingType;
+        function intermediateFlowTypeHasPropertySuperset(intermediateFlowType:IntermediateFlowType, comparisonType: Type): boolean {
+            let startType = flowDataFormalType(flowData);
+            let flowMemberSet = flowData.memberSet;
+            for (let property of getPropertiesOfType(comparisonType)) {
+                let targetType = getTypeOfSymbol(property);
+                let currentType = getTypeOfSymbol(getPropertyOfType(startType, property.name)) || flowTypeGet(flowMemberSet[property.name]);
+                if (!currentType || !isTypeSubtypeOf(targetType, currentType)) {
+                    return false;
+                }
             }
-            // TODO expand to handle arbitrary getPropertiesOfObjectType props
-            let targetFlowMembers = getFlowMembersForType(targetType);
-            let typeCompletedAtLocation:boolean = true;
+
             //  TODO Check whether all from current in target?
             for (let key of Object.keys(targetFlowMembers)) {
                 let targetType = flowTypeGet(targetFlowMembers[key]);
                 let currentType = flowTypeGet(currentFlowMembers[key]);
                 if (!currentType || !isTypeSubtypeOf(targetType, currentType)) {
-                    typeCompletedAtLocation = false;
-                    break;
+                    return false;
                 }
             }
-            if (typeCompletedAtLocation) {
+            return true;
+        }
+
+        // [ConcretTypeScript] The degraded version is used for binding.
+        function getFormalTypeFromIntermediateFlowType(type: IntermediateFlowType): Type {
+            return flowDataFormalType(type.flowData);
+        }
+        
+        // [ConcreteTypeScript]
+        // TODO Piggyback this system on contextual type instead ?
+        function getTypeOfFlowDependentNode(node:Node, intermediateFlowType: IntermediateFlowType): Type {
+            let {targetType} = intermediateFlowType;
+            let currentFlowMembers = getFlowMembersAtLocation(node);
+            if (currentFlowMembers && flowDependentTypeHasPropertySuperset(startingType, currentFlowMembers, targetType)) {
                 return targetType;
-            } else {
+            } else if (currentFlowMembers) {
                 let becomeType = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
-                becomeType.startingType = startingType;
                 becomeType.targetType = targetType;
-                becomeType.flowMemberSet = currentFlowMembers;
+                becomeType.flowData = currentFlowMembers;
                 return becomeType;
+            } else {
+                // If this node cannot take flow adjustments, strip:
+                // TODO reconsider this 
+                return startingType;
             }
         }
+        
+        // [ConcreteTypeScript]
         function getTypeOfNode(node: Node): Type {
             let type = getTypeOfNodeWorker(node);
             // Handle becomes-types:
             if (type.flags & TypeFlags.IntermediateFlow) {
+                // If we resolved as an intermediate type node, update with location information:
+                let currentFlowData = getFlowMembersAtLocation(node);
+                if (currentFlowData) {
+                    let intermediateFlowType = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
+                    intermediateFlowType.targetType = (<IntermediateFlowType> type).targetType;
+                    intermediateFlowType.flowData = currentFlowData;
+                } else {
+                    return getFormalTypeFromIntermediateFlowType(<IntermediateFlowType> type);
+                }
                 return getTypeOfFlowDependentNode(node, <IntermediateFlowType> type);
             }
             return type;
@@ -16824,6 +16898,61 @@ namespace ts {
       /***********************************************************************************************************
        * [ConcreteTypeScript] Assignment analysis section.
        ***********************************************************************************************************/
+
+        // Analyze two type arrays. Keep the common types, degrade the rest to 'weak members'.
+        // They are non-concrete, and non-definitely assigned.
+        function flowUnionTypesDegradeToMembers(flowTypesA:FlowType[], flowTypesB:FlowType[]) : FlowData {
+            let hasTypeInA = ({type}) => flowHasType(flowTypesA, type);
+            let commonTypes = flowTypesB.filter(hasTypeInA);
+            let hasTypeInCommon = ({type}) => flowHasType(commonTypes, type);
+            let differentTypes = flowTypesA.concat(flowTypesB).filter(hasTypeInCommon);
+
+            let doesntHavePropertyAlready = ({name}:Symbol) => {
+                for (let {type} of commonTypes) {
+                    if (getPropertyOfType(type, name)) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+
+            let memberSet = {};
+            for (let {type, firstBindingSite} of differentTypes) {
+                for (let prop of getPropertiesOfType(type).filter(doesntHavePropertyAlready)) {
+                    let propType = getTypeOfSymbol(prop);
+                    let flowTypes = [{type: stripConcreteType(propType), firstBindingSite}];
+                    // Add a 'weak member' (non-concrete, not definitely assigned)
+                    memberSet[prop.name] = {key: prop.name, definitelyAssigned: false, flowTypes};
+                }
+            }
+            return {flowTypes: commonTypes, memberSet}
+        }
+
+        function flowDataGetPropertyType({memberSet, flowTypes}:FlowData, property:string): Type{
+            if (memberSet[property]) {
+                return flowTypeGet(memberSet[property]);
+            }
+            for (let {type} of flowTypes) {
+                let typeProp = getPropertyOfType(type, property);
+                if (typeProp) {
+                    return getTypeOfSymbol(typeProp);
+                }
+            }
+        }
+        function flowDataBecomeType({memberSet, flowTypes}:FlowData, targetType:Type) {
+            Debug.assert((targetTypes.flag & (TypeFlags.Interface | TypeFlags.Declare)) !== 0);
+            let properties:Symbol[] = getPropertiesOfObjectType(targetType);
+            for (let property of properties) {
+                let type = getTypeOfSymbol(property);
+                checkTypeSubtypeOf(flowTypeGet(newMember), flowTypeGet(oldMember), newMember.flowTypes[0].firstBindingSite, Diagnostics.ConcreteTypeScript_Inferred_type_conflict);
+                prev = flowAssignment(prev, property.name, {firstBindingSite: node, type});
+            }
+        }
+
+        function flowUnionTypes(flowTypesA:FlowType[], flowTypesB:FlowType[]) : FlowType[] {
+            let doesntHaveType = ({type}) => !flowHasType(flowTypesA, type);
+            return flowTypesA.concat(flowTypesB.filter(doesntHaveType));
+        }
         function flowHasType(flowTypes:FlowType[], comparisonType:Type) {
             for (let {type} of flowTypes) {
                 if (type === comparisonType) {
@@ -16832,86 +16961,116 @@ namespace ts {
             }
             return false;
         }
-
-        function flowUnionTypes(flowTypesA:FlowType[], flowTypesB:FlowType[]) : FlowType[] {
-            let hasType = ({type}) => !flowHasType(flowTypesA, type);
-            return flowTypesA.concat(flowTypesB.filter(hasType));
+        function flowDataFormalType(flowData:FlowData) {
+            return getIntersectionType(flowData.flowTypes.map(({type}) => type));
         }
-
-        function flowUnionMembers(memberA:FlowMember, memberB:FlowMember) : FlowMember {
-            if (!memberA || !memberB) {
-                 return (memberA || memberB);
-            }
-            let {key} = memberA;
-            let conditionalBarrierPassed = (memberA.conditionalBarrierPassed && memberB.conditionalBarrierPassed);
-            let definitelyAssigned = (memberA.definitelyAssigned && memberB.definitelyAssigned);
-            let flowTypes = flowUnionTypes(memberA.flowTypes, memberB.flowTypes);
-            Debug.assert(key === memberB.key);
-            return {key, conditionalBarrierPassed, definitelyAssigned, flowTypes};
-        }
-
-        // Revert the 'conditionalBarrierPassed' mark values to those of the previous set.
-        function flowPopConditionalMarks(prevSet:FlowMemberSet, newSet:FlowMemberSet) : FlowMemberSet {
-            let copy:FlowMemberSet = {};
-            for (let key of Object.keys(newSet)) {
-                if (!prevSet[key]) {
-                    copy[key] = flowConditionalBarrierMember(newSet[key], false);
-                } else {
-                    copy[key] = flowConditionalBarrierMember(newSet[key], prevSet[key].conditionalBarrierPassed);
-                }
-            }
-            return copy;
-        }
-        function flowUnion(setA:FlowMemberSet, setB:FlowMemberSet) : FlowMemberSet {
-            let union:FlowMemberSet = {};
-            for (let key of Object.keys(setA)) {
-                union[key] = setA[key];
-            }
-            for (let key of Object.keys(setB)) {
-                union[key] = flowUnionMembers(union[key], setB[key]);
-            }
-            return union;
-        }
-
         function flowTypeGet(flowMember:FlowMember) {
             if (!flowMember) return null;
             return getUnionType(flowMember.flowTypes.map(({type}) => type));
         }
 
-        // Calculate the new member if there was an existing member:
-        function flowAssignmentMember(oldMember:FlowMember, newMember:FlowMember): FlowMember {
-            let {definitelyAssigned, conditionalBarrierPassed, flowTypes} = oldMember;
-            if (definitelyAssigned && !conditionalBarrierPassed) {
-                Debug.assert(newMember.flowTypes.length !== 0);
-                checkTypeSubtypeOf(flowTypeGet(newMember), flowTypeGet(oldMember), newMember.flowTypes[0].firstBindingSite, Diagnostics.ConcreteTypeScript_Inferred_type_conflict);
-                return flowUnionMembers(oldMember, newMember); // Ensure that only one error per conflicting type occurs
-            }
-            // Not definitely assigned:
-            return newMember;
+        // Revert the 'conditionalBarrierPassed' mark values to those of the previous set.
+        function flowDataPopConditionalMarks(oldData:FlowData, newData:FlowData) : FlowData {
+            return {
+                flowTypes: newData.flowTypes, 
+                memberSet: flowMemberSetFunctions.flowPopConditionalMarks(oldData.memberSet, newData.memberSet)
+            };
+        }
 
+        function flowDataUnion(dataA:FlowData, dataB:FlowData) : FlowData {
+            return {
+                flowTypes: newData.flowTypes, 
+                memberSet: flowMemberSetFunctions.flowUnion(dataA.memberSet, dataB.memberSet)
+            };
         }
-        function flowAssignment(set:FlowMemberSet, key: string, flowType: FlowType): FlowMemberSet {
-            let newMember:FlowMember = {key, conditionalBarrierPassed: false, definitelyAssigned: true, flowTypes: [flowType]};
-            let copy:FlowMemberSet = {[key]: newMember};
-            for (let setKey of Object.keys(set)) {
-                if (setKey === key) {
-                    copy[setKey] = flowAssignmentMember(set[setKey], newMember);
-                } else {
-                    copy[setKey] = set[setKey];
+
+        function flowDataAssignment(data:FlowData, key: string, flowType: FlowType): FlowData {
+            return {
+                flowTypes: data.flowTypes, 
+                memberSet: flowMemberSetFunctions.flowAssignment(data, key, flowType)
+            };
+        }
+        function flowDataConditionalBarrier(data:FlowData, conditionalBarrierPassed = true) : FlowData {
+            return {
+                flowTypes: data.flowTypes, 
+                memberSet: flowMemberSetFunctions.flowDataConditionalBarrier(data, conditionalBarrierPassed)
+            };
+        }       
+
+        // TODO: Refactor this more cleanly.
+        var flowMemberSetFunctions = (function() {
+            return {flowAssignment, flowPopConditionalMarks, flowUnion, flowConditionalBarrier};
+
+            function flowUnionMembers(memberA:FlowMember, memberB:FlowMember) : FlowMember {
+                if (!memberA || !memberB) {
+                     return (memberA || memberB);
                 }
+                let {key} = memberA;
+                let conditionalBarrierPassed = (memberA.conditionalBarrierPassed && memberB.conditionalBarrierPassed);
+                let definitelyAssigned = (memberA.definitelyAssigned && memberB.definitelyAssigned);
+                let flowTypes = flowUnionTypes(memberA.flowTypes, memberB.flowTypes);
+                Debug.assert(key === memberB.key);
+                return {key, conditionalBarrierPassed, definitelyAssigned, flowTypes};
             }
-            return copy;
-        }
-        function flowConditionalBarrierMember({key, flowTypes, definitelyAssigned}:FlowMember, conditionalBarrierPassed = true) : FlowMember {
-            return {key, definitelyAssigned, conditionalBarrierPassed, flowTypes};
-        }
-        function flowConditionalBarrier(memberSet:FlowMemberSet, conditionalBarrierPassed = true) : FlowMemberSet{
-            let copy:FlowMemberSet = {};
-            for (let key of Object.keys(memberSet)) {
-                copy[key] = flowConditionalBarrierMember(memberSet[key], conditionalBarrierPassed);
+
+            // Revert the 'conditionalBarrierPassed' mark values to those of the previous set.
+            function flowPopConditionalMarks(prevSet:FlowMemberSet, newSet:FlowMemberSet) : FlowMemberSet {
+                let copy:FlowMemberSet = {};
+                for (let key of Object.keys(newSet)) {
+                    if (!prevSet[key]) {
+                        copy[key] = flowConditionalBarrierMember(newSet[key], false);
+                    } else {
+                        copy[key] = flowConditionalBarrierMember(newSet[key], prevSet[key].conditionalBarrierPassed);
+                    }
+                }
+                return copy;
             }
-            return copy;
-        }
+            function flowUnion(setA:FlowMemberSet, setB:FlowMemberSet) : FlowMemberSet {
+                let union:FlowMemberSet = {};
+                for (let key of Object.keys(setA)) {
+                    union[key] = setA[key];
+                }
+                for (let key of Object.keys(setB)) {
+                    union[key] = flowUnionMembers(union[key], setB[key]);
+                }
+                return union;
+            }
+
+            // Calculate the new member if there was an existing member:
+            function flowAssignmentMember(oldMember:FlowMember, newMember:FlowMember): FlowMember {
+                let {definitelyAssigned, conditionalBarrierPassed, flowTypes} = oldMember;
+                if (definitelyAssigned && !conditionalBarrierPassed) {
+                    Debug.assert(newMember.flowTypes.length !== 0);
+                    checkTypeSubtypeOf(flowTypeGet(newMember), flowTypeGet(oldMember), newMember.flowTypes[0].firstBindingSite, Diagnostics.ConcreteTypeScript_Inferred_type_conflict);
+                    return flowUnionMembers(oldMember, newMember); // Ensure that only one error per conflicting type occurs
+                }
+                // Not definitely assigned:
+                return newMember;
+
+            }
+            function flowAssignment(set:FlowMemberSet, key: string, flowType: FlowType): FlowMemberSet {
+                let newMember:FlowMember = {key, conditionalBarrierPassed: false, definitelyAssigned: true, flowTypes: [flowType]};
+                let copy:FlowMemberSet = {[key]: newMember};
+                for (let setKey of Object.keys(set)) {
+                    if (setKey === key) {
+                        copy[setKey] = flowAssignmentMember(set[setKey], newMember);
+                    } else {
+                        copy[setKey] = set[setKey];
+                    }
+                }
+                return copy;
+            }
+            function flowConditionalBarrierMember({key, flowTypes, definitelyAssigned}:FlowMember, conditionalBarrierPassed = true) : FlowMember {
+                return {key, definitelyAssigned, conditionalBarrierPassed, flowTypes};
+            }
+            function flowConditionalBarrier(memberSet:FlowMemberSet, conditionalBarrierPassed = true) : FlowMemberSet{
+                let copy:FlowMemberSet = {};
+                for (let key of Object.keys(memberSet)) {
+                    copy[key] = flowConditionalBarrierMember(memberSet[key], conditionalBarrierPassed);
+                }
+                return copy;
+            }
+        })();
 
         function areSameVariable(objA:Identifier, objB:Identifier) {
             if (objA.text !== objB.text) {
@@ -17042,20 +17201,22 @@ namespace ts {
                     return;
                 }
 
+                let becomesAmount = 0;
                 for (let i = 0; i < parameters.length && i < arguments.length; i++) {
                     let parameter:ParameterDeclaration = parameters[i];
                     if (isReference(arguments[i])) {
+                        becomesAmount++;
                         let paramType = getTypeFromTypeNode(parameter.type);
                         if (paramType.flags & TypeFlags.IntermediateFlow) {
                             let flowType = (<IntermediateFlowType>paramType);
                             let targetType = flowType.targetType;
-                            let properties:Symbol[] = getPropertiesOfObjectType(targetType);
-                            for (let property of properties) {
-                                let type = getTypeOfSymbol(property);
-                                prev = flowAssignment(prev, property.name, {firstBindingSite: node, type});
-                            }
+                            prev = flowBecomeType(prev, targetType);
+
                         }
                     }
+                }
+                if (becomesAmount >= 1) {
+                    throw new Error("TODO make special error. Cannot have more than one becomes reference to same alias for now.");
                 }
             }
 

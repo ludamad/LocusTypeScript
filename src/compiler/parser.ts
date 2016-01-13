@@ -1956,11 +1956,13 @@ namespace ts {
 
         // [ConcreteTypeScript]
         // startingType can be 'undefined'
-        function parseBecomeType(startingType:TypeNode): BecomesTypeNode {
+        function parseBecomesType(startingType:TypeNode): BecomesTypeNode {
             var becomesTypeNode = <BecomesTypeNode>createNode(SyntaxKind.BecomesType);
+            becomesTypeNode.pos = (startingType ? startingType.pos : getNodePos());
             nextToken();
-            becomesTypeNode.startingType = startingType;
             becomesTypeNode.endingType = parseType();
+            becomesTypeNode.startingType = startingType;
+            becomesTypeNode.end = getNodeEnd();
             return finishNode(becomesTypeNode);
         }
         // startingType can be 'undefined'
@@ -2395,14 +2397,6 @@ namespace ts {
         function parseTupleType(): TupleTypeNode {
             let node = <TupleTypeNode>createNode(SyntaxKind.TupleType);
             node.elementTypes = parseBracketedList(ParsingContext.TupleElementTypes, parseType, SyntaxKind.OpenBracketToken, SyntaxKind.CloseBracketToken);
-            return finishNode(node);
-        }
-
-        function parseBecomesType(extendedType:TypeNode): BecomesTypeNode {
-            let node = <BecomesTypeNode>createNode(SyntaxKind.BecomesType);
-            nextToken();
-            node.startingType = parseType();
-            node.endingType = extendedType;
             return finishNode(node);
         }
 

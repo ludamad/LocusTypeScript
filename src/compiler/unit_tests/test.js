@@ -40,22 +40,36 @@ describe("Calling functions with a declare parameter", function () {
     });
 });*/
 describe("The stages of binding", function () {
-    it("Should test the stages of binding", function () {
+    it("Should test the stages of declare-type binding", function () {
+        testBindingStages(/*Do not use becomes*/ false);
+    });
+    it("Should test the stages of becomes-type binding", function () {
+        testBindingStages(/*Use becomes*/ true);
+    });
+    return;
+    function testBindingStages(useBecomes) {
         var varName = "simpleBindingVar";
-        var sourceText = "\n            var " + varName + " : declare DeclareType = {objProp1: 1, objProp2: \"string\"};\n            " + varName + ";\n            " + varName + ".x = 1;\n            " + varName + ".y = \"string\";\n            " + varName + ";\n        ";
+        var varType = (useBecomes ? "becomes BecomesType" : "declare DeclareType");
+        var sourceText = "\n            interface BecomesType {\n                objProp1: number; objProp2: string;\n                x: number; y: string;\n            }\n            var " + varName + " : " + varType + " = {objProp1: 1, objProp2: \"string\"};\n            " + varName + ";\n            " + varName + ".x = 1;\n            " + varName + ".y = \"string\";\n            " + varName + ";\n        ";
         var _a = compileOne(sourceText), rootNode = _a.rootNode, checker = _a.checker;
         assertHasXAndY();
-        assertLastRefIsDeclType();
+        assertLastRefIsTargetType();
         assert2ndRefHasBecomeTypeAndObjectLiteralElements();
         return;
-        function getDeclType() {
+        function getTargetType() {
             var varNode = findFirst(rootNode, 220 /* VariableDeclaration */);
-            var declTypeNode = varNode.type;
-            assert(declTypeNode.kind === 6 /* DeclareType */, "Should resolve to declare type");
-            var intermediateType = checker.getTypeFromTypeNode(declTypeNode);
+            var targetTypeNode = varNode.type;
+            if (useBecomes) {
+                assert(targetTypeNode.kind === 5 /* BecomesType */, "Should resolve to becomes type");
+            }
+            else {
+                assert(targetTypeNode.kind === 6 /* DeclareType */, "Should resolve to declare type");
+            }
+            var intermediateType = checker.getTypeFromTypeNode(targetTypeNode);
+            console.log(checker.typeToString(intermediateType));
             assert(intermediateType.flags & 536870912 /* IntermediateFlow */, "Resulting type should have IntermediateFlow");
-            var declType = intermediateType.targetType;
-            return declType;
+            var targetType = intermediateType.targetType;
+            return targetType;
         }
         function get2ndVarRef() {
             var varRefs = find(rootNode, function (_a) {
@@ -75,24 +89,26 @@ describe("The stages of binding", function () {
         }
         function assert2ndRefHasBecomeTypeAndObjectLiteralElements() {
             var refType = checker.getTypeAtLocation(get2ndVarRef());
+            console.log(checker.typeToString(refType));
             assert(refType.flags & 536870912 /* IntermediateFlow */, "Resulting type should have IntermediateFlow");
             var flowMemberSet = refType.flowMemberSet;
             var objProp1 = flowMemberSet.objProp1, objProp2 = flowMemberSet.objProp2;
-            console.log({ objProp1: objProp1, objProp2: objProp2 });
             assert(objProp1 && objProp2, "Should bind members from object literal.");
         }
         function assertHasXAndY() {
-            var declType = getDeclType();
-            assert(declType.flags & 268435456 /* Declare */, "Resulting type should have Declare");
-            assert(checker.getPropertyOfType(declType, "x"), "Should infer 'x' attribute");
-            assert(checker.getPropertyOfType(declType, "y"), "Should infer 'y' attribute");
+            var targetType = getTargetType();
+            if (!useBecomes) {
+                assert(targetType.flags & 268435456 /* Declare */, "Resulting type should have Declare");
+            }
+            assert(checker.getPropertyOfType(targetType, "x"), "Should infer 'x' attribute");
+            assert(checker.getPropertyOfType(targetType, "y"), "Should infer 'y' attribute");
         }
-        function assertLastRefIsDeclType() {
+        function assertLastRefIsTargetType() {
             var refType = checker.getTypeAtLocation(getLastVarRef());
             console.log("WHATasda" + checker.typeToString(refType));
-            assert(checker.isTypeIdenticalTo(getDeclType(), refType), "last ref should be decl type!");
+            assert(checker.isTypeIdenticalTo(getTargetType(), refType), "last ref should be decl type!");
         }
-    });
+    }
 });
 describe("Simple sequential assignments", function () {
     function basicAssignmentTest(context, varName, expectedKind) {

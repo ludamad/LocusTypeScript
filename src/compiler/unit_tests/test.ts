@@ -49,10 +49,23 @@ describe("Calling functions with a declare parameter", () => {
 });*/
 
 describe("The stages of binding", () => {
-    it("Should test the stages of binding", () => {
+    it("Should test the stages of declare-type binding", () => {
+        testBindingStages(/*Do not use becomes*/ false);
+    });
+
+    it("Should test the stages of becomes-type binding", () => {
+        testBindingStages(/*Use becomes*/ true);
+    });
+    return;
+    function testBindingStages(useBecomes:boolean) {
         const varName = "simpleBindingVar";
+        const varType = (useBecomes ? "becomes BecomesType" : "declare DeclareType");
         let sourceText = `
-            var ${varName} : declare DeclareType = {objProp1: 1, objProp2: "string"};
+            interface BecomesType {
+                objProp1: number; objProp2: string;
+                x: number; y: string;
+            }
+            var ${varName} : ${varType} = {objProp1: 1, objProp2: "string"};
             ${varName};
             ${varName}.x = 1;
             ${varName}.y = "string";
@@ -61,18 +74,23 @@ describe("The stages of binding", () => {
 
         let {rootNode, checker} = compileOne(sourceText);
         assertHasXAndY();
-        assertLastRefIsDeclType();
+        assertLastRefIsTargetType();
         assert2ndRefHasBecomeTypeAndObjectLiteralElements();
         return;
 
-        function getDeclType() : ts.Type {
+        function getTargetType() : ts.Type {
             let varNode = <ts.VariableLikeDeclaration> findFirst(rootNode, ts.SyntaxKind.VariableDeclaration);
-            let declTypeNode = varNode.type;
-            assert(declTypeNode.kind === ts.SyntaxKind.DeclareType, "Should resolve to declare type");
-            let intermediateType = checker.getTypeFromTypeNode(declTypeNode);
+            let targetTypeNode = varNode.type;
+            if (useBecomes) {
+                assert(targetTypeNode.kind === ts.SyntaxKind.BecomesType, "Should resolve to becomes type");
+            } else {
+                assert(targetTypeNode.kind === ts.SyntaxKind.DeclareType, "Should resolve to declare type");
+            }
+            let intermediateType = checker.getTypeFromTypeNode(targetTypeNode);
+            console.log(checker.typeToString(intermediateType))
             assert(intermediateType.flags & ts.TypeFlags.IntermediateFlow, "Resulting type should have IntermediateFlow");
-            let declType = (<ts.IntermediateFlowType> intermediateType).targetType;
-            return declType;
+            let targetType = (<ts.IntermediateFlowType> intermediateType).targetType;
+            return targetType;
         }
 
         function get2ndVarRef() : ts.Node {
@@ -89,6 +107,7 @@ describe("The stages of binding", () => {
 
         function assert2ndRefHasBecomeTypeAndObjectLiteralElements() {
             let refType = checker.getTypeAtLocation(get2ndVarRef())
+            console.log(checker.typeToString(refType));
             assert(refType.flags & ts.TypeFlags.IntermediateFlow, "Resulting type should have IntermediateFlow");
             let {flowMemberSet} = <ts.IntermediateFlowType>refType;
             let {objProp1, objProp2} = flowMemberSet;
@@ -96,20 +115,24 @@ describe("The stages of binding", () => {
         }
 
         function assertHasXAndY() {
-            let declType = getDeclType();
-            assert(declType.flags & ts.TypeFlags.Declare, "Resulting type should have Declare");
-            assert(checker.getPropertyOfType(declType, "x"), "Should infer 'x' attribute");
-            assert(checker.getPropertyOfType(declType, "y"), "Should infer 'y' attribute");
+            let targetType = getTargetType();
+            if (!useBecomes) {
+                assert(targetType.flags & ts.TypeFlags.Declare, "Resulting type should have Declare");
+            }
+            assert(checker.getPropertyOfType(targetType, "x"), "Should infer 'x' attribute");
+            assert(checker.getPropertyOfType(targetType, "y"), "Should infer 'y' attribute");
         }
 
-        function assertLastRefIsDeclType() {
+        function assertLastRefIsTargetType() {
             let refType = checker.getTypeAtLocation(getLastVarRef())
             console.log("WHATasda" + checker.typeToString(refType));
-            assert(checker.isTypeIdenticalTo(getDeclType(), refType),
+            assert(checker.isTypeIdenticalTo(getTargetType(), refType),
                     "last ref should be decl type!");
         }
-    });
+    }
+
 });
+
 describe("Simple sequential assignments", () => {
     function basicAssignmentTest(context, varName: string, expectedKind: number) {
         let sourceText = context(varName, "DeclaredType", `
