@@ -22,10 +22,7 @@ describe("Calling functions with a declare parameter", () => {
             var reference = findFirst(callNode, expectedKind);
         }
         ts.printNodeDeep(reference);
-        console.log("WHUT");
-        console.log(""+checker.getFinalFlowMembers);
         let {x, y} = checker.getFinalFlowMembers(reference);
-        console.log("WAT");
         assert(x && y, "Does not have 'x' and 'y' members.");
     }
 
@@ -62,7 +59,6 @@ describe("Simple binding", () => {
         assert(intermediateType.flags & ts.TypeFlags.IntermediateFlow, "Resulting type should have IntermediateFlow");
         let declType = (<ts.IntermediateFlowType> intermediateType).targetType;
         assert(declType.flags & ts.TypeFlags.Declare, "Resulting type should have Declare");
-        console.log(checker.getPropertiesOfType(declType));
         assert(checker.getPropertyOfType(declType, "x"), "Should infer 'x' attribute");
         assert(checker.getPropertyOfType(declType, "y"), "Should infer 'y' attribute");
     });

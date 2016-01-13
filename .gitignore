@@ -59,3 +59,12 @@ internal/
 .settings/*
 !.settings/tasks.json
 concretetypescript_tests/*/*.js
+temp
+test.ts
+*.swn
+unit_tests/built/
+unit_tests/changed.js
+unit_tests/harness.d.ts
+unit_tests/harness.js
+unit_tests/harness.js.map
+unit_tests/test.js.map
