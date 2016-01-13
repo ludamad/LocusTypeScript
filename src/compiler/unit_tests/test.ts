@@ -16,9 +16,16 @@ describe("Calling functions with a declare parameter", () => {
         `)
         let {rootNode, checker} = compileOne(calledFunction + referrer);
         let callNode = findFirst(rootNode, ts.SyntaxKind.CallExpression);
-        let reference = findFirst(callNode, ({text}:any) => text == varName);
-        console.log(ts.printNodeDeep(reference));
+        if (expectedKind === ts.SyntaxKind.Identifier) {
+            var reference = findFirst(callNode, ({text}:any) => text == varName);
+        } else {
+            var reference = findFirst(callNode, expectedKind);
+        }
+        ts.printNodeDeep(reference);
+        console.log("WHUT");
+        console.log(""+checker.getFinalFlowMembers);
         let {x, y} = checker.getFinalFlowMembers(reference);
+        console.log("WAT");
         assert(x && y, "Does not have 'x' and 'y' members.");
     }
 
@@ -37,6 +44,29 @@ describe("Calling functions with a declare parameter", () => {
 });
 
 // TODO test getting the resolved members of an intermediate flow type
+
+describe("Simple binding", () => {
+    it("Should return x and y when getPropertiesOfObjectType called", () => {
+        const varName = "simpleBindingVar";
+        let sourceText = `
+            var ${varName} : declare DeclareType = {};
+            ${varName}.x = 1;
+            ${varName}.y = 1;
+        `;
+        
+        let {rootNode, checker} = compileOne(sourceText);
+        let varNode = <ts.VariableLikeDeclaration> findFirst(rootNode, ts.SyntaxKind.VariableDeclaration);
+        let declTypeNode = varNode.type;
+        assert(declTypeNode.kind === ts.SyntaxKind.DeclareType, "Should resolve to declare type");
+        let intermediateType = checker.getTypeFromTypeNode(declTypeNode);
+        assert(intermediateType.flags & ts.TypeFlags.IntermediateFlow, "Resulting type should have IntermediateFlow");
+        let declType = (<ts.IntermediateFlowType> intermediateType).targetType;
+        assert(declType.flags & ts.TypeFlags.Declare, "Resulting type should have Declare");
+        console.log(checker.getPropertiesOfType(declType));
+        assert(checker.getPropertyOfType(declType, "x"), "Should infer 'x' attribute");
+        assert(checker.getPropertyOfType(declType, "y"), "Should infer 'y' attribute");
+    });
+});
 
 describe("Simple sequential assignments", () => {
     function basicAssignmentTest(context, varName: string, expectedKind: number) {

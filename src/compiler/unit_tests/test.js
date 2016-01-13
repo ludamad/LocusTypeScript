@@ -7,12 +7,20 @@ describe("Calling functions with a declare parameter", function () {
         var referrer = context(varName, "DeclaredType2", "\n            calledFunction(" + varName + ");\n        ");
         var _a = compileOne(calledFunction + referrer), rootNode = _a.rootNode, checker = _a.checker;
         var callNode = findFirst(rootNode, 177 /* CallExpression */);
-        var reference = findFirst(callNode, function (_a) {
-            var text = _a.text;
-            return text == varName;
-        });
-        console.log(ts.printNodeDeep(reference));
+        if (expectedKind === 76 /* Identifier */) {
+            var reference = findFirst(callNode, function (_a) {
+                var text = _a.text;
+                return text == varName;
+            });
+        }
+        else {
+            var reference = findFirst(callNode, expectedKind);
+        }
+        ts.printNodeDeep(reference);
+        console.log("WHUT");
+        console.log("" + checker.getFinalFlowMembers);
         var _b = checker.getFinalFlowMembers(reference), x = _b.x, y = _b.y;
+        console.log("WAT");
         assert(x && y, "Does not have 'x' and 'y' members.");
     }
     it("should bind through function call for a 'this' parameter", function () {
@@ -29,6 +37,23 @@ describe("Calling functions with a declare parameter", function () {
     });
 });
 // TODO test getting the resolved members of an intermediate flow type
+describe("Simple binding", function () {
+    it("Should return x and y when getPropertiesOfObjectType called", function () {
+        var varName = "simpleBindingVar";
+        var sourceText = "\n            var " + varName + " : declare DeclareType = {};\n            " + varName + ".x = 1;\n            " + varName + ".y = 1;\n        ";
+        var _a = compileOne(sourceText), rootNode = _a.rootNode, checker = _a.checker;
+        var varNode = findFirst(rootNode, 220 /* VariableDeclaration */);
+        var declTypeNode = varNode.type;
+        assert(declTypeNode.kind === 6 /* DeclareType */, "Should resolve to declare type");
+        var intermediateType = checker.getTypeFromTypeNode(declTypeNode);
+        assert(intermediateType.flags & 536870912 /* IntermediateFlow */, "Resulting type should have IntermediateFlow");
+        var declType = intermediateType.targetType;
+        assert(declType.flags & 268435456 /* Declare */, "Resulting type should have Declare");
+        console.log(checker.getPropertiesOfType(declType));
+        assert(checker.getPropertyOfType(declType, "x"), "Should infer 'x' attribute");
+        assert(checker.getPropertyOfType(declType, "y"), "Should infer 'y' attribute");
+    });
+});
 describe("Simple sequential assignments", function () {
     function basicAssignmentTest(context, varName, expectedKind) {
         var sourceText = context(varName, "DeclaredType", "\n            " + varName + ".x = 1;\n            " + varName + ".y = 1;\n        ");

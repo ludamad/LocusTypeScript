@@ -70,6 +70,7 @@ namespace ts {
             // [ConcreteTypeScript]
             getFlowMembersAtLocation,
             getFinalFlowMembers,
+            getTypeFromTypeNode,
             createType,
             getPrimitiveTypeInfo,
             getTypeOfSymbol,
@@ -3277,7 +3278,9 @@ namespace ts {
                     (<ResolvedType><ObjectType>type).members = null; // We will have a cached value 
                     (<any>type).flowMembers = getFinalFlowMembers(name, type);
                 }
-                for (let {flowTypes, key} of (<any>type).flowMembers) {
+                let flowMembers:FlowMemberSet = (<any>type).flowMembers;
+                for (let key of Object.keys(flowMembers)) {
+                    let flowTypes = flowMembers[key].flowTypes;
                     let symbol = createSymbol(SymbolFlags.Property, key);
                     let typesToUnion = flowTypes.map(({type}) => type);
                     getSymbolLinks(symbol).type = getUnionType(typesToUnion);
@@ -16848,9 +16851,14 @@ namespace ts {
         }
 
         // Calculate the new member if there was an existing member:
-        function flowAssignmentMember({definitelyAssigned, conditionalBarrierPassed}:FlowMember, newMember:FlowMember): FlowMember {
+        function flowAssignmentMember(oldMember:FlowMember, newMember:FlowMember): FlowMember {
+            let {definitelyAssigned, conditionalBarrierPassed, flowTypes} = oldMember;
             if (definitelyAssigned && !conditionalBarrierPassed) {
-                throw new Error("***NYI");
+                let oldType = getUnionType(flowTypes.map(({type}) => type));
+                Debug.assert(newMember.flowTypes.length !== 0);
+                let newType = getUnionType(newMember.flowTypes.map(({type}) => type));
+                checkTypeSubtypeOf(newType, oldType, newMember.flowTypes[0].firstBindingSite, Diagnostics.ConcreteTypeScript_Inferred_type_conflict);
+                return flowUnionMembers(oldMember, newMember); // Ensure that only one error per conflicting type occurs
             }
             // Not definitely assigned:
             return newMember;
@@ -17004,7 +17012,7 @@ namespace ts {
                             let targetType = flowType.targetType;
                             let properties:Symbol[] = getPropertiesOfObjectType(targetType);
                             for (let property of properties) {
-                                let type = getTypeOfNode(arguments[i]);
+                                let type = getTypeOfSymbol(property);
                                 prev = flowAssignment(prev, property.name, {firstBindingSite: node, type});
                             }
                         }

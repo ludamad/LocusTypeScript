@@ -1565,6 +1565,7 @@ namespace ts {
         getFinalFlowMembers(reference: Node): FlowMemberSet;
         getTypeOfSymbol(symbol: Symbol): Type;
         createType(flags: TypeFlags): Type;
+        getTypeFromTypeNode:any,
         createConcreteType:any,
         stripConcreteType:any,
         isTypeIdenticalTo(source: Type, target: Type): boolean;
