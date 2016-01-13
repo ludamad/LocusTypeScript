@@ -1,2 +1,2 @@
 cd ..
-./run.sh
+../../bin/tsc

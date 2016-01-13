@@ -42,6 +42,12 @@ describe("Calling functions with a declare parameter", () => {
 
 // TODO test getting the resolved members of an intermediate flow type
 
+/*describe("Various resolution points", () => {
+    it("", () => {
+        
+    });
+});*/
+
 describe("Simple binding", () => {
     it("Should return x and y when getPropertiesOfObjectType called", () => {
         const varName = "simpleBindingVar";
@@ -49,21 +55,44 @@ describe("Simple binding", () => {
             var ${varName} : declare DeclareType = {};
             ${varName}.x = 1;
             ${varName}.y = 1;
+            ${varName};
         `;
-        
+
         let {rootNode, checker} = compileOne(sourceText);
-        let varNode = <ts.VariableLikeDeclaration> findFirst(rootNode, ts.SyntaxKind.VariableDeclaration);
-        let declTypeNode = varNode.type;
-        assert(declTypeNode.kind === ts.SyntaxKind.DeclareType, "Should resolve to declare type");
-        let intermediateType = checker.getTypeFromTypeNode(declTypeNode);
-        assert(intermediateType.flags & ts.TypeFlags.IntermediateFlow, "Resulting type should have IntermediateFlow");
-        let declType = (<ts.IntermediateFlowType> intermediateType).targetType;
-        assert(declType.flags & ts.TypeFlags.Declare, "Resulting type should have Declare");
-        assert(checker.getPropertyOfType(declType, "x"), "Should infer 'x' attribute");
-        assert(checker.getPropertyOfType(declType, "y"), "Should infer 'y' attribute");
+        assertHasXAndY();
+        assertLastRefIsDeclType();
+        return;
+
+        function getDeclType() : ts.Type {
+            let varNode = <ts.VariableLikeDeclaration> findFirst(rootNode, ts.SyntaxKind.VariableDeclaration);
+            let declTypeNode = varNode.type;
+            assert(declTypeNode.kind === ts.SyntaxKind.DeclareType, "Should resolve to declare type");
+            let intermediateType = checker.getTypeFromTypeNode(declTypeNode);
+            assert(intermediateType.flags & ts.TypeFlags.IntermediateFlow, "Resulting type should have IntermediateFlow");
+            let declType = (<ts.IntermediateFlowType> intermediateType).targetType;
+            return declType;
+        }
+        function getLastVarRef() : ts.Node {
+            let varRefs = find(rootNode, ({text}:any) => text === varName); 
+            ts.Debug.assert(varRefs.length >= 1);
+            return varRefs[varRefs.length - 1];
+        }
+
+        function assertHasXAndY() {
+            let declType = getDeclType();
+            assert(declType.flags & ts.TypeFlags.Declare, "Resulting type should have Declare");
+            assert(checker.getPropertyOfType(declType, "x"), "Should infer 'x' attribute");
+            assert(checker.getPropertyOfType(declType, "y"), "Should infer 'y' attribute");
+        }
+
+        function assertLastRefIsDeclType() {
+            let lastRefType = checker.getTypeAtLocation(getLastVarRef())
+            console.log("WHATasda" + checker.typeToString(lastRefType));
+            assert(checker.isTypeIdenticalTo(getDeclType(), lastRefType),
+                    "last ref should be decl type!");
+        }
     });
 });
-
 describe("Simple sequential assignments", () => {
     function basicAssignmentTest(context, varName: string, expectedKind: number) {
         let sourceText = context(varName, "DeclaredType", `

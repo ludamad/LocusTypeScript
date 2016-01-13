@@ -3249,6 +3249,24 @@ namespace ts {
             return <InterfaceTypeWithDeclaredMembers>type;
         }
 
+        // [ConcreteTypeScript] 
+        function getFlowMembersForType(type: Type): FlowMemberSet {
+            if (type.flags & TypeFlags.Declare) {
+                // TODO add to type
+                let declNode = <DeclareTypeNode> getSymbolDecl(type.symbol, SyntaxKind.DeclareType);
+                if (!(<InterfaceType>type).flowMemberSet) {
+                    // Placeholder:
+                    (<InterfaceType>type).flowMemberSet = {};
+                    let name = getVariableNameFromDeclareTypeNode(declNode);
+                    (<ResolvedType><ObjectType>type).members = null; // We will have a cached value 
+                    (<InterfaceType>type).flowMemberSet = getFinalFlowMembers(name, type);
+                }
+                return (<InterfaceType>type).flowMemberSet;
+            }
+            return {};
+        }
+
+        // [ConcreteTypeScript] Handles TypeFlags.Declare too
         function resolveClassOrInterfaceMembers(type: InterfaceType): void {
             let target = resolveDeclaredMembers(type);
             let members = target.symbol.members;
@@ -3267,31 +3285,21 @@ namespace ts {
                     numberIndexType = numberIndexType || getIndexTypeOfType(baseType, IndexKind.Number);
                 }
             }
+
             // [ConcreteTypeScript]
-            if (type.flags & TypeFlags.Declare) {
-                // TODO add to type
-                let declNode = <DeclareTypeNode> getSymbolDecl(type.symbol, SyntaxKind.DeclareType);
-                if (!(<any>type).flowMembers) {
-                    // Placeholder:
-                    (<any>type).flowMembers = {};
-                    let name = getVariableNameFromDeclareTypeNode(declNode);
-                    (<ResolvedType><ObjectType>type).members = null; // We will have a cached value 
-                    (<any>type).flowMembers = getFinalFlowMembers(name, type);
+            let flowMemberSet = getFlowMembersForType(type);
+            for (let key of Object.keys(flowMemberSet)) {
+                let flowTypes = flowMemberSet[key].flowTypes;
+                let symbol = createSymbol(SymbolFlags.Property, key);
+                let typesToUnion = flowTypes.map(({type}) => type);
+                getSymbolLinks(symbol).type = getUnionType(typesToUnion);
+                if (members[key]) {
+                    throw new Error("TODO figure out inheritance");
                 }
-                let flowMembers:FlowMemberSet = (<any>type).flowMembers;
-                for (let key of Object.keys(flowMembers)) {
-                    let flowTypes = flowMembers[key].flowTypes;
-                    let symbol = createSymbol(SymbolFlags.Property, key);
-                    let typesToUnion = flowTypes.map(({type}) => type);
-                    getSymbolLinks(symbol).type = getUnionType(typesToUnion);
-                    if (members[key]) {
-                        throw new Error("TODO figure out inheritance");
-                    }
-                    console.log("Adding " + key + " to " +declNode.name);
-                    members[key] = symbol;
-                }
+                members[key] = symbol;
             }
             // [/ConcreteTypeScript]
+
             setObjectTypeMembers(type, members, callSignatures, constructSignatures, stringIndexType, numberIndexType);
         }
 
@@ -15148,7 +15156,48 @@ namespace ts {
             return undefined;
         }
 
+        // [ConcreteTypeScript]
+        // TODO Piggyback this system on contextual type instead ?
+        function getTypeOfFlowDependentNode(node:Node, intermediateFlowType: IntermediateFlowType): Type {
+            let {startingType, targetType} = intermediateFlowType;
+            let currentFlowMembers = getFlowMembersAtLocation(node);
+            if (!currentFlowMembers) {
+                // If this node cannot take flow adjustments, strip:
+                // TODO reconsider this 
+                return startingType;
+            }
+            // TODO expand to handle arbitrary getPropertiesOfObjectType props
+            let targetFlowMembers = getFlowMembersForType(targetType);
+            let typeCompletedAtLocation:boolean = true;
+            //  TODO Check whether all from current in target?
+            for (let key of Object.keys(targetFlowMembers)) {
+                let targetType = flowTypeGet(targetFlowMembers[key]);
+                let currentType = flowTypeGet(currentFlowMembers[key]);
+                if (!currentType || !isTypeSubtypeOf(targetType, currentType)) {
+                    typeCompletedAtLocation = false;
+                    break;
+                }
+            }
+            if (typeCompletedAtLocation) {
+                return targetType;
+            } else {
+                let becomeType = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
+                becomeType.startingType = startingType;
+                becomeType.targetType = targetType;
+                becomeType.intermediateMembers = currentFlowMembers;
+                return becomeType;
+            }
+        }
         function getTypeOfNode(node: Node): Type {
+            let type = getTypeOfNodeWorker(node);
+            // Handle becomes-types:
+            if (type.flags & TypeFlags.IntermediateFlow) {
+                return getTypeOfFlowDependentNode(node, <IntermediateFlowType> type);
+            }
+            return type;
+        }
+        function getTypeOfNodeWorker(node: Node): Type {
+        // [/ConcreteTypeScript]
             if (isInsideWithStatementBody(node)) {
                 // We cannot answer semantic questions within a with block, do not proceed any further
                 return unknownType;
@@ -16850,14 +16899,17 @@ namespace ts {
             return union;
         }
 
+        function flowTypeGet(flowMember:FlowMember) {
+            if (!flowMember) return null;
+            return getUnionType(flowMember.flowTypes.map(({type}) => type));
+        }
+
         // Calculate the new member if there was an existing member:
         function flowAssignmentMember(oldMember:FlowMember, newMember:FlowMember): FlowMember {
             let {definitelyAssigned, conditionalBarrierPassed, flowTypes} = oldMember;
             if (definitelyAssigned && !conditionalBarrierPassed) {
-                let oldType = getUnionType(flowTypes.map(({type}) => type));
                 Debug.assert(newMember.flowTypes.length !== 0);
-                let newType = getUnionType(newMember.flowTypes.map(({type}) => type));
-                checkTypeSubtypeOf(newType, oldType, newMember.flowTypes[0].firstBindingSite, Diagnostics.ConcreteTypeScript_Inferred_type_conflict);
+                checkTypeSubtypeOf(flowTypeGet(newMember), flowTypeGet(oldMember), newMember.flowTypes[0].firstBindingSite, Diagnostics.ConcreteTypeScript_Inferred_type_conflict);
                 return flowUnionMembers(oldMember, newMember); // Ensure that only one error per conflicting type occurs
             }
             // Not definitely assigned:
@@ -16916,6 +16968,12 @@ namespace ts {
             }
             return false;
         }
+        function canHaveFlowMembers(obj:Node) {
+            if (isPrototypeAccess(obj)) {
+                return true;
+            }
+            return (obj.kind === SyntaxKind.ThisKeyword || obj.kind === SyntaxKind.Identifier);
+        }
         function getScopeContainer(obj:Node) {
             if (isPrototypeAccess(obj)) {
                 return getScopeContainer(obj.expression);
@@ -16931,21 +16989,25 @@ namespace ts {
         type ReferenceDecider = (node:Node) => boolean;
 
         function getFinalFlowMembers(reference: Node, declType?: Type):FlowMemberSet {
-            ensureFlowMembersAreSet(reference, declType);
+            if (!canHaveFlowMembers(reference)) {
+                return null;
+            }
+            ensureFlowMembersAreSet(reference);
+            Debug.assert(getNodeLinks(reference).ctsFinalFlowMembers != null);
             return getNodeLinks(reference).ctsFinalFlowMembers;
         }
-        function getFlowMembersAtLocation(reference: Node, declType?: Type):FlowMemberSet {
-            ensureFlowMembersAreSet(reference, declType);
+        function getFlowMembersAtLocation(reference: Node):FlowMemberSet {
+            if (!canHaveFlowMembers(reference)) {
+                return null;
+            }
+            ensureFlowMembersAreSet(reference);
+            Debug.assert(getNodeLinks(reference).ctsFlowMembers != null);
             return getNodeLinks(reference).ctsFlowMembers;
         }
 
-        function ensureFlowMembersAreSet(reference: Node, declType?: Type) {
+        function ensureFlowMembersAreSet(reference: Node) {
             Debug.assert(reference.kind === SyntaxKind.Identifier || reference.kind === SyntaxKind.ThisKeyword);
             if (!getNodeLinks(reference).ctsFinalFlowMembers) {
-                let type = declType || stripConcreteType(getTypeOfNode(reference));
-                if (!(type.flags & TypeFlags.ObjectType)) {
-                    throw new Error("Expected object type, got " + typeToString(type));
-                }
                 let containerScope = getScopeContainer(reference);
                 Debug.assert(containerScope != null);
                 // Analysis was not yet run for this scope
@@ -16953,7 +17015,6 @@ namespace ts {
                     /*Reference decider: */ (node) => areSameValue(node, reference),
                     /*Node-links: */ {},
                     /*Container scope: */ containerScope,
-                    /*Type we're extending: */ <InterfaceType>type,
                     /*Current node in recursive scan: */ containerScope,
                     /*Member-set: */ {}
                 );
@@ -16968,7 +17029,7 @@ namespace ts {
         // Recursively find all references to our node object descending from the node 'node'
         function computeAndSetFlowMembersForReferencesInScope(// Refer to the same object throughout a recursion instance:
                                          isReference: ReferenceDecider, nodePostLinks,
-                                         containerScope, extendedType:InterfaceType,
+                                         containerScope, 
                                          // Current node in recursive scan:
                                          node:Node, prev:FlowMemberSet):FlowMemberSet {
             /** Function skeleton: **/
@@ -17170,7 +17231,7 @@ namespace ts {
             }
 
             function recurse(node:Node, prev:FlowMemberSet) {
-                return computeAndSetFlowMembersForReferencesInScope(isReference, nodePostLinks, containerScope, extendedType, node, prev);
+                return computeAndSetFlowMembersForReferencesInScope(isReference, nodePostLinks, containerScope, node, prev);
             }
             function descend() {
                 forEachChild(node, (subchild) => {
