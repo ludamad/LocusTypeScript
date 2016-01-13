@@ -22,6 +22,20 @@ namespace ts {
         callbackPrime(node);
     }
 
+    export function addPreEmit(node: Node, emitCallback:EmitCallback) {
+        if (!node.preEmitCallbacks) {
+            node.preEmitCallbacks = [];
+        }
+        node.preEmitCallbacks.push(emitCallback);
+    }
+    
+    export function addPostEmit(node: Node, emitCallback:EmitCallback) {
+        if (!node.postEmitCallbacks) {
+            node.postEmitCallbacks = [];
+        }
+        node.postEmitCallbacks.push(emitCallback);
+    }
+    
     // Is this an expression of type <identifier>.<identifier> = <expression>?
     export function isPropertyAssignment(node:Node) {
         if (node.kind === SyntaxKind.BinaryExpression && (<BinaryExpression>node).operatorToken.kind === SyntaxKind.EqualsToken) {

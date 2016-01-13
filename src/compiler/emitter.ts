@@ -152,6 +152,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             let exportEquals: ExportAssignment;
             let hasExportStars: boolean;
 
+            /* [/ConcreteTypeScript] */
             /** Write emitted output to disk */
             let writeEmittedFiles = writeJavaScriptFile;
 
@@ -190,6 +191,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             /** If removeComments is true, no leading-comments needed to be emitted **/
             let emitLeadingCommentsOfPosition = compilerOptions.removeComments ? function (pos: number) { } : emitLeadingCommentsOfPositionWorker;
 
+            /* [ConcreteTypeScript] */
+            let emitterFunctions:EmitterFunctions = {
+                write, writeLine,
+                emitCTSRT,
+                emit: (node: Node) => emit(node),
+                emitCTSType
+            };
             if (compilerOptions.sourceMap || compilerOptions.inlineSourceMap) {
                 initializeEmitterWithSourceMaps();
             }
@@ -1953,27 +1961,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 // Ordinary case: either the object has no computed properties
                 // or we're compiling with an ES6+ target.
                 emitObjectLiteralBody(node, properties.length);
-
-                // TODO also implement for special object literal emits
-                // [ConcreteTypeScript] Emit protectors that were not emitted in the object initializer
-                if (!DISABLE_PROTECTED_MEMBERS)
-                for (var property of node.properties) {
-                    if (!isConcreteObjectLiteralElement(property)) {
-                        continue;
-                    }
-                    // Set in flowAnalysis.ts
-                    let declaration = property.ctsBrandPropertyDeclaration;
-                    Debug.assert(declaration.brandTypeDeclaration.varOrParamDeclaration.name.kind === SyntaxKind.Identifier);
-                    let varName = (<Identifier>declaration.brandTypeDeclaration.varOrParamDeclaration.name).text;
-                    write(";"); writeLine();
-                    emitCTSRT("protectAssignment");
-                    write("(");
-                    emitCTSType((<ConcreteType>declaration.resolvedType).baseType);
-                    write(", " + JSON.stringify((<Identifier>property.name).text) + ", ");
-                    write(varName + ", ");
-                    emit((<PropertyAssignment>property).initializer)
-                    write(")");
-                }
             }
 
             function createBinaryExpression(left: Expression, operator: SyntaxKind, right: Expression, startsOnNewLine?: boolean): BinaryExpression {
@@ -7644,8 +7631,19 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 // Emit comments for everything else.
                 return true;
             }
-
+            
+            // [ConcreteTypeScript]
             function emitJavaScriptWorker(node: Node) {
+                for (let cb of node.preEmitCallbacks || []) {
+                    cb(emitterFunctions);
+                }
+                emitJavaScriptNoGuards(node);
+                for (let cb of node.postEmitCallbacks || []) {
+                    cb(emitterFunctions);
+                }
+            }
+            function emitJavaScriptNoGuards(node: Node) {
+            // [/ConcreteTypeScript]
                 // Check if the node can be emitted regardless of the ScriptTarget
                 switch (node.kind) {
                     case SyntaxKind.Identifier:

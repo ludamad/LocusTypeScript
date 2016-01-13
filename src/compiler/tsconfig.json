@@ -20,7 +20,6 @@
         "emitter.ts",
         "program.ts",
         "printNode.ts",
-        "ctsAssignmentAnalysis.ts",
         "ctsUtilities.ts",
         "ctsTestEvaluator.ts",
         "ctsTypes.ts",

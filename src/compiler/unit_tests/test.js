@@ -39,13 +39,14 @@ describe("Calling functions with a declare parameter", function () {
         
     });
 });*/
-describe("Simple binding", function () {
-    it("Should return x and y when getPropertiesOfObjectType called", function () {
+describe("The stages of binding", function () {
+    it("Should test the stages of binding", function () {
         var varName = "simpleBindingVar";
-        var sourceText = "\n            var " + varName + " : declare DeclareType = {};\n            " + varName + ".x = 1;\n            " + varName + ".y = 1;\n            " + varName + ";\n        ";
+        var sourceText = "\n            var " + varName + " : declare DeclareType = {objProp1: 1, objProp2: \"string\"};\n            " + varName + ";\n            " + varName + ".x = 1;\n            " + varName + ".y = \"string\";\n            " + varName + ";\n        ";
         var _a = compileOne(sourceText), rootNode = _a.rootNode, checker = _a.checker;
         assertHasXAndY();
         assertLastRefIsDeclType();
+        assert2ndRefHasBecomeTypeAndObjectLiteralElements();
         return;
         function getDeclType() {
             var varNode = findFirst(rootNode, 220 /* VariableDeclaration */);
@@ -56,6 +57,14 @@ describe("Simple binding", function () {
             var declType = intermediateType.targetType;
             return declType;
         }
+        function get2ndVarRef() {
+            var varRefs = find(rootNode, function (_a) {
+                var text = _a.text;
+                return text === varName;
+            });
+            ts.Debug.assert(varRefs.length >= 1);
+            return varRefs[1];
+        }
         function getLastVarRef() {
             var varRefs = find(rootNode, function (_a) {
                 var text = _a.text;
@@ -64,6 +73,14 @@ describe("Simple binding", function () {
             ts.Debug.assert(varRefs.length >= 1);
             return varRefs[varRefs.length - 1];
         }
+        function assert2ndRefHasBecomeTypeAndObjectLiteralElements() {
+            var refType = checker.getTypeAtLocation(get2ndVarRef());
+            assert(refType.flags & 536870912 /* IntermediateFlow */, "Resulting type should have IntermediateFlow");
+            var flowMemberSet = refType.flowMemberSet;
+            var objProp1 = flowMemberSet.objProp1, objProp2 = flowMemberSet.objProp2;
+            console.log({ objProp1: objProp1, objProp2: objProp2 });
+            assert(objProp1 && objProp2, "Should bind members from object literal.");
+        }
         function assertHasXAndY() {
             var declType = getDeclType();
             assert(declType.flags & 268435456 /* Declare */, "Resulting type should have Declare");
@@ -71,9 +88,9 @@ describe("Simple binding", function () {
             assert(checker.getPropertyOfType(declType, "y"), "Should infer 'y' attribute");
         }
         function assertLastRefIsDeclType() {
-            var lastRefType = checker.getTypeAtLocation(getLastVarRef());
-            console.log("WHATasda" + checker.typeToString(lastRefType));
-            assert(checker.isTypeIdenticalTo(getDeclType(), lastRefType), "last ref should be decl type!");
+            var refType = checker.getTypeAtLocation(getLastVarRef());
+            console.log("WHATasda" + checker.typeToString(refType));
+            assert(checker.isTypeIdenticalTo(getDeclType(), refType), "last ref should be decl type!");
         }
     });
 });

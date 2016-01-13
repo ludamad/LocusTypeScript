@@ -501,7 +501,7 @@ namespace ts {
 
     /* [ConcreteTypeScript] For assignment analysis */
     export interface FlowType {
-        firstBindingSite:BinaryExpression|CallExpression;
+        firstBindingSite:ObjectLiteralElement|BinaryExpression|CallExpression;
         type:Type;
     }
     export interface FlowMember {
@@ -513,6 +513,30 @@ namespace ts {
     export interface FlowMemberSet {
         [member:string]: FlowMember;
     }
+    // if (!isConcreteObjectLiteralElement(property)) {
+    //                     continue;
+    //                 }
+    //                 // Set in flowAnalysis.ts
+    //                 let declaration = property.ctsBrandPropertyDeclaration;
+    //                 Debug.assert(declaration.brandTypeDeclaration.varOrParamDeclaration.name.kind === SyntaxKind.Identifier);
+    //                 let varName = (<Identifier>declaration.brandTypeDeclaration.varOrParamDeclaration.name).text;
+    //                 write(";"); writeLine();
+    //                 emitCTSRT("protectAssignment");
+    //                 write("(");
+    //                 emitCTSType((<ConcreteType>declaration.resolvedType).baseType);
+    //                 write(", " + JSON.stringify((<Identifier>property.name).text) + ", ");
+    //                 write(varName + ", ");
+    //                 emit((<PropertyAssignment>property).initializer)
+    //                 write(")");
+    export interface EmitterFunctions {
+        write;
+        writeLine;
+        emitCTSRT;
+        emit;
+        emitCTSType;
+    }
+    export type EmitCallback = (funcs:EmitterFunctions) => void;
+        
     /* [/ConcreteTypeScript] */
 
     export interface Node extends TextRange {
@@ -549,6 +573,8 @@ namespace ts {
         // Set in ctsAssignmentAnalysis.ts
         ctsAssignmentAnalysis?:   any;
         ctsDowngradeToBaseClass?: boolean
+        preEmitCallbacks?: EmitCallback[];
+        postEmitCallbacks?: EmitCallback[];
         brandsToEmitAfterwards?:  DeclareTypeNode[];
         brandsToEmitAtBeginning?: DeclareTypeNode[]; // Special case for parameter-this
         // [/ConcreteTypeScript]
@@ -2045,7 +2071,7 @@ namespace ts {
     // Intermediate types during type analysis (TypeFlags.IntermediateFlow)
     export interface IntermediateFlowType extends ObjectType {
         startingType: ObjectType;
-        intermediateMembers: FlowMemberSet;
+        flowMemberSet: FlowMemberSet;
         // If analysis is driven by a 'becomes' declaration, this is the type
         // we wish to become. This is important for the effects of
         targetType?: Type;

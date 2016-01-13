@@ -39,7 +39,6 @@ var compilerSources = [
     "utilities.ts",
     "binder.ts",
     "checker.ts",
-    "ctsAssignmentAnalysis.ts",
     "ctsTestEvaluator.ts",
     "ctsUtilities.ts",
     "declarationEmitter.ts",

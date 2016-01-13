@@ -1,7 +1,6 @@
 
 
 /// <reference path="binder.ts"/>
-/// <reference path="ctsAssignmentAnalysis.ts"/>
 /// <reference path="ctsTestEvaluator.ts"/>
 
 /// <reference path="ctsUtilities.ts"/>
@@ -2432,26 +2431,6 @@ namespace ts {
             return classType.typeParameters ? createTypeReference(<GenericType>classType, map(classType.typeParameters, _ => anyType)) : classType;
         }
 
-        // [ConcreteTypeScript]
-        function getUnionOverExpressions(propAnalysis:FlowTypeAnalysis): Type {
-            let types: Type[] = [];
-            for (let i = 0; i < propAnalysis.assignments.length; i++) {
-                let type = checkExpressionCached(propAnalysis.assignments[i]);
-                // If we are possibly uninitialized, remove guarantees about concreteness.
-                if (!propAnalysis.definitelyAssigned) type = stripConcreteType(type);
-                types.push(type);
-            }
-            return getUnionType(types);
-        }
-
-        // [ConcreteTypeScript]
-        function getTypeOfBrandProperty(declaration: BrandPropertyDeclaration): Type {
-            // We wish to give a type to the brand property that is a union over all declaration-scope assignments.
-            if (declaration.resolvedType) return declaration.resolvedType;
-            declaration.resolvedType = getUnionOverExpressions(declaration.ctsAssignmentAnalysis);
-            return declaration.resolvedType;
-        }
-
         // Return the type of the given property in the given type, or undefined if no such property exists
         function getTypeOfPropertyOfType(type: Type, name: string): Type {
             let prop = getPropertyOfType(type, name);
@@ -2525,9 +2504,10 @@ namespace ts {
 
         // Return the inferred type for a variable, parameter, or property declaration
         function getTypeForVariableLikeDeclaration(declaration: VariableLikeDeclaration): Type {
-            if (declaration.kind === SyntaxKind.BrandProperty) {
+            // TODO Remove
+            /*if (declaration.kind === SyntaxKind.BrandProperty) {
                 return getTypeOfBrandProperty(<BrandPropertyDeclaration> declaration);
-            }
+            }*/
             // A variable declared in a for..in statement is always of type any
             if (declaration.parent.parent.kind === SyntaxKind.ForInStatement) {
                 return anyType;
@@ -2577,9 +2557,10 @@ namespace ts {
             }
             // [ConcreteTypeScript]
             // Handle branded types
-            if (declaration.kind == SyntaxKind.BrandProperty) {
+            // TODO remove
+            /*if (declaration.kind == SyntaxKind.BrandProperty) {
                 return getTypeOfBrandProperty(<BrandPropertyDeclaration>declaration);
-            }
+            }*/
 
             // If the declaration specifies a binding pattern, use the type implied by the binding pattern
             if (isBindingPattern(declaration.name)) {
@@ -4369,6 +4350,7 @@ namespace ts {
         // [ConcreteTypeScript]
         function createFlowTypeIntermediate(startingType: Type, targetType?: Type) {
             let type = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
+            type.flowMemberSet = {};
             type.startingType = startingType;
             type.targetType = targetType;
             return type;
@@ -8417,14 +8399,6 @@ namespace ts {
             return checkPropertyAccessExpressionOrQualifiedName(node, node.left, node.right);
         }
 
-        // [ConcreteTypeScript] Get narrowed types for brand property, or proto-property accesses
-        function getNarrowedTypeOfBrandPropertyAccess(access:PropertyAccessExpression) {
-            // BUG FIX: Make sure resolvedType is always set.
-            let declaration = access.ctsAssignmentAnalysis.getDeclaration();
-            getTypeOfBrandProperty(declaration);
-            return getUnionOverExpressions(access.ctsAssignmentAnalysis);
-        }
-
         function checkPropertyAccessExpressionOrQualifiedName(node: PropertyAccessExpression | QualifiedName, left: Expression | QualifiedName, right: Identifier) {
             // [ConcreteTypeScript] types for .prototype:
             if ((<PropertyAccessExpression>node).brandTypeDecl) {
@@ -8477,15 +8451,15 @@ namespace ts {
                 checkClassPropertyAccess(node, left, type, prop);
             }
 
-            // [ConcreteTypeScript] Enact special logic for Brand types.
+            // [ConcreteTypeScript] TODO enact special logic for Declare types.
 
             let ptype:Type = getTypeOfSymbol(prop);
-            if (node.kind == SyntaxKind.PropertyAccessExpression) {
+            /*if (node.kind == SyntaxKind.PropertyAccessExpression) {
                 // if (prop.declarations && prop.declarations[0].kind == SyntaxKind.BrandProperty) {
                 if ((<PropertyAccessExpression>node).ctsAssignmentAnalysis) {
                     ptype = getNarrowedTypeOfBrandPropertyAccess(<PropertyAccessExpression>node);
                 }
-            }
+            }*/
             // Must check if the member is concrete but it is being accessed on a non-concrete type
             if (isConcreteType(ptype) && !isConcreteType(type)) {
                 node.mustCheck = ptype;
@@ -15184,7 +15158,7 @@ namespace ts {
                 let becomeType = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
                 becomeType.startingType = startingType;
                 becomeType.targetType = targetType;
-                becomeType.intermediateMembers = currentFlowMembers;
+                becomeType.flowMemberSet = currentFlowMembers;
                 return becomeType;
             }
         }
@@ -17135,6 +17109,35 @@ namespace ts {
                     prev = recurse(decl, prev);
                 }
             }
+            function scanObjectLiteralInitializer(varName: string, node: ObjectLiteralExpression) {
+                // TODO also implement for special object literal emits
+                // [ConcreteTypeScript] Emit protectors that were not emitted in the object initializer
+                let literalType = checkObjectLiteral(node);
+                let properties:Symbol[] = getPropertiesOfType(literalType);
+                properties.forEach(property => {
+                    let elementNode = <PropertyAssignment> getSymbolDecl(property, SyntaxKind.PropertyAssignment);
+                    var type = getTypeOfSymbol(property);
+                    prev = flowAssignment(prev, property.name, {firstBindingSite: elementNode, type});
+                    if (isConcreteType(type) && !DISABLE_PROTECTED_MEMBERS) {
+                        addPostEmit(node, ({write, writeLine, emitCTSRT, emitCTSType, emit}) => {
+                            write(";"); writeLine();
+                            emitCTSRT("protectAssignment");
+                            write("(");
+                            emitCTSType(stripConcreteType(type));
+                            write(`, "${property.name}", ${varName}, ${varName}.${property.name})`);
+                        });
+                    }
+                });
+
+            }
+            function scanVariableLikeDeclaration(node: VariableLikeDeclaration) {
+                if (node.initializer && isReference(node.name)) {
+                    if (node.initializer.kind === SyntaxKind.ObjectLiteralExpression) {
+                        scanObjectLiteralInitializer((<Identifier>node.name).text, <ObjectLiteralExpression> node.initializer);
+                    }
+                }
+                descend();
+            }
             function scanForInStatement(node: ForInStatement) {
                 prev = recurse(node.expression, prev);
                 // Flow analysis: Merge the result of entering the loop and of not
@@ -17197,6 +17200,9 @@ namespace ts {
                         return scanBinaryExpression(<BinaryExpression> node);
                     case SyntaxKind.ForStatement:
                         return scanForStatement(<ForStatement> node);
+                    case SyntaxKind.Parameter:
+                    case SyntaxKind.VariableDeclaration:
+                        return scanVariableLikeDeclaration(<ParameterDeclaration | VariableDeclaration> node);
                     case SyntaxKind.VariableDeclarationList:
                         return scanVariableDeclarationList(<VariableDeclarationList> node);
                     case SyntaxKind.ForInStatement:

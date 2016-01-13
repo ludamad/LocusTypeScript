@@ -3,8 +3,7 @@
 /// <reference path="binder.ts"/>
 /// <reference path="types.ts"/>
 /// <reference path="checker.ts"/>
-/// <reference path="ctsAssignmentAnalysis.ts"/>
-
+/// <reference path="printNode.ts"/>
 /// <reference path="ctsUtilities.ts"/>
 /// <reference path="ctsTypes.ts"/>
 

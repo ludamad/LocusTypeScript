@@ -1,6 +1,5 @@
 /// <reference path="parser.ts"/>
 /// <reference path="ctsUtilities.ts"/>
-/// <reference path="ctsAssignmentAnalysis.ts"/>
 
 /* @internal */
 namespace ts {
