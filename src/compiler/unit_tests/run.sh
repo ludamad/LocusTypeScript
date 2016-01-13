@@ -1,8 +1,8 @@
 mkdir -p built/local
-cp -r ../../../built/local/tsserver.js \
-    ../../../built/local/typescript.js \
-    ../../../built/local/typescriptServices.js \
-    ../../../built/local/lib* \
+#cp -r ../../../built/local/tsserver.js \
+#    ../../../built/local/typescript.js \
+#    ../../../built/local/typescriptServices.js \
+cp -r    ../../../built/local/lib* \
     built/local
 rm -f built/tsc.js
 set -e

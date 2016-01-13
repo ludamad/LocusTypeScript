@@ -19,7 +19,9 @@ describe("Calling functions with a declare parameter", function () {
         ts.printNodeDeep(reference);
         console.log("WHUT");
         console.log("" + checker.getFinalFlowMembers);
-        var _b = checker.getFinalFlowMembers(reference), x = _b.x, y = _b.y;
+        var _b = checker.getFinalFlowMembers(reference);
+        console.log("JIGGA", _b);
+        var x = _b.x, y = _b.y;
         console.log("WAT");
         assert(x && y, "Does not have 'x' and 'y' members.");
     }

@@ -16920,6 +16920,9 @@ namespace ts {
             if (isPrototypeAccess(obj)) {
                 return getScopeContainer(obj.expression);
             }
+            if (obj.kind === SyntaxKind.ThisKeyword) {
+                return getThisContainer(obj, /*Don't include arrow functions:*/ false);
+            }
             if (obj.kind !== SyntaxKind.Identifier) {
                 return false;
             }
@@ -16944,6 +16947,7 @@ namespace ts {
                     throw new Error("Expected object type, got " + typeToString(type));
                 }
                 let containerScope = getScopeContainer(reference);
+                Debug.assert(containerScope != null);
                 // Analysis was not yet run for this scope
                 let finalFlowMembers = computeAndSetFlowMembersForReferencesInScope(
                     /*Reference decider: */ (node) => areSameValue(node, reference),
