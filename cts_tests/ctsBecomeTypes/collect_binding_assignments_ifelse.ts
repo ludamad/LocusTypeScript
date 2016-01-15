@@ -2,7 +2,7 @@
 import {assert, assertNotBranded, assertBranded, assertType, assertFails} from "../cts_asserts";
 
 // @KnownDefect
-function f(x : becomes {a:number|string} extends {}) {
+function f(x : {} becomes {a:number|string}) {
     if (true) x.a := 1;
     else x.a := "hey";
     /* @assertType("!number|!string") */ x.a;

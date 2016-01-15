@@ -1583,6 +1583,7 @@ namespace ts {
         getTypeOfSymbol(symbol: Symbol): Type;
         createType(flags: TypeFlags): Type;
         getTypeFromTypeNode:any,
+        checkSourceFile:any,
         createConcreteType:any,
         stripConcreteType:any,
         isTypeIdenticalTo(source: Type, target: Type): boolean;

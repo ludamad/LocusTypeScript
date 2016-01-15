@@ -1,5 +1,5 @@
 // @KnownDefect
-function f(x : becomes {a:string} extends {}) {
+function f(x : {} becomes {a:string}) {
     x.a = "hey";
     /* @assertType("string") */ x.a;
 }

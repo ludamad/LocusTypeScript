@@ -3,6 +3,17 @@ require('./harness');
 
 Harness.lightMode = true;
 
+describe("Compilation tests", () => {
+    it ("Should compile simple becomes", () => {
+        let sourceText = `function test(funcParam: becomes {x: number}) {
+            funcParam.x = 1;
+        }
+        `;
+
+        let {rootNode, checker} = compileOne(sourceText);
+    });
+});
+
 describe("Calling functions with a declare parameter", () => {
     function callFunctionWithDeclareParameter(context, varName: string, expectedKind: number) {
         let calledFunction = `function calledFunction(funcParam: declare DeclaredType1) {

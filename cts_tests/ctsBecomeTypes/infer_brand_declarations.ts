@@ -1,5 +1,5 @@
 // @KnownDefect
-function becomeFoo(obj : declare Foo extends {}) {
+function becomeFoo(obj : {} declare Foo) {
     obj.a = 1;
     return obj;
 }
@@ -7,7 +7,7 @@ function becomeFoo(obj : declare Foo extends {}) {
 function useBecomeFoo(obj : {}) {
     becomeFoo(obj);
 }
-function useBecomeFooIndirectly(obj : becomes !Foo extends {}) {
+function useBecomeFooIndirectly(obj : {} becomes !Foo) {
     useBecomeFoo(obj);
 }
 

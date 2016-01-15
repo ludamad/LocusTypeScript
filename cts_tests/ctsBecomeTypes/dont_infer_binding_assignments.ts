@@ -5,7 +5,7 @@ function setX(obj: {}) {
     obj.x := 1;
 }
 
-function becomeFoo(obj : declare Foo extends {}) {
+function becomeFoo(obj : {} declare Foo) {
     setX(obj);
     return obj;
 }

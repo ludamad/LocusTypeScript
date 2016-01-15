@@ -1,10 +1,10 @@
 // @KnownDefect
 
-function setX(obj: becomes {x: number} extends {}) {
+function setX(obj: {} becomes {x: number}) {
     obj.x = 1;
 }
 
-function becomeFoo(obj : declare Foo extends {}) {
+function becomeFoo(obj : {} declare Foo) {
     setX(obj);
     return obj;
 }

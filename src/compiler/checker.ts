@@ -82,6 +82,7 @@ namespace ts {
             checkTypeAssignableTo,
             isSignatureAssignableTo,
             checkTypeRelatedTo,
+            checkSourceFile,
             isTypeAny,
             // [/ConcreteTypeScript]
             // The language service will always care about the narrowed type of a symbol, because that is
@@ -3280,6 +3281,9 @@ namespace ts {
             // [ConcreteTypeScript]
             let flowData = getFlowDataForType(type);
             if (flowData) {
+                if (baseTypes.length === 0) {
+                    members = createSymbolTable([]);
+                }
                 for (let key of Object.keys(flowData.memberSet)) {
                     let flowTypes = flowData.memberSet[key].flowTypes;
                     let symbol = createSymbol(SymbolFlags.Property, key);
@@ -3506,6 +3510,12 @@ namespace ts {
             let stringIndexType: Type;
             let numberIndexType: Type;
 
+            // [ConcreteTypeScript] Ugly hack until fully understood
+            if (!symbol) {
+                setObjectTypeMembers(type, emptySymbols, emptyArray, emptyArray, undefined, undefined);
+                return;
+            }
+            // [/ConcreteTypeScript] 
             if (symbol.flags & SymbolFlags.TypeLiteral) {
                 members = symbol.members;
                 callSignatures = getSignaturesOfSymbol(members["__call"]);
@@ -3660,7 +3670,7 @@ namespace ts {
          * boolean, and symbol primitive types, return the corresponding object types. Otherwise return the
          * type itself. Note that the apparent type of a union type is the union type itself.
          */
-        function getApparentType(type: Type): Type {
+        function getApparentType(type: Type, node?: Node): Type {
             if (type.flags & TypeFlags.TypeParameter) {
                 do {
                     type = getConstraintOfTypeParameter(<TypeParameter>type);
@@ -3669,7 +3679,12 @@ namespace ts {
                     type = emptyObjectType;
                 }
             }
-            if (type.flags & TypeFlags.StringLike) {
+            // [ConcreteTypeScript]
+            if (node && type.flags & TypeFlags.IntermediateFlow) {
+                type = getIntermediateFlowTypeAtLocation(node, <IntermediateFlowType> type);
+            } 
+            // [/ConcreteTypeScript]
+            else if (type.flags & TypeFlags.StringLike) {
                 type = globalStringType;
             }
             else if (type.flags & TypeFlags.NumberLike) {
@@ -6947,7 +6962,6 @@ namespace ts {
             checkCollisionWithCapturedSuperVariable(node, node);
             checkCollisionWithCapturedThisVariable(node, node);
             checkBlockScopedBindingCapturedInLoop(node, symbol);
-
             return getNarrowedTypeOfSymbol(getExportSymbolOfValueSymbolIfExported(symbol), node);
         }
 
@@ -7059,13 +7073,12 @@ namespace ts {
                 captureLexicalThis(node, container);
             }
 
-            if (isFunctionLike(container) && !(node).ctsDowngradeToBaseClass) {
-                let thisType = getSignatureFromDeclaration(container).resolvedThisType;
-                if (thisType) {
-                    return thisType;
-                }
+            // [ConcreteTypeScript]
+            if (isFunctionLike(container)) {
+                let thisType:Type = getSignatureFromDeclaration(container).resolvedThisType;
+                return thisType;
             }
-
+            // [/ConcreteTypeScript]
             if (isClassLike(container.parent)) {
                 let symbol = getSymbolOfNode(container.parent);
                 // [ConcreteTypeScript] Need to assure 'this' is concrete
@@ -7476,8 +7489,8 @@ namespace ts {
         // Return the contextual type for a given expression node. During overload resolution, a contextual type may temporarily
         // be "pushed" onto a node using the contextualType property.
         function getContextualType(node: Expression): Type {
-            let type = getContextualTypeWorker(node);
-            return type && getApparentType(type);
+            let type:Type = getContextualTypeWorker(node);
+            return type && getApparentType(type, node);
         }
 
         function getContextualTypeWorker(node: Expression): Type {
@@ -8498,8 +8511,10 @@ namespace ts {
             if (isTypeAny(type)) {
                 return type;
             }
-
-            let apparentType = getApparentType(getWidenedType(type));
+            if (type.flags & ts.TypeFlags.IntermediateFlow) {
+                return unknownType;
+            }
+            let apparentType = getApparentType(getWidenedType(type), /* [ConcreteTypeScript] */ left);
             if (apparentType === unknownType) {
                 // handle cases when type is Type parameter with invalid constraint
                 return unknownType;
@@ -8602,7 +8617,7 @@ namespace ts {
             }
 
             // Obtain base constraint such that we can bail out if the constraint is an unknown type
-            let objectType = getApparentType(checkExpression(node.expression));
+            let objectType = getApparentType(checkExpression(node.expression), /* [ConcreteTypeScript]: */ node.expression); 
             let indexType = node.argumentExpression ? checkExpression(node.argumentExpression) : unknownType;
 
             // [ConcreteTypeScript] Allow concrete indexes
@@ -9630,7 +9645,7 @@ namespace ts {
             }
 
             let funcType = checkExpression(node.expression);
-            let apparentType = getApparentType(funcType);
+            let apparentType = getApparentType(funcType, /* [ConcreteTypeScript]: */ node.expression);
 
             if (apparentType === unknownType) {
                 // Another error has already been reported
@@ -9689,7 +9704,7 @@ namespace ts {
             // function call, but using the construct signatures as the initial set of candidate
             // signatures for overload resolution. The result type of the function call becomes
             // the result type of the operation.
-            expressionType = getApparentType(expressionType);
+            expressionType = getApparentType(expressionType, /* [ConcreteTypeScript]: */ node.expression);
             if (expressionType === unknownType) {
                 // Another error has already been reported
                 return resolveErrorCall(node);
@@ -15216,6 +15231,37 @@ namespace ts {
             return true;
         }
 
+        // [ConcretTypeScript] The minimal intersection that represents the same declare-types, classes, and members.
+        function getMinimalIntersectionType(types: Type[]) {
+            let filteredTypes = []; 
+            for (let i = 0; i < types.length; i++) {
+                if (!isRedundant(i)) {
+                    filteredTypes.push(types[i]); 
+                }
+            }
+            if (filteredTypes.length === 1) {
+                return filteredTypes[0]; // TODO assess if does anything
+            }
+            return getIntersectionType(filteredTypes);
+            // Where:
+            function isRedundant(i) {
+                for (let j = 0; j < types.length; j++) {
+                    if (i === j) {
+                        continue;
+                    }
+                    if (isTypeIdenticalTo(types[j], types[i])) {
+                        // If we are the second duplicate, don't include:
+                        if (i > j) {
+                            return true;
+                        }
+                    // If we are a subtype of any type, don't include:
+                    } else if (isTypeSubtypeOf(types[j], types[i])) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
         // [ConcretTypeScript] The formal type is used for binding.
         function getFormalTypeFromIntermediateFlowType(type: IntermediateFlowType, degrade = true): Type {
             if (isIntermediateFlowTypeSubsetOfTarget(type)) {
@@ -15228,32 +15274,12 @@ namespace ts {
                 else {
                     // Create an intersection type, but do manual pruning that typescript
                     // doesnt do on getIntersectionType():
-                    let types = type.flowData.flowTypes.map(ft => ft.type);
-                    types.push(type.targetType);
-                    function isRedundant(i) {
-                        for (let j = 0; j < types.length; j++) {
-                            if (i === j) {
-                                continue;
-                            }
-                            if (isTypeIdenticalTo(types[j], types[i])) {
-                                // If we are the second duplicate, don't include:
-                                if (i > j) {
-                                    return true;
-                                }
-                            // If we are a subtype of any type, don't include:
-                            } else if (isTypeSubtypeOf(types[j], types[i])) {
-                                return true;
-                            }
-                        }
-                        return false;
-                    }
-                    let filteredTypes = []; 
-                    for (let i = 0; i < types.length; i++) {
-                        if (!isRedundant(i)) {
-                            filteredTypes.push(types[i]); 
-                        }
-                    }
-                    return getIntersectionType(filteredTypes);
+                    return getMinimalIntersectionType( 
+                        type.flowData.flowTypes
+                            .map(ft => ft.type)
+                            .concat([type.targetType])
+                    );
+
                 }
             }
             return degrade ? flowDataFormalType(type.flowData) : type;
@@ -15277,22 +15303,25 @@ namespace ts {
    //             return startingType;
    //         }
    //     }
-        
+       
+        function getIntermediateFlowTypeAtLocation(node: Node, type:IntermediateFlowType) {
+            // If we resolved as an intermediate type node, update with location information:
+            let currentFlowData:FlowData = getFlowDataAtLocation(node, type);
+            if (currentFlowData) {
+                let intermediateFlowType = <IntermediateFlowType> createObjectType(TypeFlags.IntermediateFlow);
+                intermediateFlowType.targetType = type.targetType;
+                intermediateFlowType.flowData = currentFlowData;
+                return getFormalTypeFromIntermediateFlowType(intermediateFlowType, /*Don't degrade: */ false);
+            } else {
+                return getFormalTypeFromIntermediateFlowType(<IntermediateFlowType> type, /*Degrade: */ true);
+            }
+        }
         // [ConcreteTypeScript]
         function getTypeOfNode(node: Node): Type {
             let type = getTypeOfNodeWorker(node);
             // Handle becomes-types:
             if (type.flags & TypeFlags.IntermediateFlow) {
-                // If we resolved as an intermediate type node, update with location information:
-                let currentFlowData:FlowData = getFlowDataAtLocation(node);
-                if (currentFlowData) {
-                    let intermediateFlowType = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
-                    intermediateFlowType.targetType = (<IntermediateFlowType> type).targetType;
-                    intermediateFlowType.flowData = currentFlowData;
-                    return getFormalTypeFromIntermediateFlowType(intermediateFlowType, /*Don't degrade: */ false);
-                } else {
-                    return getFormalTypeFromIntermediateFlowType(<IntermediateFlowType> type, /*Degrade: */ true);
-                }
+                return getIntermediateFlowTypeAtLocation(node, <IntermediateFlowType> type); 
             }
             return type;
         }
@@ -17206,24 +17235,24 @@ namespace ts {
         }
         type ReferenceDecider = (node:Node) => boolean;
 
-        function getFinalFlowData(reference: Node, declType?: Type):FlowData {
+        function getFinalFlowData(reference: Node, type?: Type):FlowData {
             if (!canHaveFlowData(reference)) {
                 return null;
             }
-            ensureFlowDataIsSet(reference);
+            ensureFlowDataIsSet(reference, type);
             Debug.assert(getNodeLinks(reference).ctsFinalFlowData != null);
             return getNodeLinks(reference).ctsFinalFlowData;
         }
-        function getFlowDataAtLocation(reference: Node):FlowData {
+        function getFlowDataAtLocation(reference: Node, type?: Type):FlowData {
             if (!canHaveFlowData(reference)) {
                 return null;
             }
-            ensureFlowDataIsSet(reference);
+            ensureFlowDataIsSet(reference, type);
             Debug.assert(getNodeLinks(reference).ctsFlowData != null);
             return getNodeLinks(reference).ctsFlowData;
         }
 
-        function ensureFlowDataIsSet(reference: Node) {
+        function ensureFlowDataIsSet(reference: Node, type?: Type) {
             function getRefType() {
                 if (reference.kind === SyntaxKind.Identifier && (<Identifier>reference).text === "this") {
                     ts.Debug.assert(reference.parent.kind === SyntaxKind.ThisParameter);
@@ -17235,7 +17264,7 @@ namespace ts {
             Debug.assert(reference.kind === SyntaxKind.Identifier || reference.kind === SyntaxKind.ThisKeyword);
             if (!getNodeLinks(reference).ctsFinalFlowData) {
                 // Get the type, be careful not to trigger a loop:
-                let refType = getRefType(); 
+                let refType = type || getRefType(); 
                 if (refType && refType.flags & TypeFlags.IntermediateFlow) {
                     var flowData:FlowData = (<IntermediateFlowType>refType).flowData;
                 } else {
@@ -17243,6 +17272,13 @@ namespace ts {
                 }
                 let containerScope = getScopeContainer(reference);
                 Debug.assert(containerScope != null);
+            /*    forEachChildRecursive(containerScope, node => {
+                    if (areSameValue(node, reference)) {
+                        // Fallback to base type to prevent infinite recursion:
+                        getNodeLinks(node).ctsFlowData = flowData;
+                        getNodeLinks(node).ctsFinalFlowData = flowData;
+                    }
+                });*/
                 // Analysis was not yet run for this scope
                 let finalFlowData = computeAndSetFlowDataForReferencesInScope(
                     /*Reference decider: */ (node) => areSameValue(node, reference),
@@ -17304,6 +17340,10 @@ namespace ts {
                 let becomesAmount = 0;
                 for (let i = 0; i < parameters.length && i < arguments.length; i++) {
                     let parameter:ParameterDeclaration = parameters[i];
+                    // Cannot do anything without type information:
+                    if (!parameter.type) {
+                        continue;
+                    }
                     if (isReference(arguments[i])) {
                         becomesAmount++;
                         let paramType = getTypeFromTypeNode(parameter.type);
