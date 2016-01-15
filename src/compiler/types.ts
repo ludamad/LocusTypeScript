@@ -501,7 +501,7 @@ namespace ts {
 
     /* [ConcreteTypeScript] For assignment analysis */
     export interface FlowType {
-        firstBindingSite:ObjectLiteralElement|BinaryExpression|CallExpression;
+        firstBindingSite:Node;
         type:Type;
     }
     export interface FlowMember {
@@ -1578,8 +1578,8 @@ namespace ts {
         getReturnTypeOfSignature(signature: Signature): Type;
         // [ConcreteTypeScript]
         objectType?:Type;
-        getFlowMembersAtLocation(reference: Node): FlowMemberSet;
-        getFinalFlowMembers(reference: Node): FlowMemberSet;
+        getFlowDataAtLocation(reference: Node): FlowData;
+        getFinalFlowData(reference: Node): FlowData;
         getTypeOfSymbol(symbol: Symbol): Type;
         createType(flags: TypeFlags): Type;
         getTypeFromTypeNode:any,
@@ -1889,7 +1889,7 @@ namespace ts {
         mapper?: TypeMapper;                // Type mapper for instantiation alias
         referenced?: boolean;               // True if alias symbol has been referenced as a value
         // [ConcreteTypeScript]
-        containingType?: UnionOrIntersectionType | IntermediateFlowType; // Containing union or intersection type for synthetic property
+        containingType?: UnionOrIntersectionType; // Containing union or intersection type for synthetic property
         // [/ConcreteTypeScript]
         resolvedExports?: SymbolTable;      // Resolved exports of module
         exportsChecked?: boolean;           // True if exports of external module have been checked
@@ -1929,8 +1929,8 @@ namespace ts {
     /* @internal */
     export interface NodeLinks {
         /* [ConcreteTypeScript] */
-        ctsFlowMembers?:       FlowMemberSet; // What flow-members have been calculated for this specific node instance?
-        ctsFinalFlowMembers?:  FlowMemberSet; // What are the final flow members for this node, after all assignments?
+        ctsFlowData?:       FlowData; // What flow-members have been calculated for this specific node instance?
+        ctsFinalFlowData?:  FlowData; // What are the final flow members for this node, after all assignments?
         /* [/ConcreteTypeScript] */
         resolvedType?: Type;              // Cached type of type node
         resolvedAwaitedType?: Type;       // Cached awaited type of type node
@@ -2048,9 +2048,9 @@ namespace ts {
 
         // [ConcreteTypeScript+Become]
         // Declare types are essentially an InterfaceType with TypeFlags.Declare
-        // and potentially a computed flowMemberSet member (after resolution for implicit declare types)
+        // and potentially a computed flowData member (after resolution for implicit declare types)
         /* @internal */
-        flowMemberSet?: FlowMemberSet;
+        flowData?: FlowData;
     }
 
     export interface InterfaceTypeWithDeclaredMembers extends InterfaceType {

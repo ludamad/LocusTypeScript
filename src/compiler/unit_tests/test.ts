@@ -13,17 +13,24 @@ describe("Calling functions with a declare parameter", () => {
         
         let referrer = context(varName, "DeclaredType2", `
             calledFunction(${varName});
+            ${varName};
         `)
         let {rootNode, checker} = compileOne(calledFunction + referrer);
         let callNode = findFirst(rootNode, ts.SyntaxKind.CallExpression);
         if (expectedKind === ts.SyntaxKind.Identifier) {
-            var reference = findFirst(callNode, ({text}:any) => text == varName);
+            var reference = findFirst(callNode, ({text}:any) => text === varName);
+            var refAfter = findFirst(rootNode, ({text, pos}:any) => text === varName && pos > reference.pos);
         } else {
             var reference = findFirst(callNode, expectedKind);
+            var refAfter = findFirst(rootNode, ({kind, pos}) => kind === expectedKind && pos > reference.pos);
         }
-        ts.printNodeDeep(reference);
-        let {x, y} = checker.getFinalFlowMembers(reference);
-        assert(x && y, "Does not have 'x' and 'y' members.");
+        let typeAfter = checker.getTypeAtLocation(refAfter);
+        console.log(checker.typeToString(typeAfter))
+        assert(!!(typeAfter.flags & ts.TypeFlags.Declare), "Should resolve to declare type!");
+        console.log(checker.typeToString(typeAfter))
+        console.log(checker.getBaseTypes(<any>typeAfter).map(<any>checker.typeToString))
+        assert(checker.getPropertyOfType(typeAfter, "x"), "Does not have 'x' member.");
+        assert(checker.getPropertyOfType(typeAfter, "y"), "Does not have 'y' member.");
     }
 
     it("should bind through function call for a 'this' parameter", () => {
@@ -47,6 +54,99 @@ describe("Calling functions with a declare parameter", () => {
         
     });
 });*/
+
+// TODO test ensure variable not assignable
+describe("Type relations of ConcreteTypeScript", () => {
+
+    it("Should test relationships for IntermediateFlowType's", () => {
+        let {checker, declType1, intermType1} = getDeclareTypes(disjointSource);
+        let targetType1 = (<ts.IntermediateFlowType>intermType1).targetType;
+        let startingType1 = (<ts.IntermediateFlowType>intermType1).flowData.flowTypes[0].type;
+        let {isTypeIdenticalTo, checkTypeSubtypeOf, checkTypeAssignableTo} = checker;
+        assert(checkTypeAssignableTo(intermType1, startingType1, undefined), "Should be assignable to starting type!");
+        assert(checkTypeAssignableTo(targetType1, startingType1, undefined), "Should be assignable to starting type!");
+        assert(checkTypeAssignableTo(targetType1, intermType1, undefined), "Should be assignable to starting type!");
+        assert(!checkTypeAssignableTo(startingType1, intermType1, undefined), "Should not be assignable from starting type!");
+    });
+
+
+    it("Should test relationships for disjoint Declare-types", () => {
+        let {checker, declType1, declType2} = getDeclareTypes(disjointSource);
+        let {isTypeIdenticalTo, checkTypeSubtypeOf, checkTypeAssignableTo} = checker;
+        assert(!isTypeIdenticalTo(declType1, declType2));
+        assert(!isTypeIdenticalTo(declType2, declType1));
+        assert(!checkTypeSubtypeOf(declType1, declType2, undefined));
+        assert(!checkTypeSubtypeOf(declType2, declType1, undefined));
+        assert(!checkTypeAssignableTo(declType1, declType2, undefined));
+        assert(!checkTypeAssignableTo(declType2, declType1, undefined));
+    });
+
+    it("Should test relationships for 'Decl1 declare Decl2' Declare-types", () => {
+        let {checker, declType1, declType2} = getDeclareTypes(impliedBaseSource);
+        let {getBaseTypes, isTypeIdenticalTo, checkTypeSubtypeOf, checkTypeAssignableTo} = checker;
+        console.log("TRIGGERED");
+        let [baseType] = getBaseTypes(<ts.InterfaceType> declType2);
+        assert(baseType === declType1, "Base type should be declType1");
+        assert(!isTypeIdenticalTo(declType1, declType2), "Types should not be identical");
+        assert(!isTypeIdenticalTo(declType2, declType1), "Types should not be identical");
+        assert(checkTypeSubtypeOf(declType2, declType1, undefined), "declType2 should be a subtype of declType1");
+        assert(!checkTypeSubtypeOf(declType1, declType2, undefined));
+        assert(!checkTypeAssignableTo(declType1, declType2, undefined));
+        assert(checkTypeAssignableTo(declType2, declType1, undefined));
+    });
+
+    return;
+    function impliedBaseSource(varName) {
+        return `
+            var ${varName}1 : declare DeclareType1 = {};
+            ${varName}1.member1 = "string";
+            var ${varName}2 : DeclareType1 declare DeclareType2 = ${varName}1;
+            ${varName}2.member2 = "string";
+        `;
+    }
+
+    function disjointSource(varName) {
+        return `
+            var ${varName}1 : declare DeclareType1 = {};
+            var ${varName}2 : declare DeclareType2 = {};
+            ${varName}1.member = "string";
+            ${varName}2.member = "string";
+        `;
+    }
+    function getDeclareTypes(source) {
+        const varName = "simpleBindingVar";
+        let sourceText = source(varName);
+        let {rootNode, checker} = compileOne(sourceText);
+        let [varNode1, varNode2] = getVarRefs();
+
+        return {checker, 
+            intermType1: getIntermediateType(varNode1), 
+            intermType2: getIntermediateType(varNode2), 
+            declType1: getDeclType(varNode1), 
+            declType2: getDeclType(varNode2)
+        };
+
+        function getVarRefs() : ts.Node[] {
+            return [
+                findFirst(rootNode, ({text}:any) => text === `${varName}1`),
+                findFirst(rootNode, ({text}:any) => text === `${varName}2`)
+            ];
+        }
+        // Will not depend on whether resolves correctly:
+        function getDeclType(node:ts.Node) {
+            let type = getIntermediateType(node);
+            let declType = (<ts.IntermediateFlowType>type).targetType;
+            assert(!!(declType.flags & ts.TypeFlags.Declare), "getDeclType failure");
+            return declType;
+        }
+        function getIntermediateType(node:ts.Node) {
+            let intermediate = checker.getTypeAtLocation(node);
+            assert(!!(intermediate.flags & ts.TypeFlags.IntermediateFlow), "getIntermediateType failure");
+            return intermediate;
+        }
+    }
+
+});
 
 describe("The stages of binding", () => {
     it("Should test the stages of declare-type binding", () => {
@@ -109,8 +209,8 @@ describe("The stages of binding", () => {
             let refType = checker.getTypeAtLocation(get2ndVarRef())
             console.log(checker.typeToString(refType));
             assert(refType.flags & ts.TypeFlags.IntermediateFlow, "Resulting type should have IntermediateFlow");
-            let {flowMemberSet} = <ts.IntermediateFlowType>refType;
-            let {objProp1, objProp2} = flowMemberSet;
+            let {flowData} = <ts.IntermediateFlowType>refType;
+            let {memberSet: {objProp1, objProp2}} = flowData;
             assert(objProp1 && objProp2, "Should bind members from object literal.");
         }
 
@@ -144,10 +244,10 @@ describe("Simple sequential assignments", () => {
 
         let [xAssign, yAssign] = find(rootNode, ts.SyntaxKind.PropertyAccessExpression);
 
-        let {x: x1, y: y1} = checker.getFlowMembersAtLocation(findFirst(xAssign, expectedKind));
-        let {x: x2, y: y2} = checker.getFlowMembersAtLocation(findFirst(yAssign, expectedKind));
+        let {memberSet: {x: x1, y: y1}} = checker.getFlowDataAtLocation(findFirst(xAssign, expectedKind));
+        let {memberSet: {x: x2, y: y2}} = checker.getFlowDataAtLocation(findFirst(yAssign, expectedKind));
 
-        let {x: xFinal, y: yFinal} = checker.getFinalFlowMembers(findFirst(xAssign, expectedKind));
+        let {memberSet: {x: xFinal, y: yFinal}} = checker.getFinalFlowData(findFirst(xAssign, expectedKind));
 
         assert(!x1 && !y1, "Incorrect members before first assignment.");
         assert(x2 && !y2, "Incorrect members before second assignment.");
