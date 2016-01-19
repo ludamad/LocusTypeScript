@@ -58,7 +58,7 @@ namespace ts {
         let argumentsSymbol = createSymbol(SymbolFlags.Property | SymbolFlags.Transient, "arguments");
 
         // [ConcreteTypeScript]
-        let flowDependentTypeStack: InterfaceType[] = [];
+        let flowDependentTypeStack: Type[] = [];
         // [/ConcreteTypeScript]
         let checker: TypeChecker = {
             getNodeCount: () => sum(host.getSourceFiles(), "nodeCount"),
@@ -2985,6 +2985,7 @@ namespace ts {
 
         function getBaseTypes(type: InterfaceType): ObjectType[] {
             // [ConcreteTypeScript]
+            type = <InterfaceType> stripConcreteType(type);
             if (<any>type === emptyObjectType) {
                 throw new Error("HACK shouldn't happen");
                 // HACK: Not actually an InterfaceType here. TODO
@@ -3007,7 +3008,7 @@ namespace ts {
 
         function resolveBaseTypesOfDeclare(type: InterfaceType) {
             let {flowTypes} = getFlowDataForType(type);
-            type.resolvedBaseTypes = flowTypes.map(({type})=>type).filter(type => type !== emptyObjectType);
+            type.resolvedBaseTypes = getMinimalTypeList(flowTypes.map(ft => stripConcreteType(ft.type)));
         }
         function resolveBaseTypesOfClass(type: InterfaceType): void {
           // TODO CONCRETETYPESCRIPT HOOK DECEMBER 10
@@ -3254,11 +3255,16 @@ namespace ts {
                     (<InterfaceType>type).flowData = {memberSet: {}, flowTypes: []};
                     let name = getVariableNameFromDeclareTypeNode(declNode);
                     (<ResolvedType><ObjectType>type).members = null; // We will have a cached value 
-                    (<InterfaceType>type).flowData = getFinalFlowData(name, type);
+                    let flowData = getFinalFlowData(name, type);
+                    if (flowData === null) {
+                        // Recursive case:
+                        return null;
+                    }
+                    (<InterfaceType>type).flowData = flowData;
                 }
                 return (<InterfaceType>type).flowData;
             }
-            return null;
+            return undefined;
         }
 
         // [ConcreteTypeScript] Handles TypeFlags.Declare too
@@ -3282,6 +3288,7 @@ namespace ts {
             }
 
             // [ConcreteTypeScript]
+            // TODO un-resolve classes that were 'resolved' during recursive computation
             let flowData = getFlowDataForType(type);
             if (flowData) {
                 if (baseTypes.length === 0) {
@@ -4427,12 +4434,14 @@ namespace ts {
         }
 
         // [ConcreteTypeScript]
-        function createFlowTypeIntermediate(firstBindingSite:Node, startingType: Type, targetType?: Type) {
+        function createFlowTypeIntermediate(firstBindingSite:Node, startingType: Type, targetType?: Type, declareTypeNode?:DeclareTypeNode) {
             let type = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
             let flowTypes:FlowType[] = [{type: startingType, firstBindingSite}];
             let memberSet:FlowMemberSet = {};
             type.flowData = {flowTypes, memberSet};
             type.targetType = targetType;
+            // Clearly marks this as a node computing members captured in some type:
+            type.declareTypeNode = declareTypeNode;
             return type;
         }
         // [/ConcreteTypeScript]
@@ -4484,7 +4493,7 @@ namespace ts {
                 let targetType = getDeclaredTypeOfSymbol(node.symbol);
                 Debug.assert(!isTypeAny(startingType));
                 Debug.assert(!isTypeAny(targetType));
-                links.resolvedType = createFlowTypeIntermediate(node, startingType, targetType);
+                links.resolvedType = createFlowTypeIntermediate(node, startingType, createConcreteType(targetType), node);
             }
             return links.resolvedType;
         }
@@ -6652,8 +6661,17 @@ namespace ts {
             }
         }
 
-        // Get the narrowed type of a given symbol at a given location
+        // [ConcreteTypeScript]
         function getNarrowedTypeOfSymbol(symbol: Symbol, node: Node) {
+            let type = getNarrowedTypeOfSymbolWorker(symbol, node);
+            if (type.flags & TypeFlags.IntermediateFlow) {
+                return getIntermediateFlowTypeAtLocation(node, <IntermediateFlowType> type); 
+            }
+            return type;
+        }
+        // Get the narrowed type of a given symbol at a given location
+        function getNarrowedTypeOfSymbolWorker(symbol: Symbol, node: Node) {
+        // [/ConcreteTypeScript]
             let type = getTypeOfSymbol(symbol);
             // [ConcreteTypeScript] Brand variable declarations evaluate to their subtype
             // until the end of scope, or inside a return statement.
@@ -8483,39 +8501,9 @@ namespace ts {
         }
 
         function checkPropertyAccessExpressionOrQualifiedName(node: PropertyAccessExpression | QualifiedName, left: Expression | QualifiedName, right: Identifier) {
-            // [ConcreteTypeScript] types for .prototype:
-            if ((<PropertyAccessExpression>node).brandTypeDecl) {
-                let brandDecl = (<PropertyAccessExpression>node).brandTypeDecl.prototypeBrandDeclaration;
-                Debug.assert(!!brandDecl);
-                let type:Type;
-                if ((node).ctsDowngradeToBaseClass) {
-                    let extended:Type = brandDecl.extendedType && getTypeFromTypeNode(brandDecl.extendedType);
-                    if (extended) {
-                        let brandTypeExtension:DeclareTypeNode = <DeclareTypeNode>getSymbolDecl(extended.symbol, SyntaxKind.BrandTypeDeclaration);
-                        type = getDeclaredTypeOfSymbol(brandTypeExtension.symbol);
-
-                    } else {
-                        let owner = (brandDecl.parent.kind === SyntaxKind.BrandTypeDeclaration) ? <DeclareTypeNode> brandDecl.parent : null;
-                        let baseExtended = owner && owner.extendedType && getTypeFromTypeNode(owner.extendedType);
-                        if (baseExtended) {
-                            let brandTypeExtension:DeclareTypeNode = <DeclareTypeNode>getSymbolDecl(baseExtended.symbol, SyntaxKind.BrandTypeDeclaration);
-                            type = getDeclaredTypeOfSymbol(brandTypeExtension.prototypeBrandDeclaration.symbol);
-                        } else {
-                            type = emptyObjectType;
-                        }
-                    }
-                } else {
-                    type = getDeclaredTypeOfSymbol(brandDecl.symbol);
-                }
-                return type;
-            }
-            // [/ConcreteTypeScript]
             let type:Type = checkExpression(left);
             if (isTypeAny(type)) {
                 return type;
-            }
-            if (type.flags & ts.TypeFlags.IntermediateFlow) {
-                return unknownType;
             }
             let apparentType = getApparentType(getWidenedType(type), /* [ConcreteTypeScript] */ left);
             if (apparentType === unknownType) {
@@ -15211,31 +15199,78 @@ namespace ts {
         }
 
         // [ConcreteTypeScript]
+        // TODO name this properly or find if its redundant
+        function typeSubSet(current, target) {
+            if (isConcreteType(target) && !isConcreteType(current)) {
+                return false;
+            }
+            current = stripConcreteType(current);
+            target = stripConcreteType(target);
+            if (target && !isTypeSubtypeOf(current, target)) {
+                return false;
+            }
+            return true;
+        }
+        function values<T>(obj:{[s:string]:T}): T[] {
+            let ret:T[] = [];
+            for (let key in obj) {
+                if (hasProperty(obj, key)) {
+                    ret.push(obj[key]);
+                }
+            }
+            return ret;
+        }
         function isIntermediateFlowTypeSubsetOfTarget(type:IntermediateFlowType): boolean {
             if (!type.targetType) {
                 return false;
             }
-            for (let property of getPropertiesOfType(type.targetType)) {
-                let targetPropType = getTypeOfSymbol(property);
-                let currentProp = getPropertyOfType(type, property.name);
-                if (!currentProp) {
-                    return false;
+            // 
+            if (type.declareTypeNode) {
+                // Path 1: Member-capturing becomes through 'declare MyType'
+                let {flowData} = type;
+                let target = stripConcreteType(type.targetType);
+                let finalFlowData = getFlowDataForType(target);
+                for (let i = 0; i < finalFlowData.flowTypes.length; i++) {
+                    if (!flowData.flowTypes[i]) {
+                        return false;
+                    }
+                    let {type: tC} = flowData.flowTypes[i]; // Current
+                    let {type: tF} = finalFlowData.flowTypes[i]; // Final
+                    if (!typeSubSet(tC, tF)) {
+                        return false;
+                    }
                 }
-                var currentPropType = getTypeOfSymbol(currentProp);
-                if (isConcreteType(targetPropType) && !isConcreteType(currentPropType)) {
-                    return false;
+                for (let memberFinal of values(finalFlowData.memberSet)) { 
+                    let memberCurrent = flowData.memberSet[memberFinal.key];
+                    if (!memberCurrent) {
+                        return false;
+                    }
+                    let tC = flowTypeGet(memberCurrent);
+                    let tF = flowTypeGet(memberFinal);
+                    if (!typeSubSet(tC, tF)) {
+                        return false;
+                    }
                 }
-                currentPropType = stripConcreteType(currentPropType);
-                targetPropType = stripConcreteType(targetPropType);
-                if (targetPropType && !isTypeSubtypeOf(currentPropType, targetPropType)) {
-                    return false;
+                return true;
+            } else {
+                // Path 2: Normal interface/brand-interface becomes.
+                for (let property of getPropertiesOfType(type.targetType)) {
+                    let targetPropType = getTypeOfSymbol(property);
+                    let currentProp = getPropertyOfType(type, property.name);
+                    if (!currentProp) {
+                        return false;
+                    }
+                    var currentPropType = getTypeOfSymbol(currentProp);
+                    if (!typeSubSet(currentPropType, targetPropType)) {
+                        return false;
+                    }
                 }
+                return true;
             }
-            return true;
         }
 
-        // [ConcretTypeScript] The minimal intersection that represents the same declare-types, classes, and members.
-        function getMinimalIntersectionType(types: Type[]) {
+        // [ConcreteTypeScript] The minimal intersection that represents the same declare-types, classes, and members.
+        function getMinimalTypeList(types: Type[]) {
             let filteredTypes = []; 
             for (let i = 0; i < types.length; i++) {
                 if (!isRedundant(i)) {
@@ -15245,44 +15280,52 @@ namespace ts {
             if (filteredTypes.length === 1) {
                 return filteredTypes[0]; // TODO assess if does anything
             }
-            return getIntersectionType(filteredTypes);
+            return filteredTypes;
             // Where:
             function isRedundant(i) {
                 for (let j = 0; j < types.length; j++) {
                     if (i === j) {
                         continue;
                     }
-                    if (isTypeIdenticalTo(types[j], types[i])) {
-                        // If we are the second duplicate, don't include:
-                        if (i > j) {
+                    let cj = isConcreteType(types[j]), ci = isConcreteType(types[i]);
+                    let tj = stripConcreteType(types[j]), ti = stripConcreteType(types[i]);
+                    if (isTypeIdenticalTo(tj, ti)) {
+                        if (+cj > +ci) { // Concreteness of j is stronger?
+                            return true; // Obsoleted by stronger concrete version
+                        }
+                        // If we are the second duplicate of same concreteness, obsolete:
+                        if (ci === cj && i > j) {
                             return true;
                         }
                     // If we are a subtype of any type, don't include:
                     } else if (isTypeSubtypeOf(types[j], types[i])) {
-                        return true;
+                        if (+cj >= +ci) { // Concreteness of j at least ast strong?
+                            return true; // Obsoleted by stronger concrete version
+                        }
                     }
                 }
                 return false;
             }
         }
-        // [ConcretTypeScript] The formal type is used for binding.
+        // [ConcreteTypeScript] The formal type is used for binding.
         function getFormalTypeFromIntermediateFlowType(type: IntermediateFlowType, degrade = true): Type {
             if (isIntermediateFlowTypeSubsetOfTarget(type)) {
                 // Always collect everything in the declared type, anyway:
                 // TODO see about wrapping this in an intermediate flow type 
                 // if they are members here beyond that of the Declare
-                if (type.targetType.flags & ts.TypeFlags.Declare) {
+                if (stripConcreteType(type.targetType).flags & ts.TypeFlags.Declare) {
                     return type.targetType;
                 }
                 else {
                     // Create an intersection type, but do manual pruning that typescript
                     // doesnt do on getIntersectionType():
-                    return getMinimalIntersectionType( 
-                        type.flowData.flowTypes
-                            .map(ft => ft.type)
-                            .concat([type.targetType])
-                    );
-
+                    return getIntersectionType(
+                              getMinimalTypeList(
+                                type.flowData.flowTypes
+                                  .map(ft => ft.type)
+                                  .concat([type.targetType])
+                              )
+                          );
                 }
             }
             return degrade ? flowDataFormalType(type.flowData) : type;
@@ -15314,9 +15357,10 @@ namespace ts {
                 let intermediateFlowType = <IntermediateFlowType> createObjectType(TypeFlags.IntermediateFlow);
                 intermediateFlowType.targetType = type.targetType;
                 intermediateFlowType.flowData = currentFlowData;
+                intermediateFlowType.declareTypeNode = type.declareTypeNode;
                 return getFormalTypeFromIntermediateFlowType(intermediateFlowType, /*Don't degrade: */ false);
             } else {
-                return getFormalTypeFromIntermediateFlowType(<IntermediateFlowType> type, /*Degrade: */ true);
+                return flowDataFormalType(type.flowData);
             }
         }
         // [ConcreteTypeScript]
@@ -17028,7 +17072,7 @@ namespace ts {
             }
         }
         function flowDataBecomesType(contextNode:Node, flowData:FlowData, targetType:Type): FlowData {
-            Debug.assert((targetType.flags & (TypeFlags.Interface | TypeFlags.Declare)) !== 0);
+            Debug.assert((stripConcreteType(targetType).flags & (TypeFlags.Interface | TypeFlags.Declare)) !== 0);
             for (let {type} of flowData.flowTypes) {
                 if (isTypeSubtypeOf(type, targetType)) {
                     // No need to do anything if we are already a supertype of the type we are becoming:
@@ -17243,7 +17287,7 @@ namespace ts {
                 return null;
             }
             ensureFlowDataIsSet(reference, type);
-            Debug.assert(getNodeLinks(reference).ctsFinalFlowData != null);
+            Debug.assert(getNodeLinks(reference).ctsFinalFlowData !== undefined);
             return getNodeLinks(reference).ctsFinalFlowData;
         }
         function getFlowDataAtLocation(reference: Node, type?: Type):FlowData {
@@ -17251,7 +17295,7 @@ namespace ts {
                 return null;
             }
             ensureFlowDataIsSet(reference, type);
-            Debug.assert(getNodeLinks(reference).ctsFlowData != null);
+            Debug.assert(getNodeLinks(reference).ctsFlowData !== undefined);
             return getNodeLinks(reference).ctsFlowData;
         }
 
@@ -17265,7 +17309,8 @@ namespace ts {
                 }
             }
             Debug.assert(reference.kind === SyntaxKind.Identifier || reference.kind === SyntaxKind.ThisKeyword);
-            if (!getNodeLinks(reference).ctsFinalFlowData) {
+            // If it is null, we simply ignore. The implies recursive evaluation.
+            if (getNodeLinks(reference).ctsFinalFlowData === undefined) {
                 // Get the type, be careful not to trigger a loop:
                 let refType = type || getRefType(); 
                 if (refType && refType.flags & TypeFlags.IntermediateFlow) {
@@ -17278,9 +17323,9 @@ namespace ts {
                 Debug.assert(containerScope != null);
                 forEachChildRecursive(containerScope, node => {
                     if (areSameValue(node, reference)) {
-                        // Fallback to base type to prevent infinite recursion:
-                        getNodeLinks(node).ctsFlowData = flowData;
-                        getNodeLinks(node).ctsFinalFlowData = flowData;
+                        // Placeholder to signify evaluation loop should be ignored.
+                        getNodeLinks(node).ctsFlowData = null;
+                        getNodeLinks(node).ctsFinalFlowData = null;
                     }
                 });
                 // Analysis was not yet run for this scope

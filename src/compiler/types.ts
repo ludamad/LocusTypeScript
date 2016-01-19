@@ -517,7 +517,6 @@ namespace ts {
     export interface FlowData {
         memberSet:FlowMemberSet;
         flowTypes:FlowType[];
-        :FlowType[];
     }
 
     export interface EmitterFunctions {
@@ -2073,6 +2072,8 @@ namespace ts {
         // we wish to become. This is important for the effects of
         targetType?: Type;
         resolvedProperties?: SymbolTable;
+        // Stored if there is an associated declareTypeNode.
+        declareTypeNode?: DeclareTypeNode;
     }
     // [ConcreteTypeScript+Become]
 

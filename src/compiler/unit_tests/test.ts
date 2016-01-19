@@ -87,9 +87,8 @@ describe("Calling functions with a declare parameter", () => {
         }
         let typeAfter = checker.getTypeAtLocation(refAfter);
         console.log(checker.typeToString(typeAfter))
-        assert(!!(typeAfter.flags & ts.TypeFlags.Declare), "Should resolve to declare type!");
-        console.log(checker.typeToString(typeAfter))
-        console.log(checker.getBaseTypes(<any>typeAfter).map(<any>checker.typeToString))
+        assert(!!(checker.stripConcreteType(typeAfter).flags & ts.TypeFlags.Declare), "Should resolve to declare type!");
+        console.log(checker.getBaseTypes(<any>checker.stripConcreteType(typeAfter)).map(<any>checker.typeToString))
         assert(checker.getPropertyOfType(typeAfter, "x"), "Does not have 'x' member.");
         assert(checker.getPropertyOfType(typeAfter, "y"), "Does not have 'y' member.");
     }
@@ -119,7 +118,27 @@ describe("Calling functions with a declare parameter", () => {
 // TODO test ensure variable not assignable
 describe("Type relations of ConcreteTypeScript", () => {
 
-    it("Should test relationships for IntermediateFlowType's", () => {
+    it("DTRTB: test relationships for Declare types related through 'becomes'", () => {
+        let varName = 'variable';
+        let {checker, rootNode} = compileOne(becomesSource(varName));
+        let nodes = findWithComment(rootNode, "Member1Ref", ts.isExpression)
+        for (let node of nodes) ts.printNodeDeep(node);
+        let refTypes:ts.Type[] = <ts.Type[]>findWithComment(rootNode, "Member1Ref", ts.isExpression)
+            .map(checker.getTypeAtLocation)
+            .map(checker.stripConcreteType);
+        let idTypes = findWithComment(rootNode, "Member1Ref", ts.isExpression)
+            .map(n => findFirst(n, ({text}:any) => text && !!text.match(varName)))
+            .map(checker.getTypeAtLocation)
+        console.log(idTypes.map(<any>checker.typeToString));
+        for (let idType of idTypes) {
+            let prop = checker.getPropertyOfType(idType, 'member1');
+            console.log(checker.typeToString(checker.getTypeOfSymbol(prop)));
+        }
+        assert(refTypes[0].flags & ts.TypeFlags.NumberLike, "Type 1 inherited through becomes relationship should be a number!");
+        assert(refTypes[1].flags & ts.TypeFlags.NumberLike, "Type 2 inherited through becomes relationship should be a number!");
+    });
+
+    it("test relationships for IntermediateFlowType's and their parts", () => {
         let {checker, declType1, intermType1} = getDeclareTypes(disjointSource);
         let targetType1 = (<ts.IntermediateFlowType>intermType1).targetType;
         let startingType1 = (<ts.IntermediateFlowType>intermType1).flowData.flowTypes[0].type;
@@ -131,7 +150,7 @@ describe("Type relations of ConcreteTypeScript", () => {
     });
 
 
-    it("Should test relationships for disjoint Declare-types", () => {
+    it("test relationships for disjoint Declare-types", () => {
         let {checker, declType1, declType2} = getDeclareTypes(disjointSource);
         let {isTypeIdenticalTo, checkTypeSubtypeOf, checkTypeAssignableTo} = checker;
         assert(!isTypeIdenticalTo(declType1, declType2));
@@ -142,7 +161,7 @@ describe("Type relations of ConcreteTypeScript", () => {
         assert(!checkTypeAssignableTo(declType2, declType1, undefined));
     });
 
-    it("Should test relationships for 'Decl1 declare Decl2' Declare-types", () => {
+    it("test relationships for 'Decl1 declare Decl2' Declare-types", () => {
         let {checker, declType1, declType2} = getDeclareTypes(impliedBaseSource);
         let {getBaseTypes, isTypeIdenticalTo, checkTypeSubtypeOf, checkTypeAssignableTo} = checker;
         console.log("TRIGGERED");
@@ -166,6 +185,20 @@ describe("Type relations of ConcreteTypeScript", () => {
         `;
     }
 
+    function becomesSource(varName) {
+        return `
+            function becomeFoo1(${varName}1: declare Foo1): !Foo1 {
+                ${varName}1.member1 = 1;
+            }
+            function Foo2(): !Foo2 {
+                var ${varName}2 : declare Foo2 = {};
+                becomeFoo1(${varName}2);
+                /*Member1Ref*/ (${varName}2.member1);
+                ${varName}2.member2 = 1;
+                /*Member1Ref*/ (${varName}2.member1);
+            }
+        `;
+    }
     function disjointSource(varName) {
         return `
             var ${varName}1 : declare DeclareType1 = {};
@@ -181,6 +214,7 @@ describe("Type relations of ConcreteTypeScript", () => {
         let [varNode1, varNode2] = getVarRefs();
 
         return {checker, 
+            rootNode,
             intermType1: getIntermediateType(varNode1), 
             intermType2: getIntermediateType(varNode2), 
             declType1: getDeclType(varNode1), 
@@ -196,7 +230,7 @@ describe("Type relations of ConcreteTypeScript", () => {
         // Will not depend on whether resolves correctly:
         function getDeclType(node:ts.Node) {
             let type = getIntermediateType(node);
-            let declType = (<ts.IntermediateFlowType>type).targetType;
+            let declType = checker.stripConcreteType((<ts.IntermediateFlowType>type).targetType);
             assert(!!(declType.flags & ts.TypeFlags.Declare), "getDeclType failure");
             return declType;
         }
@@ -278,7 +312,7 @@ describe("The stages of binding", () => {
         function assertHasXAndY() {
             let targetType = getTargetType();
             if (!useBecomes) {
-                assert(targetType.flags & ts.TypeFlags.Declare, "Resulting type should have Declare");
+                assert(checker.stripConcreteType(targetType).flags & ts.TypeFlags.Declare, "Resulting type should have Declare");
             }
             assert(checker.getPropertyOfType(targetType, "x"), "Should infer 'x' attribute");
             assert(checker.getPropertyOfType(targetType, "y"), "Should infer 'y' attribute");
@@ -297,22 +331,24 @@ describe("The stages of binding", () => {
 describe("Simple sequential assignments", () => {
     function basicAssignmentTest(context, varName: string, expectedKind: number) {
         let sourceText = context(varName, "DeclaredType", `
+            /*Before*/ ${varName};
             ${varName}.x = 1;
             ${varName}.y = 1;
         `);
         
         let {rootNode, checker} = compileOne(sourceText);
-
+        let [before] = findWithComment(rootNode, "Before", expectedKind);
         let [xAssign, yAssign] = find(rootNode, ts.SyntaxKind.PropertyAccessExpression);
 
+        let {memberSet: {x: x0, y: y0}} = checker.getFlowDataAtLocation(before);
         let {memberSet: {x: x1, y: y1}} = checker.getFlowDataAtLocation(findFirst(xAssign, expectedKind));
         let {memberSet: {x: x2, y: y2}} = checker.getFlowDataAtLocation(findFirst(yAssign, expectedKind));
+        let {memberSet: {x: x3, y: y3}} = checker.getFinalFlowData(findFirst(xAssign, expectedKind));
 
-        let {memberSet: {x: xFinal, y: yFinal}} = checker.getFinalFlowData(findFirst(xAssign, expectedKind));
-
-        assert(!x1 && !y1, "Incorrect members before first assignment.");
-        assert(x2 && !y2, "Incorrect members before second assignment.");
-        assert(xFinal && yFinal, "Incorrect members before second assignment.");
+        assert(!x0 && !y0, "Incorrect members before first assignment.");
+        assert( x1 && !y1, "Incorrect members during first assignment.");
+        assert( x2 &&  y2, "Incorrect members during second assignment.");
+        assert( x3 &&  y3, "Incorrect members after second assignment.");
     }
 
     it("should bind x and y to a 'this' parameter", () => {
@@ -332,18 +368,17 @@ describe("Simple sequential assignments", () => {
 /* Helper functions: */
 
 type Filter = ts.SyntaxKind | ((node: ts.Node) => boolean);
-function findWithComment(rootNode: ts.Node, label:string, filter): ts.Node[] {
+function findWithComment(rootNode: ts.Node, label:string, filter:Filter): ts.Node[] {
     return find(rootNode, (node) => {
-        if (filter && !filter(node)) {
-            return false;
-        }
-        let sourceFile = ts.getSourceFileOfNode(node);
-        let leadingCommentRanges = ts.getLeadingCommentRanges(sourceFile.text, node.pos) ;
-        if (!leadingCommentRanges) return false;
-        let comments = leadingCommentRanges.map(({pos, end}) => sourceFile.text.substring(pos, end));
-        for (let comment of comments) {
-            if (comment.match(label)) {
-                return true;
+        if (typeof filter === "number" ? node.kind === filter : filter(node)) {
+            let sourceFile = ts.getSourceFileOfNode(node);
+            let leadingCommentRanges = ts.getLeadingCommentRanges(sourceFile.text, node.pos) ;
+            if (!leadingCommentRanges) return false;
+            let comments = leadingCommentRanges.map(({pos, end}) => sourceFile.text.substring(pos, end));
+            for (let comment of comments) {
+                if (comment.match(label)) {
+                    return true;
+                }
             }
         }
         return false;
