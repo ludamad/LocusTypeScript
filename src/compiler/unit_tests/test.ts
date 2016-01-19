@@ -14,6 +14,56 @@ describe("Compilation tests", () => {
     });
 });
 
+describe("Calling functions mutually recursive", () => {
+    it("should test mutually recursive functions", () => {
+        function smartPrint(object, name) {
+            console.log("<V" + name + "V>");
+            if (object != null && object.kind) {
+                ts.printNodeDeep(object);
+            }
+            else if (object != null && object.flags) {
+                console.log(checker.typeToString(object));
+            }
+            else {
+                console.log(object);
+            }
+            console.log("<*" + name + "*>");
+        }
+ 
+        let sourceText = `
+            function Foo(foo : declare Foo) {
+                foo.barMember = Bar({});
+                foo.field1 = 1;
+                /*Lookup*/ (foo.barMember.field2);
+                /*After*/ foo;
+            }
+            function Bar(bar : declare Bar) {
+                bar.fooMember = Foo({});
+                bar.field2 = 1;
+                /*Lookup*/ (bar.fooMember.field1);
+                /*After*/ bar;
+            }
+        `;
+        
+        var {rootNode, checker} = compileOne(sourceText);
+        let [type1, type2] = findWithComment(rootNode, "Lookup", ts.isExpression)
+            .map(checker.getTypeAtLocation);
+        let [lastRefType1, lastRefType2] = findWithComment(rootNode, "After", ts.isExpression)
+            .map(checker.getTypeAtLocation);
+        smartPrint(type1, "type1");
+        smartPrint(type2, "type2");
+        smartPrint(lastRefType1, "lastRefType1");
+        smartPrint(lastRefType2, "lastRefType2");
+        assert(checker.getPropertyOfType(lastRefType1, "field1"), "Does not have 'field1' member.");
+        assert(checker.getPropertyOfType(lastRefType1, "barMember"), "Does not have 'barMember' member.");
+        assert(!checker.getPropertyOfType(lastRefType1, "control"), "Should not have 'control' member.!");
+        assert(checker.getPropertyOfType(lastRefType2, "fooMember"), "Does not have 'fooMember' member.");
+        assert(type1.flags & ts.TypeFlags.NumberLike, "foo.barMember.field2 should be of type number");
+        assert(type2.flags & ts.TypeFlags.NumberLike, "bar.fooMember.field1 should be of type number");
+    });
+});
+
+
 describe("Calling functions with a declare parameter", () => {
     function callFunctionWithDeclareParameter(context, varName: string, expectedKind: number) {
         let calledFunction = `function calledFunction(funcParam: declare DeclaredType1) {
@@ -282,8 +332,26 @@ describe("Simple sequential assignments", () => {
 /* Helper functions: */
 
 type Filter = ts.SyntaxKind | ((node: ts.Node) => boolean);
+function findWithComment(rootNode: ts.Node, label:string, filter): ts.Node[] {
+    return find(rootNode, (node) => {
+        if (filter && !filter(node)) {
+            return false;
+        }
+        let sourceFile = ts.getSourceFileOfNode(node);
+        let leadingCommentRanges = ts.getLeadingCommentRanges(sourceFile.text, node.pos) ;
+        if (!leadingCommentRanges) return false;
+        let comments = leadingCommentRanges.map(({pos, end}) => sourceFile.text.substring(pos, end));
+        for (let comment of comments) {
+            if (comment.match(label)) {
+                return true;
+            }
+        }
+        return false;
+    });
+}
 function findFirst(node: ts.Node, filter: Filter): ts.Node {
     let [first] = find(node, filter);
+
     assert(first != null, "findFirst should not fail!");
     return first;
 }

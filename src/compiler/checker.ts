@@ -57,6 +57,9 @@ namespace ts {
         let undefinedSymbol = createSymbol(SymbolFlags.Property | SymbolFlags.Transient, "undefined");
         let argumentsSymbol = createSymbol(SymbolFlags.Property | SymbolFlags.Transient, "arguments");
 
+        // [ConcreteTypeScript]
+        let flowDependentTypeStack: InterfaceType[] = [];
+        // [/ConcreteTypeScript]
         let checker: TypeChecker = {
             getNodeCount: () => sum(host.getSourceFiles(), "nodeCount"),
             getIdentifierCount: () => sum(host.getSourceFiles(), "identifierCount"),
@@ -17266,19 +17269,20 @@ namespace ts {
                 // Get the type, be careful not to trigger a loop:
                 let refType = type || getRefType(); 
                 if (refType && refType.flags & TypeFlags.IntermediateFlow) {
+                    flowDependentTypeStack.push(refType);
                     var flowData:FlowData = (<IntermediateFlowType>refType).flowData;
                 } else {
                     var flowData:FlowData = {flowTypes: [], memberSet: {}};
                 }
                 let containerScope = getScopeContainer(reference);
                 Debug.assert(containerScope != null);
-            /*    forEachChildRecursive(containerScope, node => {
+                forEachChildRecursive(containerScope, node => {
                     if (areSameValue(node, reference)) {
                         // Fallback to base type to prevent infinite recursion:
                         getNodeLinks(node).ctsFlowData = flowData;
                         getNodeLinks(node).ctsFinalFlowData = flowData;
                     }
-                });*/
+                });
                 // Analysis was not yet run for this scope
                 let finalFlowData = computeAndSetFlowDataForReferencesInScope(
                     /*Reference decider: */ (node) => areSameValue(node, reference),
@@ -17292,6 +17296,10 @@ namespace ts {
                         getNodeLinks(node).ctsFinalFlowData = finalFlowData;
                     }
                 });
+                // Remove ourselves from the list of resolving types:
+                if (refType && refType.flags & TypeFlags.IntermediateFlow) {
+                    flowDependentTypeStack.pop();
+                }
             }
         }
 
@@ -17390,13 +17398,15 @@ namespace ts {
                     prev = recurse(node.left, prev);
                     prev = recurse(node.right, prev);
                 }
-
+ 
                 /* Check if we have a relevant binding assignment: */
                 if (node.operatorToken.kind === SyntaxKind.EqualsToken) {
                     let {left, right} = node;
                     if (isMemberAccess(left)) {
                         let type = getTypeOfNode(right);
                         prev = flowDataAssignment(prev, left.name.text, {firstBindingSite: node, type});
+                        // Ensure that nodes being assigned to are aware of their incoming types
+                        getNodeLinks(left.expression).ctsFlowData = prev;
                     }
                 }
             }
@@ -17472,11 +17482,6 @@ namespace ts {
                 prev = flowDataUnion(ifTrue, ifFalse);
             }
             function scanPropertyAccessExpression(node: PropertyAccessExpression) {
-// TODO replicate this logic into member access type checking
-//                let {expression, name} = node;
-//                if (isReference(expression)) {
-//                    getNodeLinks(node).ctsFlowTypes = prev[name.text].flowTypes;
-//                }
                 prev = recurse(node.expression, prev);
             }
 

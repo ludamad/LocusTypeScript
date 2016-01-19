@@ -517,6 +517,7 @@ namespace ts {
     export interface FlowData {
         memberSet:FlowMemberSet;
         flowTypes:FlowType[];
+        :FlowType[];
     }
 
     export interface EmitterFunctions {
@@ -2047,11 +2048,14 @@ namespace ts {
         /* @internal */
         resolvedBaseTypes: ObjectType[];           // Resolved base types
 
-        // [ConcreteTypeScript+Become]
+        // [ConcreteTypeScript]
         // Declare types are essentially an InterfaceType with TypeFlags.Declare
         // and potentially a computed flowData member (after resolution for implicit declare types)
-        /* @internal */
         flowData?: FlowData;
+        // What other types constructed with a flow type do we rely on?
+        flowDependentTypes?: InterfaceType[];
+
+        // [/ConcreteTypeScript]
     }
 
     export interface InterfaceTypeWithDeclaredMembers extends InterfaceType {
