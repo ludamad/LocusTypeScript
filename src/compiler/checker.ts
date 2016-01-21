@@ -72,6 +72,7 @@ namespace ts {
             // [ConcreteTypeScript]
             getFlowDataAtLocation,
             getFinalFlowData,
+            getFlowDataForType,
             getTypeFromTypeNode,
             createType,
             getPrimitiveTypeInfo,
@@ -733,8 +734,15 @@ namespace ts {
         function isRuntimeCheckable(target: Type) {
             if (target.flags & TypeFlags.Union) {
                 return (<UnionType>target).isRuntimeCheckable;
+            } else if (target.flags & TypeFlags.Intersection) {
+                for (let type of (<IntersectionType>target).types) {
+                    if (isRuntimeCheckable(type)) {
+                        return true;
+                    }
+                }
+            } else {
+                return !!(target.flags & TypeFlags.RuntimeCheckable);
             }
-            return !!(target.flags & TypeFlags.RuntimeCheckable);
         }
 
         function areAllRuntimeCheckable(target: Type[]) {
@@ -3008,7 +3016,7 @@ namespace ts {
 
         function resolveBaseTypesOfDeclare(type: InterfaceType) {
             let {flowTypes} = getFlowDataForType(type);
-            type.resolvedBaseTypes = getMinimalTypeList(flowTypes.map(ft => stripConcreteType(ft.type)));
+            type.resolvedBaseTypes = flowTypes.map(ft => stripConcreteType(ft.type)).filter(t => !isTypeIdenticalTo(t, emptyObjectType));
         }
         function resolveBaseTypesOfClass(type: InterfaceType): void {
           // TODO CONCRETETYPESCRIPT HOOK DECEMBER 10
@@ -3279,6 +3287,9 @@ namespace ts {
             if (baseTypes.length) {
                 members = createSymbolTable(target.declaredProperties);
                 for (let baseType of baseTypes) {
+                    // [ConcreteTypeScript]
+                    baseType = <ObjectType> stripConcreteType(baseType);
+                    // [/ConcreteTypeScript]
                     addInheritedMembers(members, getPropertiesOfObjectType(baseType));
                     callSignatures = concatenate(callSignatures, getSignaturesOfType(baseType, SignatureKind.Call));
                     constructSignatures = concatenate(constructSignatures, getSignaturesOfType(baseType, SignatureKind.Construct));
@@ -3335,7 +3346,9 @@ namespace ts {
             let stringIndexType = target.declaredStringIndexType ? instantiateType(target.declaredStringIndexType, mapper) : undefined;
             let numberIndexType = target.declaredNumberIndexType ? instantiateType(target.declaredNumberIndexType, mapper) : undefined;
             forEach(getBaseTypes(target), baseType => {
-                let instantiatedBaseType = instantiateType(baseType, mapper);
+                // [ConcreteTypeScript] 
+                let instantiatedBaseType = <ObjectType>stripConcreteType(instantiateType(baseType, mapper));
+                // [/ConcreteTypeScript] 
                 addInheritedMembers(members, getPropertiesOfObjectType(instantiatedBaseType));
                 callSignatures = concatenate(callSignatures, getSignaturesOfType(instantiatedBaseType, SignatureKind.Call));
                 constructSignatures = concatenate(constructSignatures, getSignaturesOfType(instantiatedBaseType, SignatureKind.Construct));
@@ -3756,16 +3769,27 @@ namespace ts {
             if (hasProperty(properties, name)) {
                 return properties[name];
             }
-            let formalType = flowDataFormalType(type.flowData);
-            let property = getPropertyOfType(formalType, name);
-            if (!property && type.flowData.memberSet[name]) {
+            for (let {type: baseType} of type.flowData.flowTypes) {
+                let property = getPropertyOfType(baseType, name);
+                if (!property) {
+                    continue;
+                }
+                let propType = getTypeOfSymbol(property);
+                return createTransientProperty(propType);
+            }
+            if (type.flowData.memberSet[name]) {
+                let propType = flowTypeGet(type.flowData.memberSet[name]);
+                return createTransientProperty(propType);
+            }
+            return null;
+            // Where:
+            function createTransientProperty(type: Type) {
                 let result = <TransientSymbol>createSymbol(SymbolFlags.Property | SymbolFlags.Transient | SymbolFlags.SyntheticProperty, name);
-                result.declarations = [];
-                result.type = flowTypeGet(type.flowData.memberSet[name]);
+                result.declarations = []; // TODO
+                result.type = type;
                 properties[name] = result;
                 return result;
             }
-            return property;
         }
 
         function getPropertyOfUnionOrIntersectionType(type: UnionOrIntersectionType, name: string): Symbol {
@@ -4711,7 +4735,7 @@ namespace ts {
         function getTypeFromTypeNode(node: TypeNode): Type {
             let type = getTypeFromTypeNodeWorker(node);
             node.resolvedType = type;
-            if (node.isConcrete || node.brandTypeDeclaration) {
+            if (node.isConcrete) {
                 if (isRuntimeCheckable(type)) {
                     type = createConcreteType(type);
                 } else {
@@ -7097,6 +7121,9 @@ namespace ts {
             // [ConcreteTypeScript]
             if (isFunctionLike(container)) {
                 let thisType:Type = getSignatureFromDeclaration(container).resolvedThisType;
+                if (thisType.flags & TypeFlags.IntermediateFlow) {
+                    return getIntermediateFlowTypeAtLocation(node, <IntermediateFlowType> thisType); 
+                }
                 return thisType;
             }
             // [/ConcreteTypeScript]
@@ -13538,7 +13565,7 @@ namespace ts {
                     // for interfaces property and indexer might be inherited from different bases
                     // check if any base class already has both property and indexer.
                     // check should be performed only if 'type' is the first type that brings property\indexer together
-                    let someBaseClassHasBothPropertyAndIndexer = forEach(getBaseTypes(<InterfaceType>containingType), base => getPropertyOfObjectType(base, prop.name) && getIndexTypeOfType(base, indexKind));
+                    let someBaseClassHasBothPropertyAndIndexer = forEach(getBaseTypes(<InterfaceType>containingType), base => getPropertyOfType(base, prop.name) && getIndexTypeOfType(base, indexKind));
                     errorNode = someBaseClassHasBothPropertyAndIndexer ? undefined : containingType.symbol.declarations[0];
                 }
 
@@ -15231,14 +15258,16 @@ namespace ts {
                 let target = stripConcreteType(type.targetType);
                 let finalFlowData = getFlowDataForType(target);
                 for (let i = 0; i < finalFlowData.flowTypes.length; i++) {
-                    if (!flowData.flowTypes[i]) {
-                        return false;
+                    let hasOne = false;
+                    for (let j = 0; j < flowData.flowTypes.length; j++) {
+                        let {type: tF} = finalFlowData.flowTypes[i]; // Final
+                        let {type: tC} = flowData.flowTypes[j]; // Current
+                        // Must have at least one subsetting type:
+                        if (typeSubSet(tC, tF)) {
+                            hasOne = true; break;
+                        }
                     }
-                    let {type: tC} = flowData.flowTypes[i]; // Current
-                    let {type: tF} = finalFlowData.flowTypes[i]; // Final
-                    if (!typeSubSet(tC, tF)) {
-                        return false;
-                    }
+                    if (!hasOne) return false;
                 }
                 for (let memberFinal of values(finalFlowData.memberSet)) { 
                     let memberCurrent = flowData.memberSet[memberFinal.key];
@@ -15271,14 +15300,11 @@ namespace ts {
 
         // [ConcreteTypeScript] The minimal intersection that represents the same declare-types, classes, and members.
         function getMinimalTypeList(types: Type[]) {
-            let filteredTypes = []; 
+            let filteredTypes:Type[] = []; 
             for (let i = 0; i < types.length; i++) {
                 if (!isRedundant(i)) {
                     filteredTypes.push(types[i]); 
                 }
-            }
-            if (filteredTypes.length === 1) {
-                return filteredTypes[0]; // TODO assess if does anything
             }
             return filteredTypes;
             // Where:
@@ -15358,9 +15384,9 @@ namespace ts {
                 intermediateFlowType.targetType = type.targetType;
                 intermediateFlowType.flowData = currentFlowData;
                 intermediateFlowType.declareTypeNode = type.declareTypeNode;
-                return getFormalTypeFromIntermediateFlowType(intermediateFlowType, /*Don't degrade: */ false);
+                return intermediateFlowType;
             } else {
-                return flowDataFormalType(type.flowData);
+                return type;
             }
         }
         // [ConcreteTypeScript]
@@ -15368,7 +15394,7 @@ namespace ts {
             let type = getTypeOfNodeWorker(node);
             // Handle becomes-types:
             if (type.flags & TypeFlags.IntermediateFlow) {
-                return getIntermediateFlowTypeAtLocation(node, <IntermediateFlowType> type); 
+                return getFormalTypeFromIntermediateFlowType(<IntermediateFlowType> type, /*Don't degrade: */ false);
             }
             return type;
         }
@@ -17107,7 +17133,8 @@ namespace ts {
             return false;
         }
         function flowDataFormalType(flowData:FlowData) {
-            return getIntersectionType(flowData.flowTypes.map(({type}) => type));
+            let typeList = getMinimalTypeList((flowData.flowTypes.map(({type}) => type)));
+            return getIntersectionType(typeList);
         }
         function flowTypeGet(flowMember:FlowMember) {
             if (!flowMember) return null;
@@ -17323,7 +17350,7 @@ namespace ts {
                 Debug.assert(containerScope != null);
                 forEachChildRecursive(containerScope, node => {
                     if (areSameValue(node, reference)) {
-                        // Placeholder to signify evaluation loop should be ignored.
+                        // 'null is used as a sentinel to avoid recursion, as opposed to 'undefined' permitting analysis.
                         getNodeLinks(node).ctsFlowData = null;
                         getNodeLinks(node).ctsFinalFlowData = null;
                     }
@@ -17382,25 +17409,25 @@ namespace ts {
 
             // We recursively scan become/declare function calls
             function scanCallExpression(node: CallExpression) {
-                let declaration = getResolvedSignature(node).declaration;
-                let parameters = declaration && declaration.parameters;
-                let arguments = node.arguments;
-                if (!parameters) {
-                    // Something went wrong somewhere with resolution, but it's not our job to report the error.
-                    return;
+                let callSignatures = getSignaturesOfType(getApparentType(getTypeOfExpression(node.expression)), SignatureKind.Call);
+                // TODO Work-around for mysterious bug with getResolvedSignature
+                if (callSignatures.length === 1) {
+                    var signature = callSignatures[0];
+                } else {
+                    var signature = getResolvedSignature(node);
                 }
-
                 let becomesAmount = 0;
-                for (let i = 0; i < parameters.length && i < arguments.length; i++) {
-                    let parameter:ParameterDeclaration = parameters[i];
+                for (let i = 0; i < signature.parameters.length && i < node.arguments.length; i++) {
+                    smartPrint(signature.parameters[i], "EFA");
+                    let paramType = getTypeAtPosition(signature, i);
+                    smartPrint(paramType, "PARAM TPE");
                     // Cannot do anything without type information:
-                    if (!parameter.type) {
+                    if (!paramType) {
                         continue;
                     }
-                    if (isReference(arguments[i])) {
-                        becomesAmount++;
-                        let paramType = getTypeFromTypeNode(parameter.type);
-                        if (paramType.flags & TypeFlags.IntermediateFlow) {
+                    if (paramType.flags & TypeFlags.IntermediateFlow) {
+                        if (isReference(node.arguments[i])) {
+                            becomesAmount++;
                             let flowType = (<IntermediateFlowType>paramType);
                             let targetType = flowType.targetType;
                             // TODO: EMIT add guards if the parameter type was concrete.

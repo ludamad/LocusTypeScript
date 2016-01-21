@@ -1580,6 +1580,7 @@ namespace ts {
         objectType?:Type;
         getFlowDataAtLocation(reference: Node): FlowData;
         getFinalFlowData(reference: Node): FlowData;
+        getFlowDataForType(type: Type): FlowData;
         getTypeOfSymbol(symbol: Symbol): Type;
         createType(flags: TypeFlags): Type;
         getTypeFromTypeNode:any,

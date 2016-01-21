@@ -130,10 +130,6 @@ describe("Type relations of ConcreteTypeScript", () => {
             .map(n => findFirst(n, ({text}:any) => text && !!text.match(varName)))
             .map(checker.getTypeAtLocation)
         console.log(idTypes.map(<any>checker.typeToString));
-        for (let idType of idTypes) {
-            let prop = checker.getPropertyOfType(idType, 'member1');
-            console.log(checker.typeToString(checker.getTypeOfSymbol(prop)));
-        }
         assert(refTypes[0].flags & ts.TypeFlags.NumberLike, "Type 1 inherited through becomes relationship should be a number!");
         assert(refTypes[1].flags & ts.TypeFlags.NumberLike, "Type 2 inherited through becomes relationship should be a number!");
     });
@@ -187,11 +183,10 @@ describe("Type relations of ConcreteTypeScript", () => {
 
     function becomesSource(varName) {
         return `
-            function becomeFoo1(${varName}1: declare Foo1): !Foo1 {
+            function becomeFoo1(${varName}1: declare Foo1): void {
                 ${varName}1.member1 = 1;
             }
-            function Foo2(): !Foo2 {
-                var ${varName}2 : declare Foo2 = {};
+            function Foo2(${varName}2 : declare Foo2): void {
                 becomeFoo1(${varName}2);
                 /*Member1Ref*/ (${varName}2.member1);
                 ${varName}2.member2 = 1;
@@ -314,15 +309,20 @@ describe("The stages of binding", () => {
             if (!useBecomes) {
                 assert(checker.stripConcreteType(targetType).flags & ts.TypeFlags.Declare, "Resulting type should have Declare");
             }
-            assert(checker.getPropertyOfType(targetType, "x"), "Should infer 'x' attribute");
-            assert(checker.getPropertyOfType(targetType, "y"), "Should infer 'y' attribute");
+            assert(checker.getPropertyOfType(targetType, "x"), "Target type should have 'x' attribute");
+            assert(checker.getPropertyOfType(targetType, "y"), "Target type should have 'y' attribute");
+            let refType = checker.getTypeAtLocation(getLastVarRef())
+            console.log(checker.getFlowDataAtLocation(getLastVarRef()));
+            assert(checker.getPropertyOfType(refType, "x"), "Should infer 'x' attribute");
+            assert(checker.getPropertyOfType(refType, "y"), "Should infer 'y' attribute");
         }
 
         function assertLastRefIsTargetType() {
             let refType = checker.getTypeAtLocation(getLastVarRef())
             console.log("WHATasda" + checker.typeToString(refType));
-            assert(checker.isTypeIdenticalTo(getTargetType(), refType),
-                    "last ref should be decl type!");
+            console.log("//WHATasda" + checker.typeToString(refType));
+            assert(checker.checkTypeSubtypeOf(refType, getTargetType(), undefined),
+                    "last ref should be target type!");
         }
     }
 

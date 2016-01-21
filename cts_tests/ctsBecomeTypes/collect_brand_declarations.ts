@@ -2,7 +2,7 @@
 /* @RuntimeTest */
 import {assert, assertNotBranded, assertBranded, assertType, assertFails} from "../cts_asserts";
 
-function becomeFoo(obj : {} declare Foo) {
+function becomeFoo(obj : {} declare Foo, test:number) {
     obj.a = 1;
     return obj;
 }
