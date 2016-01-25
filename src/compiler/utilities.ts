@@ -1304,6 +1304,13 @@ namespace ts {
         return heritageClause ? heritageClause.types : undefined;
     }
 
+    // [/ConcreteTypeScript]
+    export function getDeclareTypeBaseTypeNodes(node: DeclareTypeDeclaration) {
+        let heritageClause = getHeritageClause(node.heritageClauses, SyntaxKind.ExtendsKeyword);
+        return heritageClause ? heritageClause.types : undefined;
+    }
+    // [ConcreteTypeScript]
+
     export function getInterfaceBaseTypeNodes(node: InterfaceDeclaration) {
         let heritageClause = getHeritageClause(node.heritageClauses, SyntaxKind.ExtendsKeyword);
         return heritageClause ? heritageClause.types : undefined;

@@ -4,13 +4,46 @@ require('./harness');
 Harness.lightMode = true;
 
 describe("Compilation tests", () => {
-    it ("Should compile simple becomes", () => {
+    it ("simpl", () => {
+        let sourceText = `function test(this: declare Test) {
+            
+        }
+        test.prototype.x = function() {
+        }
+        test.prototype.foo = function() {
+        }
+        `;
+
+        let {rootNode, checker} = compileOne(sourceText);
+    });
+ 
+    it ("simple becomes", () => {
         let sourceText = `function test(funcParam: becomes {x: number}) {
             funcParam.x = 1;
         }
         `;
 
         let {rootNode, checker} = compileOne(sourceText);
+    });
+    it ("brand interface", () => {
+        let sourceText = `brand interface Foo {
+            x: number;
+            y: number;
+        }
+        
+        function foo(obj: !Foo) {
+            /*x*/ (obj.x);
+            /*y*/ (obj.y);
+        }`;
+
+        let {rootNode, checker} = compileOne(sourceText);
+        let [objXRefType] = findWithComment(rootNode, "x", ts.isExpression)
+            .map(checker.getTypeAtLocation);
+        let [objYRefType] = findWithComment(rootNode, "y", ts.isExpression)
+            .map(checker.getTypeAtLocation);
+
+        assert(objXRefType.flags & ts.TypeFlags.NumberLike, "should have x : number");
+        assert(objYRefType.flags & ts.TypeFlags.NumberLike, "should have y : number");
     });
 });
 

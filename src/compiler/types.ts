@@ -9,15 +9,15 @@ namespace ts {
         endingType: TypeNode;
     }
 
-    export interface DeclareTypeDeclaration extends Declaration {
+    export interface DeclareTypeDeclaration extends Declaration, Statement {
         name: Identifier;
-        extendedType?: TypeNode; // Nothing extended by default
+        // If eg 'extends Foo' was used
+        heritageClauses: NodeArray<HeritageClause>;
+        members?: NodeArray<Declaration>;
     }
 
     // Both a Declaration and a TypeNode
     export interface DeclareTypeNode extends BecomesOrDeclareTypeNode, DeclareTypeDeclaration {
-        parent?: TypeReferenceNode | DeclareTypeNode;
-
         // REFACTORING: The fields below are for the old separate-pass flow type binder
 
         scope: Node;
@@ -66,6 +66,8 @@ namespace ts {
     export const enum SyntaxKind {
         // [ConcreteTypeScript]
         BecomesKeyword, // [ConcreteTypeScript]
+        BrandKeyword, // [ConcreteTypeScript]
+        DeclareTypeDeclaration, // [ConcreteTypeScript]
         DeclaredAsKeyword, // [ConcreteTypeScript]
         FloatNumberKeyword,   // [ConcreteTypeScript]
         LikeKeyword,          // [ConcreteTypeScript]
@@ -1861,7 +1863,8 @@ namespace ts {
         // The set of things we consider semantically classifiable.  Used to speed up the LS during
         // classification.
         Classifiable = Class | Declare |  Enum | TypeAlias | Interface | TypeParameter | Module,
-        BrandTypeExcludes = Type // [ConcreteTypeScript]
+        BrandTypeExcludes = Type, // [ConcreteTypeScript]
+        DeclareTypeExcludes = Type & ~Declare // [ConcreteTypeScript]
     }
 
     export interface Symbol {

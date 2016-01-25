@@ -3014,10 +3014,40 @@ namespace ts {
             return type.resolvedBaseTypes;
         }
 
+        // [ConcreteTypeScript]
         function resolveBaseTypesOfDeclare(type: InterfaceType) {
-            let {flowTypes} = getFlowDataForType(type);
-            type.resolvedBaseTypes = flowTypes.map(ft => stripConcreteType(ft.type)).filter(t => !isTypeIdenticalTo(t, emptyObjectType));
+            type.resolvedBaseTypes = [];
+            let brandInterfaceDeclaration = getSymbolDecl(type.symbol, SyntaxKind.DeclareTypeDeclaration);
+            let declaration = <DeclareTypeDeclaration> (brandInterfaceDeclaration || getSymbolDecl(type.symbol, SyntaxKind.DeclareType));
+            if (getDeclareTypeBaseTypeNodes(declaration)) {
+                for (let node of getDeclareTypeBaseTypeNodes(declaration)) {
+                    let baseType = getTypeFromTypeNode(node);
+                    if (baseType !== unknownType) {
+                        if (getTargetType(baseType).flags & (TypeFlags.Class | TypeFlags.Declare | TypeFlags.Interface)) {
+                            if (type !== baseType && !hasBaseType(<InterfaceType>baseType, type)) {
+                                type.resolvedBaseTypes.push(baseType);
+                            }
+                            else {
+                                error(declaration, Diagnostics.Type_0_recursively_references_itself_as_a_base_type, typeToString(type, /*enclosingDeclaration*/ undefined, TypeFormatFlags.WriteArrayAsGenericType));
+                            }
+                        }
+                        else {
+                            error(node, Diagnostics.An_interface_may_only_extend_a_class_or_another_interface);
+                        }
+                    }
+                }
+            }
+            let flowData = getFlowDataForType(type);
+            if (flowData) {
+                let {flowTypes} = flowData;
+                type.resolvedBaseTypes = type.resolvedBaseTypes.concat(
+                    flowTypes.map(ft => stripConcreteType(ft.type)).filter(t => !isTypeIdenticalTo(t, emptyObjectType))
+                );
+            }
+
         }
+        // [/ConcreteTypeScript]
+
         function resolveBaseTypesOfClass(type: InterfaceType): void {
           // TODO CONCRETETYPESCRIPT HOOK DECEMBER 10
             type.resolvedBaseTypes = emptyArray;
@@ -3138,15 +3168,11 @@ namespace ts {
             if (!links.declaredType) {
               // TODO set the declaredProperties somewhere else
                 /* On first occurrence */
-                let declareTypeDecl = <DeclareTypeDeclaration> getSymbolDecl(symbol, SyntaxKind.DeclareType);
+                let declareTypeDecl = <DeclareTypeDeclaration> (
+                    getSymbolDecl(symbol, SyntaxKind.DeclareType) || getSymbolDecl(symbol, SyntaxKind.DeclareTypeDeclaration)
+                );
                 Debug.assert(!!declareTypeDecl, "Not a BrandTypeDeclaration!");
-                let type = <InterfaceType>createObjectType(TypeFlags.Declare, symbol);
-                // type.declaredProperties = map(Object.keys(symbol.members), key => symbol.members[key]);
-                // type.declaredCallSignatures = emptyArray;
-                // type.declaredConstructSignatures = emptyArray;
-                // type.declaredStringIndexType = getIndexTypeOfSymbol(symbol, IndexKind.String);
-                // type.declaredNumberIndexType = getIndexTypeOfSymbol(symbol, IndexKind.Number);
-                links.declaredType = type;
+                links.declaredType = <InterfaceType>createObjectType(TypeFlags.Declare, symbol);
             }
             return <InterfaceType>links.declaredType;
         }
@@ -3257,7 +3283,13 @@ namespace ts {
         function getFlowDataForType(type: Type): FlowData {
             if (type.flags & TypeFlags.Declare) {
                 // TODO add to type
+                let brandInterfaceDeclaration = getSymbolDecl(type.symbol, SyntaxKind.DeclareTypeDeclaration);
+                if (brandInterfaceDeclaration) {
+                    // This was defined using a 'brand interface' declaration. There should be no associated flow data.
+                    return undefined;
+                }
                 let declNode = <DeclareTypeNode> getSymbolDecl(type.symbol, SyntaxKind.DeclareType);
+
                 if (!(<InterfaceType>type).flowData) {
                     // Placeholder:
                     (<InterfaceType>type).flowData = {memberSet: {}, flowTypes: []};
@@ -12838,32 +12870,12 @@ namespace ts {
             if (node === symbol.valueDeclaration) {
                 // Node is the primary declaration of the symbol, just validate the initializer
                 if (node.initializer) {
-                    let brandTypeDecl:DeclareTypeNode = null;
-                    if (node.type && node.kind == SyntaxKind.VariableDeclaration) {
-                        brandTypeDecl = (<VariableDeclaration>node).type.brandTypeDeclaration;
-                    }
-                    // Brand type declarations get a free pass
-                    if (brandTypeDecl) {
-                        if (brandTypeDecl.extendedType) {
-                            // Use default messages
-                            let extendedType:Type = getTypeFromTypeNode(brandTypeDecl.extendedType);
-                            if (!isConcreteType(extendedType)) {
-                                extendedType = createConcreteTypeIfPossible(extendedType);
-                            }
-                            checkTypeAssignableTo(checkExpressionCached(node.initializer), extendedType, node, /*headMessage*/ undefined);
-                            // [ConcreteTypeScript]
-                            let initType = checkExpressionCached(node.initializer); // FIXME: rechecking
-                            checkCTSCoercion(node.initializer, initType, type);
-                            // [/ConcreteTypeScript]
-                        }
-                    } else {
-                        // Use default messages
-                        checkTypeAssignableTo(checkExpressionCached(node.initializer), type, node, /*headMessage*/ undefined);
-                        // [ConcreteTypeScript]
-                        let initType =checkExpressionCached(node.initializer); // FIXME: rechecking
-                        checkCTSCoercion(node.initializer, initType, type);
-                        // [/ConcreteTypeScript]
-                    }
+                    // Use default messages
+                    checkTypeAssignableTo(checkExpressionCached(node.initializer), type, node, /*headMessage*/ undefined);
+                    // [ConcreteTypeScript]
+                    let initType =checkExpressionCached(node.initializer); // FIXME: rechecking
+                    checkCTSCoercion(node.initializer, initType, type);
+                    // [/ConcreteTypeScript]
                     checkParameterInitializer(node);
                 }
             }
@@ -13935,11 +13947,26 @@ namespace ts {
             }
         }
 
-        function checkBrandTypeDeclaration(node: DeclareTypeNode) {
-            checkTypeNameIsReserved(node.name, Diagnostics.Class_name_cannot_be_0);
+        // [ConcreteTypeScript] 
+        function checkDeclareTypeDeclaration(node: DeclareTypeDeclaration) {
+            if (produceDiagnostics) {
+                checkTypeNameIsReserved(node.name, Diagnostics.Interface_name_cannot_be_0);
+            }
 
-            // checkSourceElement(node.type);
+            forEach(getDeclareTypeBaseTypeNodes(node), heritageElement => {
+                if (!isSupportedExpressionWithTypeArguments(heritageElement)) {
+                    error(heritageElement.expression, Diagnostics.An_interface_can_only_extend_an_identifier_Slashqualified_name_with_optional_type_arguments);
+                }
+                checkTypeReferenceNode(heritageElement);
+            });
+
+            forEach(node.members, checkSourceElement);
+
+            if (produceDiagnostics) {
+                checkTypeForDuplicateIndexSignatures(node);
+            }
         }
+        // [/ConcreteTypeScript] 
 
         function checkTypeAliasDeclaration(node: TypeAliasDeclaration) {
             // Grammar checking
@@ -14648,8 +14675,6 @@ namespace ts {
                     return checkInterfaceDeclaration(<InterfaceDeclaration>node);
                 case SyntaxKind.BecomesType:
                     return;
-                case SyntaxKind.BrandTypeDeclaration:
-                    return checkBrandTypeDeclaration(<DeclareTypeNode>node);
                 case SyntaxKind.TypeAliasDeclaration:
                     return checkTypeAliasDeclaration(<TypeAliasDeclaration>node);
                 case SyntaxKind.EnumDeclaration:
@@ -17358,6 +17383,7 @@ namespace ts {
                 // Analysis was not yet run for this scope
                 let finalFlowData = computeAndSetFlowDataForReferencesInScope(
                     /*Reference decider: */ (node) => areSameValue(node, reference),
+                    /*Non-inferred member types (besides base types): */ getTargetTypeForMember,
                     /*Node-links: */ {},
                     /*Container scope: */ containerScope,
                     /*Current node in recursive scan: */ containerScope,
@@ -17372,12 +17398,37 @@ namespace ts {
                 if (refType && refType.flags & TypeFlags.IntermediateFlow) {
                     flowDependentTypeStack.pop();
                 }
+                return;
+                // Where:
+                function getTargetTypeForMember(member:string): Type {
+                    // TODO greatly simplify
+                    if (refType && refType.flags & TypeFlags.IntermediateFlow) {
+                        let target = stripConcreteType((<IntermediateFlowType>refType).targetType);
+                        if (target.symbol) {
+                            let hasBrandInterfaceDeclaration = !!getSymbolDecl(target.symbol, SyntaxKind.DeclareTypeDeclaration);
+                            let hasDeclareTypeNode = !!getSymbolDecl(target.symbol, SyntaxKind.DeclareType);
+                            
+                            if (hasBrandInterfaceDeclaration || !hasDeclareTypeNode) {
+                                let prop = getPropertyOfType(target, member);
+                                // If we have a target type of this form, 
+                                // make sure to 
+                                if (!prop) {
+                                    return undefinedType;
+                                }
+                                return getTypeOfSymbol(prop);
+                            }
+                        }
+                    }
+                }
             }
+           
         }
 
         // Recursively find all references to our node object descending from the node 'node'
         function computeAndSetFlowDataForReferencesInScope(// Refer to the same object throughout a recursion instance:
-                                         isReference: ReferenceDecider, nodePostLinks,
+                                         isReference: ReferenceDecider, 
+                                         getTargetTypeForMember: (member:string)=>Type, 
+                                         nodePostLinks,
                                          containerScope, 
                                          // Current node in recursive scan:
                                          node:Node, prev:FlowData):FlowData {
@@ -17457,6 +17508,18 @@ namespace ts {
                 // Flow analysis: Merge the result of the left and the right
                 prev = flowDataUnion(whenTrue, whenFalse);
             }
+            function scanMemberBinding(member:string, flowType: FlowType) {
+                let targetType = getTargetTypeForMember(member);
+                if (targetType) {
+                    if (targetType === undefinedType || !isTypeAssignableTo(flowType.type, targetType)) {
+                        // The type that we wish to become either does not have this type, or has an incompatible type.
+                        // We will allow the normal check* functions to error in this case.
+                        return;
+                    }
+                }
+                // Incorporate into our type:
+                prev = flowDataAssignment(prev, member, flowType);
+            }
             function scanBinaryExpression(node: BinaryExpression) {
                 if (node.operatorToken.kind === SyntaxKind.AmpersandAmpersandToken ||
                     node.operatorToken.kind === SyntaxKind.BarBarToken) {
@@ -17476,7 +17539,7 @@ namespace ts {
                     let {left, right} = node;
                     if (isMemberAccess(left)) {
                         let type = getTypeOfNode(right);
-                        prev = flowDataAssignment(prev, left.name.text, {firstBindingSite: node, type});
+                        scanMemberBinding(left.name.text, {firstBindingSite: node, type});
                         // Ensure that nodes being assigned to are aware of their incoming types
                         getNodeLinks(left.expression).ctsFlowData = prev;
                     }
@@ -17501,7 +17564,7 @@ namespace ts {
                 properties.forEach(property => {
                     let elementNode = <PropertyAssignment> getSymbolDecl(property, SyntaxKind.PropertyAssignment);
                     var type = getTypeOfSymbol(property);
-                    prev = flowDataAssignment(prev, property.name, {firstBindingSite: elementNode, type});
+                    scanMemberBinding(property.name, {firstBindingSite: elementNode, type});
                     if (isConcreteType(type) && !DISABLE_PROTECTED_MEMBERS) {
                         addPostEmit(node, ({write, writeLine, emitCTSRT, emitCTSType, emit}) => {
                             write(";"); writeLine();
@@ -17616,7 +17679,7 @@ namespace ts {
             }
 
             function recurse(node:Node, prev:FlowData) {
-                return computeAndSetFlowDataForReferencesInScope(isReference, nodePostLinks, containerScope, node, prev);
+                return computeAndSetFlowDataForReferencesInScope(isReference, getTargetTypeForMember, nodePostLinks, containerScope, node, prev);
             }
             function descend() {
                 forEachChild(node, (subchild) => {

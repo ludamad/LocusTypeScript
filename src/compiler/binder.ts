@@ -101,7 +101,6 @@ namespace ts {
 
         if (!file.locals) {
             bind(file);
-            postBind(file);
             file.symbolCount = symbolCount;
             file.classifiableNames = classifiableNames;
         }
@@ -343,6 +342,9 @@ namespace ts {
                 case SyntaxKind.ClassExpression:
                 case SyntaxKind.ClassDeclaration:
                 case SyntaxKind.InterfaceDeclaration:
+                // [ConcreteTypeScript]
+                case SyntaxKind.DeclareTypeDeclaration:
+                // [/ConcreteTypeScript]
                 case SyntaxKind.EnumDeclaration:
                 case SyntaxKind.TypeLiteral:
                 case SyntaxKind.ObjectLiteralExpression:
@@ -400,73 +402,14 @@ namespace ts {
         function bindDeclareTypeDeclaration(node: DeclareTypeDeclaration) {
             let scope = getModuleOrSourceFile(container);
             // The parent of the declaration is expected to be the containing scope:
-            let symbolKind = SymbolFlags.Declare | SymbolFlags.Type | SymbolFlags.ExportType;
-            let symbolExcludes = SymbolFlags.BrandTypeExcludes;
+            let symbolKind = SymbolFlags.Declare | SymbolFlags.ExportType;
+            let symbolExcludes = SymbolFlags.DeclareTypeExcludes;
 
             if (scope.symbol && scope.symbol.flags & SymbolFlags.HasExports) {
                 declareSymbol(scope.symbol.exports, undefined, node, symbolKind, symbolExcludes);
             } else {
                 declareSymbol(scope.locals, undefined, node, symbolKind, symbolExcludes);
             }
-        }
-
-        // TODO OLD CODE
-        function bindBrandTypeDeclaration(node: DeclareTypeNode) {
-            var scope = getModuleOrSourceFile(container);
-            // The parent of the declaration is expected to be the containing scope:
-            node.scope = scope;
-            var symbolKind = SymbolFlags.Declare | SymbolFlags.Type | SymbolFlags.ExportType, symbolExcludes = SymbolFlags.BrandTypeExcludes;
-
-            if (scope.symbol && scope.symbol.flags & SymbolFlags.HasExports) {
-                var retSymbol = declareSymbol(scope.symbol.exports, undefined, node, symbolKind, symbolExcludes);
-            } else {
-                var retSymbol = declareSymbol(scope.locals, undefined, node, symbolKind, symbolExcludes);
-            }
-            var contextNode = node.parent.parent;
-            let hasPrototypeBrand = false;
-            if (isVariableLike(contextNode)) {
-                // Handle 'this' declarations syntax 1:
-                if ((<Identifier>contextNode.name).text === "this") {
-                    var funcDecl = (<FunctionLikeDeclaration>getThisContainer(node, false));
-                    Debug.assert(isFunctionLike(funcDecl))
-                    node.functionDeclaration = funcDecl;
-                    let thisParam = <ThisParameterDeclaration> createNode(SyntaxKind.ThisParameter);
-                    thisParam.name = contextNode.name;
-                    thisParam.type = contextNode.type;
-                    thisParam.parent = node;
-                    thisParam.pos = contextNode.pos;
-                    thisParam.end = contextNode.end;
-                    Debug.assert(contextNode.type != null);
-                    funcDecl.parameters.thisParam = thisParam;
-                    hasPrototypeBrand = true;
-                }
-                node.varOrParamDeclaration = contextNode;
-            } else if (contextNode.kind === SyntaxKind.ThisParameter) {
-                // Handle 'this' declarations syntax 2:
-                Debug.assert(isFunctionLike(contextNode.parent))
-                node.functionDeclaration = <FunctionLikeDeclaration> contextNode.parent;
-                node.varOrParamDeclaration = <ThisParameterDeclaration> contextNode;
-                hasPrototypeBrand = true;
-            } else if (contextNode.kind === SyntaxKind.Parameter) {
-                Debug.assert(isFunctionLike(contextNode.parent))
-                node.varOrParamDeclaration = <ThisParameterDeclaration> contextNode;
-                hasPrototypeBrand = true;
-            } else {
-                Debug.assert(false);
-            }
-
-            if (hasPrototypeBrand) {
-                // Create the prototype brand type:
-                let protoBrandDecl = <DeclareTypeNode>createSynthesizedNode(SyntaxKind.BrandTypeDeclaration);
-                let synthProtoIdentifier = <Identifier>createSynthesizedNode(SyntaxKind.Identifier);
-                synthProtoIdentifier.text = "prototype";
-                synthProtoIdentifier.parent = protoBrandDecl;
-                protoBrandDecl.name = synthProtoIdentifier;
-                protoBrandDecl.parent = node;
-                node.prototypeBrandDeclaration = protoBrandDecl;
-                declareSymbol(node.symbol.exports, node.symbol, protoBrandDecl, symbolKind, symbolExcludes);
-            }
-            return retSymbol;
         }
 
         function addToContainerChain(next: Node) {
@@ -501,16 +444,6 @@ namespace ts {
             }
         }
 
-        function postBind(node: Node) {
-            //TODO System replacing
-            // bindBrandPropertiesInScopeAfterInitialBinding(node, declareSymbol);
-            // // [ConcreteTypeScript] Compute the contents of any brand-types in 
-            // // our block based on relevant assignments.
-            // forEachChild(node, (child) => {
-            //     postBind(child);
-            // });
-        }
-
         function declareSymbolAndAddToSymbolTableWorker(node: Declaration, symbolFlags: SymbolFlags, symbolExcludes: SymbolFlags): Symbol {
             switch (container.kind) {
                 // Modules, source files, and classes need specialized handling for how their
@@ -518,18 +451,10 @@ namespace ts {
                 // symbol table depending on if it is static or not). We defer to specialized
                 // handlers to take care of declaring these child members.
                 case SyntaxKind.ModuleDeclaration:
-                    if (node.kind === SyntaxKind.BrandTypeDeclaration) {
-                        return bindBrandTypeDeclaration(<DeclareTypeNode>node);
-                    } else {
-                        return declareModuleMember(node, symbolFlags, symbolExcludes);
-                    }
+                    return declareModuleMember(node, symbolFlags, symbolExcludes);
 
                 case SyntaxKind.SourceFile:
-                    if (node.kind === SyntaxKind.BrandTypeDeclaration) {
-                        return bindBrandTypeDeclaration(<DeclareTypeNode>node);
-                    } else {
-                        return declareSourceFileMember(node, symbolFlags, symbolExcludes);
-                    }
+                    return declareSourceFileMember(node, symbolFlags, symbolExcludes);
 
                 case SyntaxKind.ClassExpression:
                 case SyntaxKind.ClassDeclaration:
@@ -541,6 +466,9 @@ namespace ts {
                 case SyntaxKind.TypeLiteral:
                 case SyntaxKind.ObjectLiteralExpression:
                 case SyntaxKind.InterfaceDeclaration:
+                // [ConcreteTypeScript]
+                case SyntaxKind.DeclareTypeDeclaration:
+                // [/ConcreteTypeScript]
                     // Interface/Object-types always have their children added to the 'members' of
                     // their container. They are only accessible through an instance of their
                     // container, and are never in scope otherwise (even inside the body of the
@@ -569,11 +497,7 @@ namespace ts {
                     // symbol to the 'locals' of the container.  These symbols can then be found as
                     // the type checker walks up the containers, checking them for matching names.
                     
-                    if (node.kind === SyntaxKind.BrandTypeDeclaration) {
-                        return bindBrandTypeDeclaration(<DeclareTypeNode>node);
-                    } else {
-                        return declareSymbol(container.locals, undefined, node, symbolFlags, symbolExcludes);
-                    }
+                    return declareSymbol(container.locals, undefined, node, symbolFlags, symbolExcludes);
             }
         }
 
@@ -952,10 +876,6 @@ namespace ts {
 
         // [ConcreteTypeScript]
         function bindTypeReference(node: TypeReferenceNode) {
-            if (node.brandTypeDeclaration) {
-                node.brandTypeDeclaration.parent = node;
-                bindBrandTypeDeclaration(node.brandTypeDeclaration);
-            }
         }
 
         function bindWorker(node: Node): void {
@@ -1002,6 +922,7 @@ namespace ts {
                 case SyntaxKind.EnumMember:
                     return bindPropertyOrMethodOrAccessor(<Declaration>node, SymbolFlags.EnumMember, SymbolFlags.EnumMemberExcludes);
                 case SyntaxKind.DeclareType:
+                case SyntaxKind.DeclareTypeDeclaration:
                     return bindDeclareTypeDeclaration(<DeclareTypeDeclaration>node);
                 case SyntaxKind.CallSignature:
                 case SyntaxKind.ConstructSignature:

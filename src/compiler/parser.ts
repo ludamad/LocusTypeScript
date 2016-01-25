@@ -103,12 +103,11 @@ namespace ts {
                     visitNode(cbNode, (<ArrowFunction>node).equalsGreaterThanToken) ||
                     visitNode(cbNode, (<FunctionLikeDeclaration>node).body);
             // [ConcreteTypeScript]
-            case SyntaxKind.BrandTypeDeclaration:
-                return visitNode(cbNode, (<DeclareTypeNode>node).name) ||
-                    visitNode(cbNode, (<DeclareTypeNode>node).extendedType);
+            case SyntaxKind.DeclareTypeDeclaration:
             case SyntaxKind.DeclareType:
                 return visitNode(cbNode, (<DeclareTypeNode>node).name) ||
-                    visitNode(cbNode, (<DeclareTypeNode>node).extendedType);
+                    visitNodes(cbNodes, (<DeclareTypeNode>node).heritageClauses) ||
+                    visitNodes(cbNodes, (<DeclareTypeNode>node).members);
             // [/ConcreteTypeScript]
             case SyntaxKind.TypeReference:
                 return visitNode(cbNode, (<TypeReferenceNode>node).typeName) ||
@@ -1957,26 +1956,38 @@ namespace ts {
         // [ConcreteTypeScript]
         // startingType can be 'undefined'
         function parseBecomesType(startingType:TypeNode): BecomesTypeNode {
-            var becomesTypeNode = <BecomesTypeNode>createNode(SyntaxKind.BecomesType);
-            becomesTypeNode.pos = (startingType ? startingType.pos : getNodePos());
+            var node = <BecomesTypeNode>createNode(SyntaxKind.BecomesType);
+            node.pos = (startingType ? startingType.pos : getNodePos());
             nextToken();
-            becomesTypeNode.endingType = parseType();
-            becomesTypeNode.startingType = startingType;
-            becomesTypeNode.end = getNodeEnd();
-            return finishNode(becomesTypeNode);
+            node.endingType = parseType();
+            node.startingType = startingType;
+            node.end = getNodeEnd();
+            return finishNode(node);
         }
+
+        function parseBrandInterface(): DeclareTypeDeclaration {
+            var node = <DeclareTypeDeclaration>createNode(SyntaxKind.DeclareTypeDeclaration);
+            node.pos = getNodePos();
+            parseExpected(SyntaxKind.BrandKeyword);
+            parseExpected(SyntaxKind.InterfaceKeyword);
+            node.name = parseIdentifier();
+            node.heritageClauses = parseHeritageClauses(/*isClassHeritageClause*/ false);
+            node.members = parseObjectTypeMembers();
+            node.end = getNodeEnd();
+            return finishNode(node);
+        }
+
         // startingType can be 'undefined'
         function parseDeclareType(startingType:TypeNode): DeclareTypeNode {
-            var declareTypeNode = <DeclareTypeNode>createNode(SyntaxKind.DeclareType);
-            declareTypeNode.pos = (startingType ? startingType.pos : getNodePos());
+            var node = <DeclareTypeNode>createNode(SyntaxKind.DeclareType);
+            node.pos = (startingType ? startingType.pos : getNodePos());
             nextToken();
-            declareTypeNode.name = parseIdentifier();
-            declareTypeNode.startingType = startingType;
-            if (token === SyntaxKind.ExtendsKeyword) {
-                declareTypeNode.extendedType = parseType();
-            }
-            declareTypeNode.end = getNodeEnd();
-            return finishNode(declareTypeNode);
+            node.name = parseIdentifier();
+            node.heritageClauses = parseHeritageClauses(/*isClassHeritageClause*/ false);
+            node.startingType = startingType;
+            node.members = null;
+            node.end = getNodeEnd();
+            return finishNode(node);
         }
         // [/ConcreteTypeScript]
 
@@ -4261,6 +4272,7 @@ namespace ts {
                     case SyntaxKind.VarKeyword:
                     case SyntaxKind.LetKeyword:
                     case SyntaxKind.ConstKeyword:
+                    case SyntaxKind.BrandKeyword:
                     case SyntaxKind.FunctionKeyword:
                     case SyntaxKind.ClassKeyword:
                     case SyntaxKind.EnumKeyword:
@@ -4287,6 +4299,7 @@ namespace ts {
                     //   I {}
                     //
                     // could be legal, it would add complexity for very little gain.
+                    case SyntaxKind.BrandKeyword:
                     case SyntaxKind.InterfaceKeyword:
                     case SyntaxKind.TypeKeyword:
                         return nextTokenIsIdentifierOnSameLine();
@@ -4371,6 +4384,9 @@ namespace ts {
                 case SyntaxKind.AsyncKeyword:
                 case SyntaxKind.DeclareKeyword:
                 case SyntaxKind.InterfaceKeyword:
+                // [ConcreteTypeScript]
+                case SyntaxKind.BrandKeyword:
+                // [/ConcreteTypeScript]
                 case SyntaxKind.ModuleKeyword:
                 case SyntaxKind.NamespaceKeyword:
                 case SyntaxKind.TypeKeyword:
@@ -4449,6 +4465,9 @@ namespace ts {
                     return parseDeclaration();
                 case SyntaxKind.AsyncKeyword:
                 case SyntaxKind.InterfaceKeyword:
+                // [ConcreteTypeScript]
+                case SyntaxKind.BrandKeyword:
+                // [/ConcreteTypeScript]
                 case SyntaxKind.TypeKeyword:
                 case SyntaxKind.ModuleKeyword:
                 case SyntaxKind.NamespaceKeyword:
@@ -4484,6 +4503,10 @@ namespace ts {
                     return parseFunctionDeclaration(fullStart, decorators, modifiers);
                 case SyntaxKind.ClassKeyword:
                     return parseClassDeclaration(fullStart, decorators, modifiers);
+                // [ConcreteTypeScript]
+                case SyntaxKind.BrandKeyword:
+                    return parseBrandInterface(); // Decorators unused
+                // [/ConcreteTypeScript]
                 case SyntaxKind.InterfaceKeyword:
                     return parseInterfaceDeclaration(fullStart, decorators, modifiers);
                 case SyntaxKind.TypeKeyword:
