@@ -398,7 +398,7 @@ namespace ts {
             return ContainerFlags.None;
         }
 
-        // [ConcreteTypeScript] TODO remove old code
+        // [ConcreteTypeScript]
         function bindDeclareTypeDeclaration(node: DeclareTypeDeclaration) {
             let scope = getModuleOrSourceFile(container);
             // The parent of the declaration is expected to be the containing scope:
@@ -406,10 +406,19 @@ namespace ts {
             let symbolExcludes = SymbolFlags.DeclareTypeExcludes;
 
             if (scope.symbol && scope.symbol.flags & SymbolFlags.HasExports) {
-                declareSymbol(scope.symbol.exports, undefined, node, symbolKind, symbolExcludes);
+                var symbol = declareSymbol(scope.symbol.exports, undefined, node, symbolKind, symbolExcludes);
             } else {
-                declareSymbol(scope.locals, undefined, node, symbolKind, symbolExcludes);
+                var symbol = declareSymbol(scope.locals, undefined, node, symbolKind, symbolExcludes);
             }
+            // Define a .prototype symbol:
+            var prototypeDeclaration = <DeclareTypeDeclaration>createNode(SyntaxKind.DeclareTypeDeclaration);
+            prototypeDeclaration.pos = node.pos;
+            prototypeDeclaration.name = node.name;
+            prototypeDeclaration.heritageClauses = node.heritageClauses;
+            prototypeDeclaration.members = node.members;
+            prototypeDeclaration.end = node.end;
+
+            declareSymbol(symbol.exports, undefined, prototypeDeclaration, symbolKind, symbolExcludes);
         }
 
         function addToContainerChain(next: Node) {

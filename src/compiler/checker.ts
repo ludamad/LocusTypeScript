@@ -3214,7 +3214,6 @@ namespace ts {
             // This is required to be first because symbols can be marked as 'Class'
             // but should resolve to brands when used as a type.
             if (symbol.flags & SymbolFlags.Declare) {
-                console.log("getDeclaredTypeOfDeclareTypeSymbol");
                 return getDeclaredTypeOfDeclareTypeSymbol(symbol);
             }
             if (symbol.flags & (SymbolFlags.Class | SymbolFlags.Interface)) {
@@ -3587,14 +3586,10 @@ namespace ts {
                     members = getExportsOfSymbol(symbol);
                 }
                 if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method)) {
-                    // let funcDecl = <FunctionDeclaration> getSymbolDecl(symbol, SyntaxKind.FunctionDeclaration);
-                    // if (isFunctionLikeDeclarationWithThisBrand(funcDecl)) {
-                    //     // constructSignatures = getSignaturesOfSymbol(symbol);
-                    //     let prototypeSymbol = createSymbol(SymbolFlags.Property | SymbolFlags.Prototype, "prototype");
-                    //     prototypeSymbol.brandType = funcDecl.parameters.thisType.brandTypeDeclaration.prototypeBrandDeclaration;
-                    //     members = createSymbolTable([prototypeSymbol]);
-                    // }
                     callSignatures = getSignaturesOfSymbol(symbol);
+                    // [ConcreteTypeScript]
+                    constructSignatures = getSignaturesOfSymbol(symbol).filter(({resolvedThisType}) => !!resolvedThisType);
+                    // [/ConcreteTypeScript]
                 }
                 if (symbol.flags & SymbolFlags.Class) {
                     let classType = getDeclaredTypeOfClassOrInterface(symbol);
@@ -4031,15 +4026,6 @@ namespace ts {
                 // [ConcreteTypeScript]
                 if (declaration.parameters.thisParam) {
                     links.resolvedSignature.resolvedThisType = getTypeFromTypeNode(declaration.parameters.thisParam.type);
-                } else {
-                    if (declaration.parent.kind === SyntaxKind.BinaryExpression && (<BinaryExpression> declaration.parent).operatorToken.kind === SyntaxKind.EqualsToken) {
-                        let left = (<BinaryExpression> declaration.parent).left;
-                        let flowAnalysis = (left).ctsAssignmentAnalysis;
-                        if (flowAnalysis) {
-                            let brandType = flowAnalysis.getBrandType();
-                            links.resolvedSignature.resolvedThisType = createConcreteType(getDeclaredTypeOfSymbol(brandType.symbol));
-                        }
-                    }
                 }
                 // [/ConcreteTypeScript]
             }
@@ -7601,19 +7587,6 @@ namespace ts {
                 case SyntaxKind.AsExpression:
                     return getTypeFromTypeNode((<AssertionExpression>parent).type);
                 case SyntaxKind.BinaryExpression:
-                    // [ConcreteTypeScript]
-                    let flowAnalysis = (<PropertyAccessExpression>(<BinaryExpression>parent).left).ctsAssignmentAnalysis;
-                    if ((<BinaryExpression>parent).operatorToken.kind === SyntaxKind.EqualsToken && flowAnalysis) {
-                        // If the member is a function, we contextually add a 'this' member to its signature
-                        let brandTypeDecl = flowAnalysis.getBrandType();
-                        if (!brandTypeDecl.varOrParamDeclaration) {
-                            // We must be a prototype brand type:
-                            // TODO probably uneeded, do in brand type gathering
-                        }
-                        // Otherwise, don't use contextual information on members derived for brand types
-                        return undefined;
-                    }
-                    // [/ConcreteTypeScript]
                     return getContextualTypeForBinaryOperand(node);
                 case SyntaxKind.PropertyAssignment:
                     return getContextualTypeForObjectLiteralElement(<ObjectLiteralElement>parent);
@@ -17469,9 +17442,7 @@ namespace ts {
                 }
                 let becomesAmount = 0;
                 for (let i = 0; i < signature.parameters.length && i < node.arguments.length; i++) {
-                    smartPrint(signature.parameters[i], "EFA");
                     let paramType = getTypeAtPosition(signature, i);
-                    smartPrint(paramType, "PARAM TPE");
                     // Cannot do anything without type information:
                     if (!paramType) {
                         continue;
