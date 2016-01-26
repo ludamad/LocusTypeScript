@@ -3,20 +3,39 @@ require('./harness');
 
 Harness.lightMode = true;
 
-describe("Compilation tests", () => {
-    it ("simpl", () => {
-        let sourceText = `function test(this: declare Test) {
-            
-        }
-        test.prototype.x = function() {
-        }
-        test.prototype.foo = function() {
-        }
-        `;
+describe("Nominal this", () => {
+    let sourceText = `function Foo(this: declare Foo) {
+        /*x*/ (this.x);
+        this.y = 1;
+        /*y*/ (this.y);
+        /*x*/ (this.x);
+    }
+    foo.prototype.x = 1;
+    function useFoo() {
+        var foo = new Foo();
+        /*x*/ (foo.x);
+        /*x*/ (foo.prototype.x);
+        /*y*/ (foo.y);
+    }
+    `;
+    let {rootNode: sourceFile, checker} = compileOne(sourceText);
+    findWithComment(sourceFile, "x", ts.isExpression).forEach(testRefIsNumber);
+    findWithComment(sourceFile, "y", ts.isExpression).forEach(testRefIsNumber);
+    return;
+    // Where:
+    function testRefIsNumber(ref) {
+        it(`"${sourceFile.text.substring(ref.pos, ref.end).trim()}" @${ts.nodePosToString(ref)} should be a !number`, () => {
+            let type = checker.getTypeAtLocation(ref);
+            let strippedType = checker.stripConcreteType(type);
+            assert(strippedType.flags & ts.TypeFlags.NumberLike,
+                "Not a number, was " + checker.typeToString(type)
+            );
+            assert(type !== strippedType, "Should be concrete, was " + checker.typeToString(type));
+        });
+    }
+});
 
-        let {rootNode, checker} = compileOne(sourceText);
-    });
- 
+describe("Compilation tests", () => {
     it ("simple becomes", () => {
         let sourceText = `function test(funcParam: becomes {x: number}) {
             funcParam.x = 1;
