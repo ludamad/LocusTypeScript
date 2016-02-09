@@ -13,6 +13,9 @@ namespace ts {
         name: Identifier;
         // If eg 'extends Foo' was used
         heritageClauses: NodeArray<HeritageClause>;
+        // If our node is a .prototype declare-type, then we 
+        // will have an enclosingDeclareSymbol
+        enclosingDeclareSymbol: Symbol;
         members?: NodeArray<Declaration>;
     }
 
@@ -1093,13 +1096,9 @@ namespace ts {
     // [ConcreteTypeScript]
     export interface BlockExitStatement extends Statement {
         _blockExitBrand: any;
-        // Set by binder.ts
-        breakingContainer?:Node;
         // Keep a list of brand type declarations that are in defined
         // somewhere within the block that we are exitting.
-        brandDeclExits?: DeclareTypeNode[];
     }
-
     export interface BreakOrContinueStatement extends BlockExitStatement {
         label?: Identifier;
     }

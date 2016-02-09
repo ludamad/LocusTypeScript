@@ -413,9 +413,12 @@ namespace ts {
             // Define a .prototype symbol:
             var prototypeDeclaration = <DeclareTypeDeclaration>createNode(SyntaxKind.DeclareTypeDeclaration);
             prototypeDeclaration.pos = node.pos;
-            prototypeDeclaration.name = node.name;
-            prototypeDeclaration.heritageClauses = node.heritageClauses;
-            prototypeDeclaration.members = node.members;
+            let prototypeName = <Identifier>createSynthesizedNode(SyntaxKind.Identifier);
+            prototypeName.text = prototypeDeclaration.name.text + ".prototype";
+            prototypeDeclaration.name = prototypeName;
+            prototypeDeclaration.enclosingDeclareSymbol = symbol;
+            prototypeDeclaration.members = [];
+
             prototypeDeclaration.end = node.end;
 
             declareSymbol(symbol.exports, undefined, prototypeDeclaration, symbolKind, symbolExcludes);
@@ -883,19 +886,7 @@ namespace ts {
             return nodeText === "\"use strict\"" || nodeText === "'use strict'";
         }
 
-        // [ConcreteTypeScript]
-        function bindTypeReference(node: TypeReferenceNode) {
-        }
-
         function bindWorker(node: Node): void {
-            // [ConcreteTypeScript] Keep a breakingContainer property around for convenience
-            if (node.kind === SyntaxKind.BreakStatement || node.kind === SyntaxKind.ContinueStatement || node.kind === SyntaxKind.ReturnStatement) {
-               (<BreakOrContinueStatement>node).breakingContainer = findBreakingScope(node);
-            }
-            if (node.kind === SyntaxKind.TypeReference) {
-                bindTypeReference(<TypeReferenceNode> node);
-            }
-            // [/ConcreteTypeScript]
             switch (node.kind) {
                 case SyntaxKind.Identifier:
                     return checkStrictModeIdentifier(<Identifier>node);

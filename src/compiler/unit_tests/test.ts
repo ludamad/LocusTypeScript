@@ -5,7 +5,7 @@ Harness.lightMode = true;
 
 describe("Nominal this", () => {
     let sourceText = `function Foo(this: declare Foo) {
-        /*x*/ (this.x);
+        /* first */ /*x*/ (this.x); 
         this.y = 1;
         /*y*/ (this.y);
         /*x*/ (this.x);

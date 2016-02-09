@@ -46,6 +46,20 @@ namespace ts {
         }
         return false;
     }
+
+    // Used when determinining if a Foo.prototype expression represents a protected declare-type prototype
+    export function getThisTypeNodeFromFunction(scope:Node): TypeNode {
+        for (var i = 0; i < symbol.declarations.length; i++) {
+            if (isFunctionLike(symbol.declarations[i]) {
+                if (isFunctionLike(symbol.declarations[i]) {
+                return symbol.declarations[i];
+            }
+        }
+        return null
+    }
+
+   }
+
     export function getBrandTypesInScope(scope:Node):DeclareTypeNode[] {
         var useExports = (scope.symbol && scope.symbol.flags & SymbolFlags.HasExports);
         var symbols:SymbolTable =  (useExports? scope.symbol.exports : scope.locals) || {};

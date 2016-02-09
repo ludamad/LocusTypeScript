@@ -3019,30 +3019,27 @@ namespace ts {
             type.resolvedBaseTypes = [];
             let brandInterfaceDeclaration = getSymbolDecl(type.symbol, SyntaxKind.DeclareTypeDeclaration);
             let declaration = <DeclareTypeDeclaration> (brandInterfaceDeclaration || getSymbolDecl(type.symbol, SyntaxKind.DeclareType));
-            if (getDeclareTypeBaseTypeNodes(declaration)) {
-                for (let node of getDeclareTypeBaseTypeNodes(declaration)) {
-                    let baseType = getTypeFromTypeNode(node);
-                    if (baseType !== unknownType) {
-                        if (getTargetType(baseType).flags & (TypeFlags.Class | TypeFlags.Declare | TypeFlags.Interface)) {
-                            if (type !== baseType && !hasBaseType(<InterfaceType>baseType, type)) {
-                                type.resolvedBaseTypes.push(baseType);
-                            }
-                            else {
-                                error(declaration, Diagnostics.Type_0_recursively_references_itself_as_a_base_type, typeToString(type, /*enclosingDeclaration*/ undefined, TypeFormatFlags.WriteArrayAsGenericType));
-                            }
+            for (let node of getDeclareTypeBaseTypeNodes(declaration) || []) {
+                let baseType = getTypeFromTypeNode(node);
+                if (baseType !== unknownType) {
+                    if (getTargetType(baseType).flags & (TypeFlags.Class | TypeFlags.Declare | TypeFlags.Interface)) {
+                        if (type !== baseType && !hasBaseType(<InterfaceType>baseType, type)) {
+                            type.resolvedBaseTypes.push(baseType);
                         }
                         else {
-                            error(node, Diagnostics.An_interface_may_only_extend_a_class_or_another_interface);
+                            error(declaration, Diagnostics.Type_0_recursively_references_itself_as_a_base_type, typeToString(type, /*enclosingDeclaration*/ undefined, TypeFormatFlags.WriteArrayAsGenericType));
                         }
+                    }
+                    else {
+                        error(node, Diagnostics.An_interface_may_only_extend_a_class_or_another_interface);
                     }
                 }
             }
             let flowData = getFlowDataForType(type);
             if (flowData) {
                 let {flowTypes} = flowData;
-                type.resolvedBaseTypes = type.resolvedBaseTypes.concat(
-                    flowTypes.map(ft => stripConcreteType(ft.type)).filter(t => !isTypeIdenticalTo(t, emptyObjectType))
-                );
+                let minimalFlowTypes = getMinimalTypeList(flowTypes.map(ft => ft.type));
+                type.resolvedBaseTypes = type.resolvedBaseTypes.concat(minimalFlowTypes);
             }
 
         }
@@ -3589,6 +3586,7 @@ namespace ts {
                     callSignatures = getSignaturesOfSymbol(symbol);
                     // [ConcreteTypeScript]
                     constructSignatures = getSignaturesOfSymbol(symbol).filter(({resolvedThisType}) => !!resolvedThisType);
+                    smartPrint(constructSignatures.length, 'cL');
                     // [/ConcreteTypeScript]
                 }
                 if (symbol.flags & SymbolFlags.Class) {
@@ -17419,15 +17417,14 @@ namespace ts {
             /** Helper functions: **/
             function scanReturnOrContinueOrBreakStatement(node: ReturnStatement|BreakOrContinueStatement) {
                 // Truncate the scope to only the topmost block we care about
-                let breakingContainer = node.breakingContainer;
+                let breakingContainer = findBreakingScope(node);
                 if (isNodeDescendentOf(containerScope, breakingContainer)) {
                     breakingContainer = containerScope;
                 }
                 let id = breakingContainer.id;
                 nodePostLinks[id] = (nodePostLinks[id] || []);
                 descend();
-                // This would allow for assignments in the return statement.
-                // However, branding occurs _before_ the return statement has a chance to execute.
+                // We do not allow assignment expressions branding occurs _before_ the return statement has a chance to execute.
                 nodePostLinks[id].push(prev);
             }
 
