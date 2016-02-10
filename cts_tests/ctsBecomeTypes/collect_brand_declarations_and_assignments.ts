@@ -9,10 +9,10 @@ function becomeFoo(obj : {} declare Foo) {
 
 function useBecomeFoo(obj : {} becomes {a:!number, b:number}) {
     becomeFoo(obj);
-    /* @assertType("!number") */ obj.a;
-    assertType(obj, "a", Number;
+    /* @assertType("!number") */ (obj.a);
+    assertType(obj, "a", Number);
     obj.b = 1;
-    /* @assertType("!number") */ obj.a;
+    /* @assertType("!number") */ (obj.a);
 }
 
 useBecomeFoo();

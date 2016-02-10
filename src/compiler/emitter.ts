@@ -2908,13 +2908,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             function emitBrandingsForBlockExit(exitNode:BlockExitStatement) {
                 // We potentially exit multiple scopes, such as with
                 // a return statement, or a 'break|continue <label>;' statement
-                let scope = exitNode.parent;
-                if (!exitNode.breakingContainer) {
+                let scope = exitNode.parent, breakingScope = findBreakingScope(exitNode);
+                if (!breakingScope) {
                     return;
                 }
                 while (true) {
                     emitBrandingsForBlockEnd(scope);
-                    if (scope === exitNode.breakingContainer) {
+                    if (scope === breakingScope) {
                         break;
                     }
                     scope = scope.parent;
@@ -3922,12 +3922,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             }
 
             function emitVariableStatement(node: VariableStatement) {
-                // [ConcreteTypeScript]
-                if ((<Identifier>node.declarationList.declarations[0].name).text === "this") {
-                    // Don't emit 'let this : decl Foo;' type-of expressions.
-                    return;
-                }
-
                 let startIsEmitted = false;
 
                 if (node.flags & NodeFlags.Export) {

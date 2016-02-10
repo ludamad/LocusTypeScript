@@ -10,5 +10,5 @@ function becomeFoo(obj : {} declare Foo) {
 }
 
 let foo = becomeFoo();
-/* @assertType("number") */ foo.x;
+/* @assertType("number") */ (foo.x);
 

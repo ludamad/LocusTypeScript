@@ -417,8 +417,6 @@ namespace ts {
             prototypeName.text = prototypeDeclaration.name.text + ".prototype";
             prototypeDeclaration.name = prototypeName;
             prototypeDeclaration.enclosingDeclareSymbol = symbol;
-            prototypeDeclaration.members = [];
-
             prototypeDeclaration.end = node.end;
 
             declareSymbol(symbol.exports, undefined, prototypeDeclaration, symbolKind, symbolExcludes);

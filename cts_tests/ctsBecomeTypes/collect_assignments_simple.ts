@@ -1,6 +1,8 @@
 // @KnownDefect
-function f(x : {} becomes {a:string}) {
+function f(x : {} becomes {a: string} ) {
     x.a = "hey";
-    /* @assertType("string") */ x.a;
+    /* @assertType("string") */ (x.a);
 }
-f();
+
+var obj = {};
+f(obj);

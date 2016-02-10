@@ -4024,6 +4024,23 @@ namespace ts {
                 // [ConcreteTypeScript]
                 if (declaration.parameters.thisParam) {
                     links.resolvedSignature.resolvedThisType = getTypeFromTypeNode(declaration.parameters.thisParam.type);
+                } else if (node.parent.kind === SyntaxKind.BinaryExpression && 
+                           (<BinaryExpression>node.parent).operatorToken.kind === SyntaxKind.EqualsToken &&
+                           (<BinaryExpression>node.parent).right === node) {
+                    // If an explicit this-type is not given then we 
+                    // may infer one if this node is an expression and
+                    // literal being assigned
+                    // to an object with an 'IntermediateFlowType' type.
+
+                    var leftType = getTypeOfNode(node.parent.left);
+                    if (leftType.flags & TypeFlags.IntermediateFlow) {
+                        var targetType = leftType.targetType;
+                        var declareTypeNode = getDeclareTypeNode(targetType)
+                        if (declareTypeNode) {
+                            targetType = getTypeOfSymbol(declareTypeNode.enclosingDeclareSymbol);
+                        }
+                        links.resolvedSignature.resolvedThisType = targetType;
+                    }
                 }
                 // [/ConcreteTypeScript]
             }
@@ -7137,10 +7154,11 @@ namespace ts {
             // [ConcreteTypeScript]
             if (isFunctionLike(container)) {
                 let thisType:Type = getSignatureFromDeclaration(container).resolvedThisType;
-                if (thisType.flags & TypeFlags.IntermediateFlow) {
+                if (thisType && thisType.flags & TypeFlags.IntermediateFlow) {
                     return getIntermediateFlowTypeAtLocation(node, <IntermediateFlowType> thisType); 
+                } if (thisType) {
+                    return thisType;
                 }
-                return thisType;
             }
             // [/ConcreteTypeScript]
             if (isClassLike(container.parent)) {
@@ -15243,12 +15261,31 @@ namespace ts {
             }
             return ret;
         }
+        // [ConcreteTypeScript]
+        function getBrandInterface(target) {
+            return target.symbol && ts.getSymbolDecl(target.symbol, ts.SyntaxKind.DeclareTypeDeclaration);
+        }
+        // [ConcreteTypeScript]
+        function getDeclareTypeNode(target) {
+            return target.symbol && ts.getSymbolDecl(target.symbol, ts.SyntaxKind.DeclareType);
+        }
+        // [ConcreteTypeScript]
+        function isFreshDeclareType(target) {
+            // Remove concreteness to see declarations properly:
+            target = stripConcreteType(target);
+            // The target type is fresh if it is is a DeclareTypeNode that does not refer to a brand interface.
+            return !getBrandInterface(target) && getDeclareTypeNode(target);
+        }
+        // [ConcreteTypeScript]
         function isIntermediateFlowTypeSubsetOfTarget(type:IntermediateFlowType): boolean {
             if (!type.targetType) {
                 return false;
             }
-            // 
-            if (type.declareTypeNode) {
+            // If we are defining a new type through 'declare', we are a subset 
+            // of our target type if members are bound to subsets of their types 
+            // at the end of the function.
+            // We treat this case specially to avoid calling getPropertyOfType in a cycle.
+            if (isFreshDeclareType(type.targetType)) {
                 // Path 1: Member-capturing becomes through 'declare MyType'
                 let {flowData} = type;
                 let target = stripConcreteType(type.targetType);
@@ -15277,7 +15314,10 @@ namespace ts {
                     }
                 }
                 return true;
-            } else {
+            } 
+            // Otherwise, this is 'declare' with a brand interface or plain 'becomes'.
+            // We can call getPropertyOfType directly.
+            else {
                 // Path 2: Normal interface/brand-interface becomes.
                 for (let property of getPropertiesOfType(type.targetType)) {
                     let targetPropType = getTypeOfSymbol(property);
@@ -17245,8 +17285,11 @@ namespace ts {
             }
             return findDeclarationForName(objA, objA.text) === findDeclarationForName(objB, objB.text);
         }
-
+        // Invariant: objA != null || objB != null
         function areSameValue(objA:Node, objB:Node) {
+            if (!objA || !objB) {
+                return false;
+            }
             // Handle the case where different-kinded nodes could be equal, 
             // a 'this' keyword and our hacked on pseudo-this with an identifier
             // (only found in ThisParameter's):
@@ -17372,23 +17415,11 @@ namespace ts {
                 return;
                 // Where:
                 function getTargetTypeForMember(member:string): Type {
-                    // TODO greatly simplify
                     if (refType && refType.flags & TypeFlags.IntermediateFlow) {
-                        let target = stripConcreteType((<IntermediateFlowType>refType).targetType);
-                        if (target.symbol) {
-                            let hasBrandInterfaceDeclaration = !!getSymbolDecl(target.symbol, SyntaxKind.DeclareTypeDeclaration);
-                            let hasDeclareTypeNode = !!getSymbolDecl(target.symbol, SyntaxKind.DeclareType);
-                            
-                            if (hasBrandInterfaceDeclaration || !hasDeclareTypeNode) {
-                                let prop = getPropertyOfType(target, member);
-                                // If we have a target type of this form, 
-                                // make sure to 
-                                if (!prop) {
-                                    return undefinedType;
-                                }
-                                return getTypeOfSymbol(prop);
-                            }
-                        }
+                        if (!isFreshDeclareType(refType.targetType)) {
+                            smartPrint(refType.targetType, 'tt')
+                            var prop = getPropertyOfType(refType.targetType, member);
+                            return prop ? getTypeOfSymbol(prop) : undefinedType;
                     }
                 }
             }
@@ -17483,6 +17514,12 @@ namespace ts {
                         // The type that we wish to become either does not have this type, or has an incompatible type.
                         // We will allow the normal check* functions to error in this case.
                         return;
+                    }
+                    // If the type is a supertype of our target type, use the target type.
+                    // This prevents inconsistency with a type suddenly losing information
+                    // when the become has been fulfilled, as it becomes the target type then anyway.
+                    if (isTypeSubtypeOf(flowType.type, targetType)) {
+                        flowType = {type: targetType, firstBindingSite: flowType.firstBindingSite};
                     }
                 }
                 // Incorporate into our type:

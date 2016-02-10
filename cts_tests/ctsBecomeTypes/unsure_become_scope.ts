@@ -1,4 +1,3 @@
-// @KnownDefect
 // @TestExpectedToHaveCompileErrors
 
 brand interface HasANumber {

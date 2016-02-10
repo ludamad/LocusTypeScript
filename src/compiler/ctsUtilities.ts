@@ -48,16 +48,37 @@ namespace ts {
     }
 
     // Used when determinining if a Foo.prototype expression represents a protected declare-type prototype
-    export function getThisTypeNodeFromFunction(scope:Node): TypeNode {
-        for (var i = 0; i < symbol.declarations.length; i++) {
-            if (isFunctionLike(symbol.declarations[i]) {
-                if (isFunctionLike(symbol.declarations[i]) {
-                return symbol.declarations[i];
-            }
+    export function getDeclareTypeFromThisParam(param: ThisParameterDeclaration): DeclareTypeNode {
+        let typeNode = param.type;
+        if (typeNode.kind === SyntaxKind.DeclareType) {
+            return <DeclareTypeNode> typeNode;
         }
-        return null
+        return null;
     }
 
+    export function getThisParamFromFunction(node:Node): ThisParameterDeclaration {
+        let decl = getFunctionDeclaration(node.symbol);
+        if (decl) {
+            return decl.parameters.thisParam;
+        }
+        return null;
+    }
+    
+    export function getDeclareTypeFromFunction(node:Node): DeclareTypeNode {
+        let thisParam = getThisParamFromFunction(node);
+        if (!thisParam) {
+            return null;
+        }
+        return getDeclareTypeFromThisParam(thisParam);
+    }
+
+    export function getFunctionDeclaration(symbol: Symbol): FunctionLikeDeclaration {
+        for (var i = 0; i < symbol.declarations.length; i++) {
+            if (isFunctionLike(symbol.declarations[i])) {
+                return <FunctionLikeDeclaration> symbol.declarations[i];
+            }
+        }
+        return null;
    }
 
     export function getBrandTypesInScope(scope:Node):DeclareTypeNode[] {
