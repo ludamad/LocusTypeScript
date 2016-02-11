@@ -1,0 +1,85 @@
+4735d4734
+<             console.log((new Error()).stack);
+8243c8242
+<         // If an explicit this-type is not given then we may infer one if we are in a binding assignment. Returns 'undefined' if not applicable.
+---
+>         // If an explicit this-type is not given then we may infer one if we are in a binding assignment. 
+8252,8258c8251,8254
+<                     if (declareTypeNode && isFreshDeclareType(targetType)) {
+<                         if (declareTypeNode.enclosingDeclareSymbol) {
+<                             return createConcreteType(getTypeOfSymbol(declareTypeNode.enclosingDeclareSymbol));
+<                         }
+<                         else {
+<                             return targetType;
+<                         }
+---
+>                     if (declareTypeNode) {
+>                         return declareTypeNode.enclosingDeclareSymbol ?
+>                             targetType :
+>                             createConcreteType(getTypeOfSymbol(declareTypeNode.enclosingDeclareSymbol));
+11393,11410d11388
+<                     // [ConcreteTypeScript]
+<                     var targetType = getTargetTypeOfNode(binaryExpression.left);
+<                     if (targetType) {
+<                         if (isFreshDeclareType(targetType)) {
+<                             // Avoid circular logic, since this may be called by the fresh declare type analyzer,
+<                             // we do not want to invoke it.
+<                             return undefined;
+<                         } else {
+<                             return targetType;
+<                         }
+<                     } 
+< 
+<                     if (memberOfFreshDeclareType(binaryExpression.left)) {
+<                         return undefined; 
+<                     } 
+<                     if (memberOfIntermediateFlowType) {
+<                     }
+<                     // [/ConcreteTypeScript]
+12433a12412
+>             console.log(new Error().stack)
+18388,18414d18366
+<         function getTargetTypeOfSymbol(symbol) {
+<             var type = getTypeOfSymbol(symbol);
+<             if (type.flags & ts.TypeFlags.IntermediateFlow) {
+<                 return type.targetType
+<             }
+<             return null;
+<         }
+<         // [ConcreteTypeScript]
+<         function getTargetTypeOfNode(node) {
+<             if (canHaveFlowData(node)) {
+<                 var symbol = node.symbol;
+<                 if (symbol) {
+<                     return getTargetTypeOfSymbol(symbol);
+<                }
+<             }
+<             return null;
+<         }
+<         // [ConcreteTypeScript]
+<         function memberOfFreshDeclareType(node) {
+<             if (node.kind === ts.SyntaxKind.PropertyAccessExpression) {
+<                 var type = getTargetTypeOfNode(node.expression);
+<                 return isFreshDeclareType(type);
+<             }
+<             return false;
+<         }
+<  
+<         // [ConcreteTypeScript]
+20513a20466,20467
+>                     smartPrint(left, 'left')
+>                         smartPrint(right, 'right')
+20515a20470
+>                         smartPrint(type, 'type');
+20575,20576c20530,20531
+<                 }
+<                 else {
+---
+>                 } else {
+> 
+34926,34928c34881
+<             if (token === 78 /* Identifier */) {
+<                 node.name = parseIdentifier();
+<             }
+---
+>             node.name = parseIdentifier();
