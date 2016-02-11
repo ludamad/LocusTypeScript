@@ -103,11 +103,18 @@ namespace ts {
                     visitNode(cbNode, (<ArrowFunction>node).equalsGreaterThanToken) ||
                     visitNode(cbNode, (<FunctionLikeDeclaration>node).body);
             // [ConcreteTypeScript]
+            case SyntaxKind.BecomesType:
+                return visitNode(cbNode, (<BecomesTypeNode> node).startingType) ||
+                    visitNode(cbNode, (<BecomesTypeNode> node).endingType);
             case SyntaxKind.DeclareTypeDeclaration:
+                return visitNode(cbNode, (<DeclareTypeDeclaration> node).name) ||
+                    visitNodes(cbNodes, (<DeclareTypeDeclaration> node).heritageClauses) ||
+                    visitNodes(cbNodes, (<DeclareTypeDeclaration> node).members);
             case SyntaxKind.DeclareType:
-                return visitNode(cbNode, (<DeclareTypeNode>node).name) ||
-                    visitNodes(cbNodes, (<DeclareTypeNode>node).heritageClauses) ||
-                    visitNodes(cbNodes, (<DeclareTypeNode>node).members);
+                return visitNode(cbNode, (<DeclareTypeNode> node).name) ||
+                    visitNode(cbNode, (<DeclareTypeNode> node).startingType) ||
+                    visitNodes(cbNodes, (<DeclareTypeNode> node).heritageClauses) ||
+                    visitNodes(cbNodes, (<DeclareTypeNode> node).members);
             // [/ConcreteTypeScript]
             case SyntaxKind.TypeReference:
                 return visitNode(cbNode, (<TypeReferenceNode>node).typeName) ||
@@ -1982,7 +1989,9 @@ namespace ts {
             var node = <DeclareTypeNode>createNode(SyntaxKind.DeclareType);
             node.pos = (startingType ? startingType.pos : getNodePos());
             nextToken();
-            node.name = parseIdentifier();
+            if (token === SyntaxKind.Identifier) {
+                node.name = parseIdentifier();
+            }
             node.heritageClauses = parseHeritageClauses(/*isClassHeritageClause*/ false);
             node.startingType = startingType;
             node.members = null;
@@ -2542,7 +2551,7 @@ namespace ts {
             if (token === SyntaxKind.DeclareKeyword) {
                 return parseDeclareType(typeNode);
             }
-            if (token === SyntaxKind.BecomesType) {
+            if (token === SyntaxKind.BecomesKeyword) {
                 return parseBecomesType(typeNode);
             }
             return typeNode;

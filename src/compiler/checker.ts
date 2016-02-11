@@ -269,6 +269,7 @@ namespace ts {
         }
 
         function error(location: Node, message: DiagnosticMessage, arg0?: any, arg1?: any, arg2?: any): void {
+            console.log((<any>new Error()).stack)
             let diagnostic = location
                 ? createDiagnosticForNode(location, message, arg0, arg1, arg2)
                 : createCompilerDiagnostic(message, arg0, arg1, arg2);
@@ -3586,7 +3587,6 @@ namespace ts {
                     callSignatures = getSignaturesOfSymbol(symbol);
                     // [ConcreteTypeScript]
                     constructSignatures = getSignaturesOfSymbol(symbol).filter(({resolvedThisType}) => !!resolvedThisType);
-                    smartPrint(constructSignatures.length, 'cL');
                     // [/ConcreteTypeScript]
                 }
                 if (symbol.flags & SymbolFlags.Class) {
@@ -4022,29 +4022,46 @@ namespace ts {
                     minArgumentCount, hasRestParameter(declaration), hasStringLiterals);
 
                 // [ConcreteTypeScript]
+                // If there is an explicit 'this' annotation, use this to determine the 'this' type.
                 if (declaration.parameters.thisParam) {
                     links.resolvedSignature.resolvedThisType = getTypeFromTypeNode(declaration.parameters.thisParam.type);
-                } else if (node.parent.kind === SyntaxKind.BinaryExpression && 
-                           (<BinaryExpression>node.parent).operatorToken.kind === SyntaxKind.EqualsToken &&
-                           (<BinaryExpression>node.parent).right === node) {
-                    // If an explicit this-type is not given then we 
-                    // may infer one if this node is an expression and
-                    // literal being assigned
-                    // to an object with an 'IntermediateFlowType' type.
-
-                    var leftType = getTypeOfNode(node.parent.left);
-                    if (leftType.flags & TypeFlags.IntermediateFlow) {
-                        var targetType = leftType.targetType;
-                        var declareTypeNode = getDeclareTypeNode(targetType)
-                        if (declareTypeNode) {
-                            targetType = getTypeOfSymbol(declareTypeNode.enclosingDeclareSymbol);
-                        }
-                        links.resolvedSignature.resolvedThisType = targetType;
-                    }
-                }
+                } else if (declaration.kind === SyntaxKind.FunctionExpression && declaration.parent.kind === SyntaxKind.BinaryExpression) {
+                    links.resolvedSignature.resolvedThisType = getThisTypeFromAssignment(<FunctionExpression> declaration, <BinaryExpression> declaration.parent);
+               }
                 // [/ConcreteTypeScript]
             }
             return links.resolvedSignature;
+        }
+
+        // [ConcreteTypeScript]
+        // If an explicit this-type is not given then we may infer one if we are in a binding assignment. Returns 'undefined' if not applicable.
+        // We see if we have a fresh declare type on the left. If it is a prototype declare type, we use the enclosing declare type.
+        // Returns 'undefined' if not applicable.
+        function getThisTypeFromAssignmentLeft(node: FunctionExpression, left: PropertyAccessExpression): Type {
+            if (left.expression.symbol) {
+                let leftType = getTypeOfSymbol(left.expression.symbol);
+                if (leftType.flags & TypeFlags.IntermediateFlow) {
+                    let targetType = (<IntermediateFlowType>leftType).targetType;
+                    let declareTypeNode = getDeclareTypeNode(targetType);
+                    if (declareTypeNode && isFreshDeclareType(targetType)) {
+                        if (declareTypeNode.enclosingDeclareSymbol) {
+                            return createConcreteType(getTypeOfSymbol(declareTypeNode.enclosingDeclareSymbol));
+                        } else {
+                            return targetType;
+                        }
+                    }
+                }
+            }
+        }
+        // [ConcreteTypeScript]
+        // If an explicit this-type is not given then we may infer one if we are in a binding assignment. 
+        // Returns 'undefined' if not applicable.
+        function getThisTypeFromAssignment(node: FunctionExpression, parent: BinaryExpression): Type {
+            if (parent.operatorToken.kind === SyntaxKind.EqualsToken && 
+                parent.right === node && 
+                parent.left.kind === SyntaxKind.PropertyAccessExpression) {
+                 return getThisTypeFromAssignmentLeft(node, <PropertyAccessExpression> parent.left);
+            }
         }
 
         function getSignaturesOfSymbol(symbol: Symbol): Signature[] {
@@ -15262,12 +15279,12 @@ namespace ts {
             return ret;
         }
         // [ConcreteTypeScript]
-        function getBrandInterface(target) {
-            return target.symbol && ts.getSymbolDecl(target.symbol, ts.SyntaxKind.DeclareTypeDeclaration);
+        function getBrandInterface(target): DeclareTypeNode {
+            return target.symbol && <DeclareTypeNode> getSymbolDecl(target.symbol, ts.SyntaxKind.DeclareTypeDeclaration);
         }
         // [ConcreteTypeScript]
-        function getDeclareTypeNode(target) {
-            return target.symbol && ts.getSymbolDecl(target.symbol, ts.SyntaxKind.DeclareType);
+        function getDeclareTypeNode(target: Type): DeclareTypeNode {
+            return target.symbol && <DeclareTypeNode> getSymbolDecl(target.symbol, ts.SyntaxKind.DeclareType);
         }
         // [ConcreteTypeScript]
         function isFreshDeclareType(target) {
@@ -15318,7 +15335,6 @@ namespace ts {
             // Otherwise, this is 'declare' with a brand interface or plain 'becomes'.
             // We can call getPropertyOfType directly.
             else {
-                // Path 2: Normal interface/brand-interface becomes.
                 for (let property of getPropertiesOfType(type.targetType)) {
                     let targetPropType = getTypeOfSymbol(property);
                     let currentProp = getPropertyOfType(type, property.name);
@@ -17416,10 +17432,10 @@ namespace ts {
                 // Where:
                 function getTargetTypeForMember(member:string): Type {
                     if (refType && refType.flags & TypeFlags.IntermediateFlow) {
-                        if (!isFreshDeclareType(refType.targetType)) {
-                            smartPrint(refType.targetType, 'tt')
-                            var prop = getPropertyOfType(refType.targetType, member);
+                        if (!isFreshDeclareType((<IntermediateFlowType>refType).targetType)) {
+                            let prop = getPropertyOfType((<IntermediateFlowType>refType).targetType, member);
                             return prop ? getTypeOfSymbol(prop) : undefinedType;
+                        }
                     }
                 }
             }
