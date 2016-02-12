@@ -140,6 +140,11 @@ namespace ts {
         let unknownType = createIntrinsicType(TypeFlags.Any, "unknown");
         let circularType = createIntrinsicType(TypeFlags.Any, "__circular__");
 
+        // [ConcreteTypeScript]
+        let concreteStringType = createConcreteType(stringType);
+        let concreteNumberType = createConcreteType(numberType);
+        // [/ConcreteTypeScript]
+
         let emptyObjectType = createAnonymousType(undefined, emptySymbols, emptyArray, emptyArray, undefined, undefined);
         let emptyGenericType = <GenericType><ObjectType>createAnonymousType(undefined, emptySymbols, emptyArray, emptyArray, undefined, undefined);
         emptyGenericType.instantiations = {};
@@ -5218,7 +5223,6 @@ namespace ts {
                 if (source === nullType && target !== undefinedType) return Ternary.True;
                 if (source.flags & TypeFlags.Enum && target === numberType) return Ternary.True;
 
-                // console.log(`PHFFF 2 ${typeToString(source)} ${typeToString(target)}`)
                 // [ConcreteTypeScript]
                 // Enum types are also related to !number
                 // FIXME: I'm not convinced that this is safe
@@ -10508,7 +10512,7 @@ namespace ts {
                     if (someConstituentTypeHasKind(operandType, TypeFlags.ESSymbol)) {
                         error(node.operand, Diagnostics.The_0_operator_cannot_be_applied_to_type_symbol, tokenToString(node.operator));
                     }
-                    return createConcreteType(numberType); // [ConcreteTypeScript] Always concrete
+                    return concreteNumberType; // [ConcreteTypeScript] Always concrete
 
                 case SyntaxKind.ExclamationToken:
                     return createConcreteType(booleanType); // [ConcreteTypeScript] Always concrete
@@ -10532,7 +10536,7 @@ namespace ts {
                     node.operand.direct = void 0;
                     // [/ConcreteTypeScript]
 
-                    return createConcreteType(numberType); // [ConcreteTypeScript] Always concrete
+                    return concreteNumberType; // [ConcreteTypeScript] Always concrete
             }
             return unknownType;
         }
@@ -10555,7 +10559,7 @@ namespace ts {
             node.operand.direct = void 0;
             // [/ConcreteTypeScript]
 
-            return createConcreteType(numberType); // [ConcreteTypeScript] Result always concrete
+            return concreteNumberType; // [ConcreteTypeScript] Result always concrete
         }
 
         // Just like isTypeOfKind below, except that it returns true if *any* constituent
@@ -10820,12 +10824,12 @@ namespace ts {
                         let leftOk = checkArithmeticOperandType(node.left, leftType, Diagnostics.The_left_hand_side_of_an_arithmetic_operation_must_be_of_type_any_number_or_an_enum_type);
                         let rightOk = checkArithmeticOperandType(node.right, rightType, Diagnostics.The_right_hand_side_of_an_arithmetic_operation_must_be_of_type_any_number_or_an_enum_type);
                         if (leftOk && rightOk) {
-                            checkAssignmentOperator(createConcreteType(numberType)); // [ConcreteTypeScript] Result is concrete
+                            checkAssignmentOperator(concreteNumberType); // [ConcreteTypeScript] Result is concrete
 
                         }
                     }
 
-                    return numberType;
+                    return concreteNumberType; // [ConcreteTypeScript] Result is concrete
                 case SyntaxKind.PlusToken:
                 case SyntaxKind.PlusEqualsToken:
                     // TypeScript 1.0 spec (April 2014): 4.15.2
@@ -11182,7 +11186,7 @@ namespace ts {
         function checkNumericLiteral(node: LiteralExpression): Type {
             // Grammar checking
             checkGrammarNumericLiteral(node);
-            return createConcreteType(numberType); // [ConcreteTypeScript]
+            return concreteNumberType; // [ConcreteTypeScript]
 
         }
 
