@@ -578,7 +578,7 @@
         public clone() { var r = nbi(); this.copyTo(r); return r; }
 
         // (public) return value as integer
-        public intValue() {
+        public intValue():!intNumber {
             var this_array = this.array;
             if(this.s < 0) {
                 if(this.t == 1) return this_array[0]-BI_DV;

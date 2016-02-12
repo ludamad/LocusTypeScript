@@ -410,11 +410,10 @@ namespace ts {
             } else {
                 var symbol = declareSymbol(scope.locals, undefined, node, symbolKind, symbolExcludes);
             }
-            // Define a .prototype symbol:
-            var prototypeDeclaration = <DeclareTypeDeclaration>createNode(SyntaxKind.DeclareType);
+             var prototypeDeclaration = <DeclareTypeDeclaration>createNode(SyntaxKind.DeclareType);
             prototypeDeclaration.pos = node.pos;
             let prototypeName = <Identifier>createSynthesizedNode(SyntaxKind.Identifier);
-            prototypeName.text = node.name.text + ".prototype";
+            prototypeName.text = "prototype";
             prototypeDeclaration.name = prototypeName;
             prototypeDeclaration.enclosingDeclareSymbol = symbol;
             prototypeDeclaration.end = node.end;

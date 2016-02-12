@@ -10883,7 +10883,14 @@ namespace ts {
                     }
 
                     // [ConcreteTypeScript] Apply concreteness to result
-                    if (resultConcrete) resultType = createConcreteType(resultType);
+                    if (resultConcrete) {
+                        resultType = createConcreteType(resultType);
+                    // Special case: If one of the types is StringLike and concrete, the result is concrete string
+                    } else if (allConstituentTypesHaveKind(leftType, TypeFlags.StringLike)  && leftConcrete) {
+                        resultType = concreteStringType;
+                    } else if (allConstituentTypesHaveKind(rightType, TypeFlags.StringLike) && rightConcrete) {
+                        resultType = concreteStringType;
+                    }
                     // [/ConcreteTypeScript]
 
                     if (operator === SyntaxKind.PlusEqualsToken) {
