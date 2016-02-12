@@ -1579,8 +1579,8 @@ namespace ts {
         getReturnTypeOfSignature(signature: Signature): Type;
         // [ConcreteTypeScript]
         objectType?:Type;
-        getFlowDataAtLocation(reference: Node): FlowData;
-        getFinalFlowData(reference: Node): FlowData;
+        getFlowDataAtLocation(reference: Node, type: Type): FlowData;
+        getFinalFlowData(reference: Node, type: Type): FlowData;
         getFlowDataForType(type: Type): FlowData;
         getTypeOfSymbol(symbol: Symbol): Type;
         createType(flags: TypeFlags): Type;
