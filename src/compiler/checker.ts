@@ -3023,9 +3023,16 @@ namespace ts {
         // [ConcreteTypeScript]
         function resolveBaseTypesOfDeclare(type: InterfaceType) {
             type.resolvedBaseTypes = [];
-            let brandInterfaceDeclaration = getSymbolDecl(type.symbol, SyntaxKind.DeclareTypeDeclaration);
-            let declaration = <DeclareTypeDeclaration> (brandInterfaceDeclaration || getSymbolDecl(type.symbol, SyntaxKind.DeclareType));
-            for (let node of getDeclareTypeBaseTypeNodes(declaration) || []) {
+            let brandInterfaceDeclaration = <DeclareTypeDeclaration> getSymbolDecl(type.symbol, SyntaxKind.DeclareTypeDeclaration);
+            let declareTypeDeclaration = <DeclareTypeNode> getSymbolDecl(type.symbol, SyntaxKind.DeclareType)
+            let declaration = brandInterfaceDeclaration || declareTypeDeclaration;
+            if (declareTypeDeclaration) {
+                var baseTypes:TypeNode[] = [declareTypeDeclaration.startingType];
+            } else {
+                var baseTypes:TypeNode[] = [];
+            }
+            baseTypes = baseTypes.concat(getDeclareTypeBaseTypeNodes(declaration) || []);
+            for (let node of baseTypes) {
                 let baseType = getTypeFromTypeNode(node);
                 if (baseType !== unknownType) {
                     if (getTargetType(baseType).flags & (TypeFlags.Class | TypeFlags.Declare | TypeFlags.Interface)) {
@@ -17155,6 +17162,8 @@ namespace ts {
         }
 
         function flowUnionTypes(flowTypesA:FlowType[], flowTypesB:FlowType[]) : FlowType[] {
+            flowTypesA = flowTypesA || [];
+            flowTypesB = flowTypesB || [];
             let doesntHaveType = ({type}) => !flowHasType(flowTypesA, type);
             return flowTypesA.concat(flowTypesB.filter(doesntHaveType));
         }
@@ -17330,7 +17339,14 @@ namespace ts {
             if (isPrototypeAccess(obj)) {
                 return true;
             }
-            return (obj.kind === SyntaxKind.ThisKeyword || obj.kind === SyntaxKind.Identifier);
+            if (obj.kind === SyntaxKind.ThisKeyword) {
+                return true;
+            }
+            if (obj.kind !== SyntaxKind.Identifier) {
+                return false;
+            }
+            let declaration = findDeclarationForName(obj, (<Identifier>obj).text);
+            return isVariableLike(declaration);
         }
         function getScopeContainer(obj:Node) {
             if (isPrototypeAccess(obj)) {
