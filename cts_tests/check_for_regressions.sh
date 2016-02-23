@@ -1,1 +1,1 @@
-SKIP_KNOWN_DEFECTS=1 ./run.sh
+SKIP_KNOWN_DEFECTS=1 ./run.sh $@

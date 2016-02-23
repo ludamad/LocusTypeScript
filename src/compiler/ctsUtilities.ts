@@ -183,10 +183,7 @@ namespace ts {
             while (node.parent) {
                 var child = node;
                 node = node.parent;
-                switch (node.kind) {
-                case SyntaxKind.ArrowFunction:
-                case SyntaxKind.FunctionExpression:
-                case SyntaxKind.FunctionDeclaration:
+                if (isFunctionLike(node)) {
                     return node;
                 }
             }

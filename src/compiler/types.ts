@@ -1879,8 +1879,8 @@ namespace ts {
         /* @internal */ parent?: Symbol;        // Parent symbol
         /* @internal */ exportSymbol?: Symbol;  // Exported symbol associated with this symbol
         /* @internal */ constEnumOnlyModule?: boolean; // True if module contains only const enums or other modules with only const enums
-        // [ConcreteTypeScript] set for .prototype properties
-        brandType?: DeclareTypeNode;
+        brandType?: DeclareTypeNode; // [ConcreteTypeScript] set for .prototype properties
+        checker?: TypeChecker;// [ConcreteTypeScript] For querying type information during emit
     }
 
     /* @internal */

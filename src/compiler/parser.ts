@@ -2514,7 +2514,7 @@ namespace ts {
             switch (token) {
                 case SyntaxKind.LikeKeyword: // [ConcreteTypeScript]
                 case SyntaxKind.ExclamationToken: // [ConcreteTypeScript]
-                    return lookAhead(isIdentifier);
+                    return lookAhead(isStartOfType);
                 case SyntaxKind.AnyKeyword:
                 case SyntaxKind.StringKeyword:
                 case SyntaxKind.NumberKeyword:
