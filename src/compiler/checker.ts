@@ -4799,8 +4799,8 @@ namespace ts {
         // Also, unlike union types, the order of the constituent types is preserved in order that overload resolution
         // for intersections of types with signatures can be deterministic.
         function getIntersectionType(types: Type[]): Type {
-            // [ConcreteTypeScript] 
-            types = types.filter(isRedundantNonConcrete);
+            // [ConcreteTypeScript] Filter redundant nonconcrete in presence of concrete
+            types = types.filter(notRedundant);
             // [/ConcreteTypeScript] 
             if (types.length === 0) {
                 return emptyObjectType;
@@ -4821,15 +4821,15 @@ namespace ts {
             }
             return type;
             // [ConcreteTypeScript] 
-            function isRedundantNonConcrete(type: Type) {
-                if (!isConcreteType(type)) {
+            function notRedundant(type: Type) {
+                if (canBeConcrete(type) && !isConcreteType(type)) {
                     for (let other of types) {
-                        if (isIdenticalTo(other, createConcreteType(type))) {
-                            return true;
+                        if (isTypeIdenticalTo(other, createConcreteType(type, false))) {
+                            return false;
                         }
                     }
                 }
-                return false;
+                return true;
             }
             // [/ConcreteTypeScript] 
         }
@@ -17240,7 +17240,7 @@ namespace ts {
             for (let property of getPropertiesOfObjectType(targetType)) {
                 let currentProperty = getPropertyOfType(startingType, property.name);
                 if (currentProperty) {
-                    checkTypeSubtypeOf(getTypeOfSymbol(currentProperty), getTypeOfSymbol(property), contextNode, Diagnostics.ConcreteTypeScript_Inferred_type_conflict);
+                    checkTypeSubtypeOf(getTypeOfSymbol(currentProperty), getTypeOfSymbol(property), contextNode, Diagnostics.ConcreteTypeScript_Inferred_type_conflict_0_is_not_a_subtype_of_1);
                 }
             }
             let newFlowType:FlowType = {type: targetType, firstBindingSite: contextNode};
@@ -17344,7 +17344,7 @@ namespace ts {
             let {definitelyAssigned, conditionalBarrierPassed, flowTypes} = oldMember;
             if (definitelyAssigned && !conditionalBarrierPassed) {
                 Debug.assert(newMember.flowTypes.length !== 0);
-                checkTypeSubtypeOf(flowTypeGet(newMember), flowTypeGet(oldMember), newMember.flowTypes[0].firstBindingSite, Diagnostics.ConcreteTypeScript_Inferred_type_conflict);
+                checkTypeSubtypeOf(flowTypeGet(newMember), flowTypeGet(oldMember), newMember.flowTypes[0].firstBindingSite, Diagnostics.ConcreteTypeScript_Inferred_type_conflict_0_is_not_a_subtype_of_1);
                 return flowUnionMembers(oldMember, newMember); // Ensure that only one error per conflicting type occurs
             }
             // Not definitely assigned:

@@ -1,12 +1,17 @@
-function addSquareValue(notFooYet: {x: number, y: number} declare HasSquareValue) {
-    /* @assertType("number") */ (notFooYet.x);
-    /* @assertType("number") */ (notFooYet.y);
+function addSquareValueNotConcrete(notFooYet: {x: number, y: number} declare HasSquareValue1) {
     notFooYet.square = notFooYet.x*notFooYet.x + notFooYet.y*notFooYet.y;
-    /* @assertType("number") */ (notFooYet.x);
-    /* @assertType("number") */ (notFooYet.y);
-    /* @assertType("!number") */ (notFooYet.square);
 }
 
-let notFooYet = {x: 1, y: 1};
-addSquareValue(notFooYet);
-/* @assertType('{ x: !number; y: !number; } & !HasSquareValue') */ notFooYet;
+let notFooYet1 = {x: 1, y: 1};
+addSquareValueNotConcrete(notFooYet1);
+/* @assertType('{ x: !number; y: !number; } & !HasSquareValue1') */ notFooYet1;
+
+function addSquareValueConcrete(notFooYet: {x: !number, y: !number} declare HasSquareValue2) {
+    notFooYet.square = notFooYet.x*notFooYet.x + notFooYet.y*notFooYet.y;
+}
+
+let notFooYet2 = {x: 1, y: 1};
+addSquareValueConcrete(notFooYet2);
+/* @assertType('!HasSquareValue2') */ notFooYet2;
+
+
