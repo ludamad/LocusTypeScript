@@ -3,7 +3,7 @@
         "category": "Error",
         "code": 2000
     },
-    "[ConcreteTypeScript] Inferred type conflict. ": {
+    "[ConcreteTypeScript] Inferred type conflict. '{0}' is not a subtype of '{1}'. ": {
         "category": "Error",
         "code": 2001
     },

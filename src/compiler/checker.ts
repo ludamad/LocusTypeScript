@@ -3104,7 +3104,8 @@ namespace ts {
                         }
                     }
                     else {
-                        error(node, Diagnostics.An_interface_may_only_extend_a_class_or_another_interface);
+                        // We allow anything as a base type, don't check if it has a base type in this case: 
+                        type.resolvedBaseTypes.push(baseType);
                     }
                 }
             }
@@ -4798,6 +4799,9 @@ namespace ts {
         // Also, unlike union types, the order of the constituent types is preserved in order that overload resolution
         // for intersections of types with signatures can be deterministic.
         function getIntersectionType(types: Type[]): Type {
+            // [ConcreteTypeScript] 
+            types = types.filter(isRedundantNonConcrete);
+            // [/ConcreteTypeScript] 
             if (types.length === 0) {
                 return emptyObjectType;
             }
@@ -4816,6 +4820,18 @@ namespace ts {
                 type.types = typeSet;
             }
             return type;
+            // [ConcreteTypeScript] 
+            function isRedundantNonConcrete(type: Type) {
+                if (!isConcreteType(type)) {
+                    for (let other of types) {
+                        if (isIdenticalTo(other, createConcreteType(type))) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+            // [/ConcreteTypeScript] 
         }
 
         function getTypeFromIntersectionTypeNode(node: IntersectionTypeNode): Type {
@@ -17224,7 +17240,7 @@ namespace ts {
             for (let property of getPropertiesOfObjectType(targetType)) {
                 let currentProperty = getPropertyOfType(startingType, property.name);
                 if (currentProperty) {
-                    checkTypeSubtypeOf(getTypeOfSymbol(property), getTypeOfSymbol(currentProperty), contextNode, Diagnostics.ConcreteTypeScript_Inferred_type_conflict);
+                    checkTypeSubtypeOf(getTypeOfSymbol(currentProperty), getTypeOfSymbol(property), contextNode, Diagnostics.ConcreteTypeScript_Inferred_type_conflict);
                 }
             }
             let newFlowType:FlowType = {type: targetType, firstBindingSite: contextNode};
