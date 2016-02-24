@@ -2698,6 +2698,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             // [ConcreteTypeScript]
             function emitConcreteAssignment(node:BinaryExpression, expression:Expression, propAccess:PropertyAccessExpression):boolean {
                 if (DISABLE_PROTECTED_MEMBERS) return false;
+                if (propAccess.expression.ctsFinalFlowData) {
+                }
                 let declaration: BrandPropertyDeclaration = (propAccess).ctsAssignmentAnalysis.getDeclaration();
                 let brandDecl = declaration.brandTypeDeclaration;
                 let resolvedToConcrete = (declaration.resolvedType.flags & TypeFlags.Concrete);

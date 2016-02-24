@@ -536,6 +536,7 @@ namespace ts {
     /* [/ConcreteTypeScript] */
 
     export interface Node extends TextRange {
+        checker?: TypeChecker;
         kind: SyntaxKind;
         flags: NodeFlags;
         // Specific context the parser was in when this node was created.  Normally undefined.
@@ -566,8 +567,6 @@ namespace ts {
         assertInt?: boolean;          // If set, can assert that this value is always an int instead of generic number
         // Set in checker.ts
         resolvedType?:            Type;
-        // Set in ctsAssignmentAnalysis.ts
-        ctsAssignmentAnalysis?:   any;
         ctsDowngradeToBaseClass?: boolean
         preEmitCallbacks?: EmitCallback[];
         postEmitCallbacks?: EmitCallback[];
@@ -1880,7 +1879,6 @@ namespace ts {
         /* @internal */ exportSymbol?: Symbol;  // Exported symbol associated with this symbol
         /* @internal */ constEnumOnlyModule?: boolean; // True if module contains only const enums or other modules with only const enums
         brandType?: DeclareTypeNode; // [ConcreteTypeScript] set for .prototype properties
-        checker?: TypeChecker;// [ConcreteTypeScript] For querying type information during emit
     }
 
     /* @internal */

@@ -3060,12 +3060,8 @@ namespace ts {
         function getBaseTypes(type: InterfaceType): ObjectType[] {
             // [ConcreteTypeScript]
             type = <InterfaceType> stripConcreteType(type);
-            if (<any>type === emptyObjectType) {
-                throw new Error("HACK shouldn't happen");
-                // HACK: Not actually an InterfaceType here. TODO
-                return;
-                // [/ConcreteTypeScript]
-            } else if (!type.resolvedBaseTypes) {
+            // [/ConcreteTypeScript]
+            if (!type.resolvedBaseTypes) {
                 if (type.symbol.flags & SymbolFlags.Declare) {
                     resolveBaseTypesOfDeclare(type);
                 } else if (type.symbol.flags & SymbolFlags.Class) {
@@ -8649,7 +8645,75 @@ namespace ts {
             return checkPropertyAccessExpressionOrQualifiedName(node, node.left, node.right);
         }
 
+        // [ConcreteTypeScript]
+        function isConcreteMemberCementedInBaseTypes(type: Type, member: string) {
+            let baseTypes = getBaseTypes(type);
+            for (let baseType of baseTypes) {
+                if (isCementedConcreteMember(baseType, member)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        // [ConcreteTypeScript] We must avoid inferring concrete types accessed from an interface base type as cemented
+        // Interface base types are possible with Declare types.
+        function isCementedConcreteMember(type: Type, member: string) {
+            if (type.flags & TypeFlags.Class) {
+                let propSymbol = getPropertyOfType(type)
+                if (propSymbol) {
+                    return isConcreteType(getTypeOfSymbol(propSymbol));
+                }
+            } else if (type.flags & TypeFlags.Declare) {
+                let member = getProperty(type.symbol.members, member);
+                if (member && isConcreteType(getTypeOfSymbol(member))) {
+                    return true;
+                }
+                return isConcreteMemberCementedInBaseTypes(type, member));
+            }
+            return false;
+        }
+
+        // [ConcreteTypeScript] Wrap checkPropertyAccessExpressionOrQualifiedName, applying emit-relevant logic.
         function checkPropertyAccessExpressionOrQualifiedName(node: PropertyAccessExpression | QualifiedName, left: Expression | QualifiedName, right: Identifier) {
+            // Call wrapped function:
+            let propType = checkPropertyAccessExpressionOrQualifiedNameWorker(node, left, right);
+            if (isConcreteType(type) && stripConcreteType(type).flags & TypeFlags.Class) {
+                node.direct = true;
+            }
+
+            if (!isConcreteType(propType)) {
+                return propType; // Remaining logic only applies to concrete property types.
+            }
+
+
+                node.mustCheck = propType;
+            // And may use direct access if the target object is concrete
+            if (isConcreteType(type) &&
+                (<ConcreteType>type).baseType.flags & (TypeFlags.Class | TypeFlags.Declare)) {
+                node.direct = true;
+                // As well as name-mangled access if the target value is concrete, or a method being called
+                if (isConcreteType(propType) ||
+                    (prop.flags & SymbolFlags.Method && node.parent.kind === SyntaxKind.CallExpression &&
+                     (<CallExpression>node.parent).expression === <any>node)) {
+                    node.mangled = true;
+                }
+            }
+
+            // And float/intness
+            if (isConcreteType(propType) &&
+                (<ConcreteType>propType).baseType.flags & TypeFlags.FloatHint) {
+                node.assertFloat = true;
+            }
+            if (isConcreteType(propType) &&
+                (<ConcreteType>propType).baseType.flags & TypeFlags.IntHint) {
+                node.assertInt = true;
+            }
+
+            return propType;
+        }
+
+        function checkPropertyAccessExpressionOrQualifiedNameWorker(node: PropertyAccessExpression | QualifiedName, left: Expression | QualifiedName, right: Identifier) {
+            // [/ConcreteTypeScript]
             let type:Type = checkExpression(left);
             if (isTypeAny(type)) {
                 return type;
@@ -8673,36 +8737,7 @@ namespace ts {
                 checkClassPropertyAccess(node, left, type, prop);
             }
 
-            let ptype:Type = getTypeOfSymbol(prop);
-            // Must check if the member is concrete but it is being accessed on a non-concrete type
-            if (isConcreteType(ptype) && !isConcreteType(type)) {
-                node.mustCheck = ptype;
-            }
-
-            // And may use direct access if the target object is concrete
-            if (isConcreteType(type) &&
-                (<ConcreteType>type).baseType.flags & (TypeFlags.Class | TypeFlags.Declare)) {
-                node.direct = true;
-                // As well as name-mangled access if the target value is concrete, or a method being called
-                if (isConcreteType(ptype) ||
-                    (prop.flags & SymbolFlags.Method && node.parent.kind === SyntaxKind.CallExpression &&
-                     (<CallExpression>node.parent).expression === <any>node)) {
-                    node.mangled = true;
-                }
-            }
-
-            // And float/intness
-            if (isConcreteType(ptype) &&
-                (<ConcreteType>ptype).baseType.flags & TypeFlags.FloatHint) {
-                node.assertFloat = true;
-            }
-            if (isConcreteType(ptype) &&
-                (<ConcreteType>ptype).baseType.flags & TypeFlags.IntHint) {
-                node.assertInt = true;
-            }
-
-            return ptype;
-            // [/ConcreteTypeScript]
+            return getTypeOfSymbol(prop);
         }
 
         function isValidPropertyAccess(node: PropertyAccessExpression | QualifiedName, propertyName: string): boolean {
@@ -8723,14 +8758,14 @@ namespace ts {
         // [ConcreteTypeScript] Must check index access if it returns a concrete type
 
         function checkIndexedAccess(node: ElementAccessExpression): Type {
-            let type = checkIndexedAccessPrime(node);
+            let type = checkIndexedAccessWorker(node);
             if (isConcreteType(type)) {
                 node.mustCheck = type;
             }
             return type;
         }
 
-        function checkIndexedAccessPrime(node: ElementAccessExpression): Type {
+        function checkIndexedAccessWorker(node: ElementAccessExpression): Type {
         // [/ConcreteTypeScript]
 
             // Grammar checking
@@ -15530,6 +15565,7 @@ namespace ts {
 
         // [/ConcreteTypeScript]
         function getTypeOfNodeWorker(node: Node): Type {
+            node.checker = checker; // [ConcreteTypeScript] For emit
             if (isInsideWithStatementBody(node)) {
                 // We cannot answer semantic questions within a with block, do not proceed any further
                 return unknownType;
@@ -15586,6 +15622,7 @@ namespace ts {
 
 
         function getTypeOfExpression(expr: Expression): Type {
+            expr.checker = checker; // [ConcreteTypeScript] For emit
             if (isRightSideOfQualifiedNameOrPropertyAccess(expr)) {
                 expr = <Expression>expr.parent;
             }
@@ -17557,7 +17594,7 @@ namespace ts {
 
             // We recursively scan become/declare function calls
             function scanCallExpression(node: CallExpression) {
-                let callSignatures = getSignaturesOfType(getApparentType(getTypeOfExpression(node.expression)), SignatureKind.Call);
+                let callSignatures = getSignaturesOfType(getApparentType(getTypeOfNode(node.expression)), SignatureKind.Call);
                 // TODO Work-around for mysterious bug with getResolvedSignature
                 if (callSignatures.length === 1) {
                     var signature = callSignatures[0];
