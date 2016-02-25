@@ -2700,7 +2700,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 if (DISABLE_PROTECTED_MEMBERS) return false;
                 if (propAccess.expression.ctsFinalFlowData) {
                 }
-                let declaration: BrandPropertyDeclaration = (propAccess).ctsAssignmentAnalysis.getDeclaration();
+                /*let declaration: BrandPropertyDeclaration = (propAccess).ctsAssignmentAnalysis.getDeclaration();
                 let brandDecl = declaration.brandTypeDeclaration;
                 let resolvedToConcrete = (declaration.resolvedType.flags & TypeFlags.Concrete);
                 let assignmentValues = (propAccess).ctsAssignmentAnalysis.assignments;
@@ -2733,7 +2733,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     emit(node.right);
                     write(");")
                     return true;
-                }
+                }*/
                 return false;
             }
 
@@ -2759,7 +2759,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 if (isPropertyAssignment(node)) {
                     let propAccess:PropertyAccessExpression = <PropertyAccessExpression>node.left;
                     // console.log("Here with ", propAccess.name.text);
-                    if ((propAccess).ctsAssignmentAnalysis) {
+                    if ((propAccess).ctsFinalFlowData) {
                         if (emitConcreteAssignment(node, propAccess.expression, propAccess)) {
                             return;
                         }

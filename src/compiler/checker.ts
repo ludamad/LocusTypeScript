@@ -1768,17 +1768,30 @@ namespace ts {
  //                       }
                     }
                     else if (type.flags & TypeFlags.IntermediateFlow) {
-                        let formalType = flowDataFormalType((<IntermediateFlowType>type).flowData);
+                        let flowData = getFlowDataForType(type);
+                        let formalType = flowDataFormalType(flowData);
                         if (formalType === (<IntermediateFlowType>type).targetType) {
                             return buildTypeDisplay(formalType, writer, enclosingDeclaration, globalFlags, symbolStack);
                         }
                         buildTypeDisplay(formalType, writer, enclosingDeclaration, globalFlags, symbolStack);
+                        let members = Object.keys(flowData.memberSet);
+                        if (members.length > 0) {
+                            writer.writeOperator(" has {");
+                            for (let i = 0; i < members.length; i++) {
+                                if (i !== 0) {
+                                    writer.writeOperator(', ');
+                                }
+                                writer.writeOperator(`${members[i]}: `);
+                                buildTypeDisplay(flowTypeGet(getProperty(flowData.memberSet, members[i])), writer, enclosingDeclaration, globalFlags, symbolStack);
+                            }
+                            writer.writeOperator("}");
+                        }
 
                         writer.writeOperator(" becomes ");
                         if ((<IntermediateFlowType>type).targetType) {
                             buildTypeDisplay((<IntermediateFlowType>type).targetType, writer, enclosingDeclaration, globalFlags, symbolStack);
                         } else {
-                            writer.writeOperator("(unnamed)");
+                            writer.writeOperator(":");
                         }
                     }
                     // [ConcreteTypeScript]
@@ -2875,8 +2888,6 @@ namespace ts {
         // [ConcreteTypeScript]
         // Check for cemented declarations.
         function getTypeOfSymbol(symbol: Symbol): Type {
-            // Set 'checker' element of symbol, for use in emit.
-            symbol.checker = checker;
             if (!symbol.declarations || symbol.declarations.length === 0) {
                 return getTypeOfSymbolWorker(symbol);
             }
@@ -3347,6 +3358,9 @@ namespace ts {
 
         // [ConcreteTypeScript] 
         function getFlowDataForType(type: Type): FlowData {
+            if (type.flags & TypeFlags.IntermediateFlow) {
+                return (<IntermediateFlowType> type).flowData;
+            }
             if (type.flags & TypeFlags.Declare) {
                 // TODO add to type
                 let brandInterfaceDeclaration = getSymbolDecl(type.symbol, SyntaxKind.DeclareTypeDeclaration);
@@ -7994,6 +8008,9 @@ namespace ts {
                         Debug.assert(memberDecl.kind === SyntaxKind.ShorthandPropertyAssignment);
                         type = checkExpression((<ShorthandPropertyAssignment>memberDecl).name, contextualMapper);
                     }
+                    // [ConcreteTypeScript] Should not keep weak concreteness in object literal type.
+                    type = getBindingType(type);
+                    // [/ConcreteTypeScript]
                     typeFlags |= type.flags;
                     let prop = <TransientSymbol>createSymbol(SymbolFlags.Property | SymbolFlags.Transient | member.flags, member.name);
                     if (inDestructuringPattern) {
@@ -8646,10 +8663,10 @@ namespace ts {
         }
 
         // [ConcreteTypeScript]
-        function isConcreteMemberCementedInBaseTypes(type: Type, member: string) {
+        function isPropertyCementedInBaseTypes(type: InterfaceType, member: string) {
             let baseTypes = getBaseTypes(type);
             for (let baseType of baseTypes) {
-                if (isCementedConcreteMember(baseType, member)) {
+                if (isCementedProperty(baseType, member)) {
                     return true;
                 }
             }
@@ -8657,63 +8674,36 @@ namespace ts {
         }
         // [ConcreteTypeScript] We must avoid inferring concrete types accessed from an interface base type as cemented
         // Interface base types are possible with Declare types.
-        function isCementedConcreteMember(type: Type, member: string) {
-            if (type.flags & TypeFlags.Class) {
-                let propSymbol = getPropertyOfType(type)
+        function isCementedProperty(type: Type, member: string) {
+            type = stripConcreteType(type);
+            if (type.flags & TypeFlags.IntermediateFlow) {
+                let targetType = (<IntermediateFlowType>type).targetType;
+                if ((<IntermediateFlowType>type).declareTypeNode) {
+                    let flowData = getFlowDataForType(type);
+                    let memberData = getProperty(flowData.memberSet, member);
+                    if (memberData && isConcreteType(flowTypeGet(memberData))) {
+                        return true;
+                    }
+                    // Otherwise, analyze the starting type:
+                    return isCementedProperty(flowDataFormalType((<IntermediateFlowType>type).flowData), member);
+                }
+            } else if (type.flags & TypeFlags.Class) {
+                let propSymbol = getPropertyOfType(type, member)
                 if (propSymbol) {
                     return isConcreteType(getTypeOfSymbol(propSymbol));
                 }
             } else if (type.flags & TypeFlags.Declare) {
-                let member = getProperty(type.symbol.members, member);
-                if (member && isConcreteType(getTypeOfSymbol(member))) {
+                resolveStructuredTypeMembers(<InterfaceType>type);
+                let symbol = getProperty(type.symbol.members, member);
+                if (symbol && isConcreteType(getTypeOfSymbol(symbol))) {
                     return true;
                 }
-                return isConcreteMemberCementedInBaseTypes(type, member));
+                return isPropertyCementedInBaseTypes(<InterfaceType>type, member);
             }
             return false;
         }
 
-        // [ConcreteTypeScript] Wrap checkPropertyAccessExpressionOrQualifiedName, applying emit-relevant logic.
         function checkPropertyAccessExpressionOrQualifiedName(node: PropertyAccessExpression | QualifiedName, left: Expression | QualifiedName, right: Identifier) {
-            // Call wrapped function:
-            let propType = checkPropertyAccessExpressionOrQualifiedNameWorker(node, left, right);
-            if (isConcreteType(type) && stripConcreteType(type).flags & TypeFlags.Class) {
-                node.direct = true;
-            }
-
-            if (!isConcreteType(propType)) {
-                return propType; // Remaining logic only applies to concrete property types.
-            }
-
-
-                node.mustCheck = propType;
-            // And may use direct access if the target object is concrete
-            if (isConcreteType(type) &&
-                (<ConcreteType>type).baseType.flags & (TypeFlags.Class | TypeFlags.Declare)) {
-                node.direct = true;
-                // As well as name-mangled access if the target value is concrete, or a method being called
-                if (isConcreteType(propType) ||
-                    (prop.flags & SymbolFlags.Method && node.parent.kind === SyntaxKind.CallExpression &&
-                     (<CallExpression>node.parent).expression === <any>node)) {
-                    node.mangled = true;
-                }
-            }
-
-            // And float/intness
-            if (isConcreteType(propType) &&
-                (<ConcreteType>propType).baseType.flags & TypeFlags.FloatHint) {
-                node.assertFloat = true;
-            }
-            if (isConcreteType(propType) &&
-                (<ConcreteType>propType).baseType.flags & TypeFlags.IntHint) {
-                node.assertInt = true;
-            }
-
-            return propType;
-        }
-
-        function checkPropertyAccessExpressionOrQualifiedNameWorker(node: PropertyAccessExpression | QualifiedName, left: Expression | QualifiedName, right: Identifier) {
-            // [/ConcreteTypeScript]
             let type:Type = checkExpression(left);
             if (isTypeAny(type)) {
                 return type;
@@ -8737,7 +8727,38 @@ namespace ts {
                 checkClassPropertyAccess(node, left, type, prop);
             }
 
-            return getTypeOfSymbol(prop);
+            // [ConcreteTypeScript] From here on, emit-relevant logic:
+            let propType = getTypeOfSymbol(prop);
+            if (isConcreteType(type) && stripConcreteType(type).flags & TypeFlags.Class) {
+                // Classes cannot inherit members in ways that breaks the map stability invariant.
+                node.direct = true;
+            }
+
+            if (!isConcreteType(propType)) {
+                return propType; // Remaining logic only applies to concrete property types.
+            }
+
+            // If we are not a concrete member that stemmed from a Class or Declare declaration site, we must check.
+            // The alternative would be to demote the concrete type, which was decided against as making
+            // the annotations have less impact.
+            if ((<PropertyAccessExpression>node).name && !isCementedProperty(type, (<PropertyAccessExpression>node).name.text)) {
+                node.mustCheck = propType;
+                return propType; // Remaining logic only applies to cemented members.
+            }
+
+            // We may use protection-eliding name-mangled access if the target value is concrete.
+            // Note that Method's of classes are concrete and can be accessed in this way.
+            node.mangled = true;
+
+            // And float/intness
+            if (stripConcreteType(propType).flags & TypeFlags.FloatHint) {
+                node.assertFloat = true;
+            } else if (stripConcreteType(propType).flags & TypeFlags.IntHint) {
+                node.assertInt = true;
+            }
+
+            return propType;
+            // [/ConcreteTypeScript]
         }
 
         function isValidPropertyAccess(node: PropertyAccessExpression | QualifiedName, propertyName: string): boolean {
@@ -17493,22 +17514,22 @@ namespace ts {
                 return null;
             }
             ensureFlowDataIsSet(reference, type);
-            Debug.assert(getNodeLinks(reference).ctsFinalFlowData !== undefined);
-            return getNodeLinks(reference).ctsFinalFlowData;
+            Debug.assert(reference.ctsFinalFlowData !== undefined);
+            return reference.ctsFinalFlowData;
         }
         function getFlowDataAtLocation(reference: Node, type: Type):FlowData {
             if (!canHaveFlowData(reference)) {
                 return null;
             }
             ensureFlowDataIsSet(reference, type);
-            Debug.assert(getNodeLinks(reference).ctsFlowData !== undefined);
-            return getNodeLinks(reference).ctsFlowData;
+            Debug.assert(reference.ctsFlowData !== undefined);
+            return reference.ctsFlowData;
         }
 
         function ensureFlowDataIsSet(reference: Node, type: Type) {
             Debug.assert(reference.kind === SyntaxKind.Identifier || reference.kind === SyntaxKind.ThisKeyword);
             // If it is null, we simply ignore. The implies recursive evaluation.
-            if (getNodeLinks(reference).ctsFinalFlowData === undefined) {
+            if (reference.ctsFinalFlowData === undefined) {
                 // Get the type, be careful not to trigger a loop:
                 if (type.flags & TypeFlags.IntermediateFlow) {
                     flowDependentTypeStack.push(type);
@@ -17521,8 +17542,8 @@ namespace ts {
                 forEachChildRecursive(containerScope, node => {
                     if (areSameValue(node, reference)) {
                         // 'null is used as a sentinel to avoid recursion, as opposed to 'undefined' permitting analysis.
-                        getNodeLinks(node).ctsFlowData = null;
-                        getNodeLinks(node).ctsFinalFlowData = null;
+                        node.ctsFlowData = null;
+                        node.ctsFinalFlowData = null;
                     }
                 });
                 // Analysis was not yet run for this scope
@@ -17536,7 +17557,7 @@ namespace ts {
                 );
                 forEachChildRecursive(containerScope, node => {
                     if (areSameValue(node, reference)) {
-                        getNodeLinks(node).ctsFinalFlowData = finalFlowData;
+                        node.ctsFinalFlowData = finalFlowData;
                     }
                 });
                 // Remove ourselves from the list of resolving types:
@@ -17570,7 +17591,7 @@ namespace ts {
             /** Function skeleton: **/
             // Correct conditional marks: (TODO inefficient)
             if (isReference(node)) {
-                getNodeLinks(node).ctsFlowData = prev;
+                node.ctsFlowData = prev;
             } else {
                 let orig = prev;
                 scanWorker();
@@ -17594,13 +17615,17 @@ namespace ts {
 
             // We recursively scan become/declare function calls
             function scanCallExpression(node: CallExpression) {
-                let callSignatures = getSignaturesOfType(getApparentType(getTypeOfNode(node.expression)), SignatureKind.Call);
-                // TODO Work-around for mysterious bug with getResolvedSignature
-                if (callSignatures.length === 1) {
-                    var signature = callSignatures[0];
-                } else {
-                    var signature = getResolvedSignature(node);
+                // Make sure to visit the constituent nodes, they will need flow data as well:
+                prev = recurse(node.expression, prev);
+                for (let argument of node.arguments) {
+                    prev = recurse(argument, prev);
                 }
+                let callSignatures = getSignaturesOfType(getApparentType(getTypeOfNode(node.expression)), SignatureKind.Call);
+                // TODO Work-around for circular logic with getResolvedSignature
+                if (callSignatures.length !== 1) {
+                    return;
+                }
+                let signature = callSignatures[0];
                 let becomesAmount = 0;
                 for (let i = 0; i < signature.parameters.length && i < node.arguments.length; i++) {
                     let paramType = getTypeAtPosition(signature, i);
@@ -17679,7 +17704,7 @@ namespace ts {
                         let type = getTypeOfNode(right);
                         scanMemberBinding(left.name.text, {firstBindingSite: node, type});
                         // Ensure that nodes being assigned to are aware of their incoming types
-                        getNodeLinks(left.expression).ctsFlowData = prev;
+                        left.expression.ctsFlowData = prev;
                     }
                 }
             }

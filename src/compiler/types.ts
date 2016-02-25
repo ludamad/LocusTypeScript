@@ -572,6 +572,11 @@ namespace ts {
         postEmitCallbacks?: EmitCallback[];
         brandsToEmitAfterwards?:  DeclareTypeNode[];
         brandsToEmitAtBeginning?: DeclareTypeNode[]; // Special case for parameter-this
+
+        ctsFlowData?:       FlowData; // What flow-members have been calculated for this specific node instance?
+        ctsFinalFlowData?:  FlowData; // What are the final flow members for this node, after all assignments?
+        /* [/ConcreteTypeScript] */
+ 
         // [/ConcreteTypeScript]
     }
 
@@ -1930,10 +1935,6 @@ namespace ts {
 
     /* @internal */
     export interface NodeLinks {
-        /* [ConcreteTypeScript] */
-        ctsFlowData?:       FlowData; // What flow-members have been calculated for this specific node instance?
-        ctsFinalFlowData?:  FlowData; // What are the final flow members for this node, after all assignments?
-        /* [/ConcreteTypeScript] */
         resolvedType?: Type;              // Cached type of type node
         resolvedAwaitedType?: Type;       // Cached awaited type of type node
         resolvedSignature?: Signature;    // Cached signature of signature node or call expression
