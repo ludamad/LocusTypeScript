@@ -3805,6 +3805,25 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 }
             }
 
+
+            function emitPrototypeCement(node: Declaration) {
+                writeLine();
+                if (compilerOptions.emitV8Intrinsics) {
+                    // Use AddNamedProperty instead
+                    write("%AddNamedProperty");
+                } else {
+                    emitCTSRT("cement");
+                }
+                write("(");
+                emitDeclarationName(node);
+                write(', "prototype", ');
+                emitDeclarationName(node);
+                write(".prototype");
+                if (compilerOptions.emitV8Intrinsics) {
+                    write(",7"); // magic number for no-write/enum/config
+                }
+                write(");");
+            }
             // [ConcreteTypeScript]
             // We need a way of getting just the module object emitter
             function emitModuleContainerName(node: Declaration) {
@@ -4736,7 +4755,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     write(" = ");
                 }
 
-                emit(property.initializer);
                 // Only emit the initializer if there is one, else use default
                 if (property.initializer)
                     emit(property.initializer);
@@ -5068,9 +5086,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     }
                 });
             }
-
+            
             function emitMemberProtectors(node: ClassLikeDeclaration) {
-                forEach(node.members, member => {
+                for (let member of node.members) {
                     if (member.kind === SyntaxKind.PropertyDeclaration && (<PropertyDeclaration>member).type && (<PropertyDeclaration>member).type.isConcrete) {
                         writeLine();
                         emitStart(member);
@@ -5085,7 +5103,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         emitEnd(member);
                         emitTrailingComments(member);
                     }
-                });
+                }
             }
             // [/ConcreteTypeScript]
 
@@ -5109,6 +5127,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             }
 
             function emitClassLikeDeclarationForES6AndHigher(node: ClassLikeDeclaration) {
+                // [ConcreteTypeScript]
+                throw new Error("TODO ES6 emit not supported by ConcreteTypeScript");
+                // [/ConcreteTypeScript]
                 let thisNodeIsDecorated = nodeIsDecorated(node);
                 if (node.kind === SyntaxKind.ClassDeclaration) {
                     if (thisNodeIsDecorated) {
@@ -5320,10 +5341,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     emitEnd(baseTypeNode);
                 }
                 writeLine();
-
+ 
                 let ctor = emitConstructor(node, baseTypeNode); // [ConcreteTypeScript] We need to remember the constructor
-
+                
                 // [ConcreteTypeScript] Protection!
+                emitPrototypeCement(node);
                 if (ctor) emitParameterPropertyProtectors(node, ctor);
                 emitMemberProtectors(node);
                 // [/ConcreteTypeScript]

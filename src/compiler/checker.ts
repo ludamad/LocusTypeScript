@@ -2486,11 +2486,16 @@ namespace ts {
             // Every class automatically contains a static property member named 'prototype',
             // the type of which is an instantiation of the class type with type Any supplied as a type argument for each type parameter.
             // It is an error to explicitly declare a static property member with the name 'prototype'.
+            // [ConcreteTypeScript]
             if (prototype.brandType) {
-                return getDeclaredTypeOfSymbol(prototype.brandType.symbol);
+                return createConcreteType(getDeclaredTypeOfSymbol(prototype.brandType.symbol));
             }
+            // [/ConcreteTypeScript]
             let classType = <InterfaceType>getDeclaredTypeOfSymbol(prototype.parent);
-            return classType.typeParameters ? createTypeReference(<GenericType>classType, map(classType.typeParameters, _ => anyType)) : classType;
+            // [ConcreteTypeScript]
+            let prototypeType = classType.typeParameters ? createTypeReference(<GenericType>classType, map(classType.typeParameters, _ => anyType)) : classType;
+            return canBeConcrete(prototypeType) ? createConcreteType(prototypeType) : prototypeType;
+            // [/ConcreteTypeScript]
         }
 
         // Return the type of the given property in the given type, or undefined if no such property exists
@@ -2613,17 +2618,18 @@ namespace ts {
 
             // Use the type of the initializer expression if one is present
             if (declaration.initializer) {
-                return checkExpressionCached(declaration.initializer);
+                return getBindingType(checkExpressionCached(declaration.initializer)); // [ConcreteTypeScript] Use binding type
             }
 
             // If it is a short-hand property assignment, use the type of the identifier
             if (declaration.kind === SyntaxKind.ShorthandPropertyAssignment) {
-                return checkIdentifier(<Identifier>declaration.name);
+                return getBindingType(checkIdentifier(<Identifier>declaration.name)); // [ConcreteTypeScript] Use binding type
             }
 
             // If the declaration specifies a binding pattern, use the type implied by the binding pattern
             if (isBindingPattern(declaration.name)) {
-                return getTypeFromBindingPattern(<BindingPattern>declaration.name, /*includePatternInType*/ false);
+                let bindingPatternType = getTypeFromBindingPattern(<BindingPattern>declaration.name, /*includePatternInType*/ false);
+                return getBindingType(bindingPatternType); // [ConcreteTypeScript] Use binding type
             }
 
             // No type specified and nothing can be inferred
@@ -2828,7 +2834,8 @@ namespace ts {
         function getTypeOfFuncClassEnumModule(symbol: Symbol): Type {
             let links = getSymbolLinks(symbol);
             if (!links.type) {
-                links.type = createObjectType(TypeFlags.Anonymous, symbol);
+                // A symbol has a concrete type if all of its declarations are cemented.
+                links.type = createConcreteType(createObjectType(TypeFlags.Anonymous, symbol), /* Not runtime checkable (weakly concrete): */ false);
             }
             return links.type;
         }
@@ -2885,23 +2892,7 @@ namespace ts {
             return false;
         }
 
-        // [ConcreteTypeScript]
-        // Check for cemented declarations.
         function getTypeOfSymbol(symbol: Symbol): Type {
-            if (!symbol.declarations || symbol.declarations.length === 0) {
-                return getTypeOfSymbolWorker(symbol);
-            }
-            for (let declaration of symbol.declarations) {
-                if (!isCementedDeclaration(declaration)) {
-                    // A symbol is not concrete if one declaration is not cemented.
-                    return getTypeOfSymbolWorker(symbol);
-                }
-            }
-            // A symbol has a concrete type if all of its declarations are cemented.
-            return createConcreteType(getTypeOfSymbolWorker(symbol), /* Do not require checkability (in general, not the case): */ false);
-        } 
-
-        function getTypeOfSymbolWorker(symbol: Symbol): Type {
         // [/ConcreteTypeScript] 
             // [ConcreteTypeScript] Sprinkled assertOk
             if (symbol.flags & SymbolFlags.Instantiated) {
@@ -8663,7 +8654,7 @@ namespace ts {
         }
 
         // [ConcreteTypeScript]
-        function isPropertyCementedInBaseTypes(type: InterfaceType, member: string) {
+        function isCementedPropertyFromBaseTypes(type: InterfaceType, member: string): boolean {
             let baseTypes = getBaseTypes(type);
             for (let baseType of baseTypes) {
                 if (isCementedProperty(baseType, member)) {
@@ -8674,7 +8665,7 @@ namespace ts {
         }
         // [ConcreteTypeScript] We must avoid inferring concrete types accessed from an interface base type as cemented
         // Interface base types are possible with Declare types.
-        function isCementedProperty(type: Type, member: string) {
+        function isCementedProperty(type: Type, member: string): boolean {
             type = stripConcreteType(type);
             if (type.flags & TypeFlags.IntermediateFlow) {
                 let targetType = (<IntermediateFlowType>type).targetType;
@@ -8687,18 +8678,18 @@ namespace ts {
                     // Otherwise, analyze the starting type:
                     return isCementedProperty(flowDataFormalType((<IntermediateFlowType>type).flowData), member);
                 }
-            } else if (type.flags & TypeFlags.Class) {
-                let propSymbol = getPropertyOfType(type, member)
-                if (propSymbol) {
-                    return isConcreteType(getTypeOfSymbol(propSymbol));
-                }
             } else if (type.flags & TypeFlags.Declare) {
                 resolveStructuredTypeMembers(<InterfaceType>type);
                 let symbol = getProperty(type.symbol.members, member);
                 if (symbol && isConcreteType(getTypeOfSymbol(symbol))) {
                     return true;
                 }
-                return isPropertyCementedInBaseTypes(<InterfaceType>type, member);
+                return isCementedPropertyFromBaseTypes(<InterfaceType>type, member);
+            } else if (type.flags & TypeFlags.Class) {
+                let propSymbol = getPropertyOfType(type, member)
+                if (propSymbol) {
+                    return isConcreteType(getTypeOfSymbol(propSymbol));
+                }
             }
             return false;
         }
@@ -8737,24 +8728,44 @@ namespace ts {
             if (!isConcreteType(propType)) {
                 return propType; // Remaining logic only applies to concrete property types.
             }
-
-            // If we are not a concrete member that stemmed from a Class or Declare declaration site, we must check.
-            // The alternative would be to demote the concrete type, which was decided against as making
-            // the annotations have less impact.
-            if ((<PropertyAccessExpression>node).name && !isCementedProperty(type, (<PropertyAccessExpression>node).name.text)) {
+            if (!isConcreteType(type)) {
                 node.mustCheck = propType;
-                return propType; // Remaining logic only applies to cemented members.
+                return propType; // Remaining logic only applies to concrete container types.
             }
-
-            // We may use protection-eliding name-mangled access if the target value is concrete.
-            // Note that Method's of classes are concrete and can be accessed in this way.
-            node.mangled = true;
 
             // And float/intness
             if (stripConcreteType(propType).flags & TypeFlags.FloatHint) {
                 node.assertFloat = true;
             } else if (stripConcreteType(propType).flags & TypeFlags.IntHint) {
                 node.assertInt = true;
+            }
+
+            // If we are not a concrete member that stemmed from a Class or Declare declaration site, we must check.
+            // The alternative would be to demote the concrete type, which was decided against as making
+            // the annotations have less impact.
+            if ((<PropertyAccessExpression>node).name && !isCementedProperty(type, (<PropertyAccessExpression>node).name.text)) {
+                if (prop.flags & SymbolFlags.Prototype || stripConcreteType(type).flags & TypeFlags.Anonymous) {
+                    // On anonymous types, we have guaranteed they are protected if they are concrete in the system
+                    return propType;
+                } else {
+                    if (isWeakConcreteType(propType)) {
+                        return stripWeakConcreteType(propType);
+                    } else {
+                        node.mustCheck = propType;
+                        return propType; // Remaining logic only applies to cemented members.
+                    }
+                }
+            }
+
+            // We may use protection-eliding name-mangled access if the target value is concrete.
+            if (prop.flags & SymbolFlags.Method) {
+                // Method's of classes are concrete and can be accessed in this way, but only during method calls.
+                if (node.parent.kind === SyntaxKind.CallExpression) {
+                    // TODO fix direct calls for prototypes
+                    node.mangled = true;
+                }
+            } else {
+                node.mangled = true;
             }
 
             return propType;

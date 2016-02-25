@@ -1645,6 +1645,12 @@ namespace ts {
         /* @internal */ getTypeCount(): number;
     }
 
+    // [ConcreteTypeScript] For getPropertyProtection in checker.ts
+    export const enum ProtectionType {
+        None = 0,
+        Cemented = 1,
+        Protected = 2
+    }
     export interface SymbolDisplayBuilder {
         buildTypeDisplay(type: Type, writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags): void;
         buildSymbolDisplay(symbol: Symbol, writer: SymbolWriter, enclosingDeclaration?: Node, meaning?: SymbolFlags, flags?: SymbolFormatFlags): void;
