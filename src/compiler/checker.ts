@@ -810,7 +810,8 @@ namespace ts {
         function isConcreteType(type:Type):boolean {
             return !!(type.flags & TypeFlags.Concrete);
         }
-        // And force a type to its non-concrete equivalent
+
+        // Force a type to its non-concrete equivalent
         function stripConcreteType(target: Type) {
             Debug.assert(target != null);
             if (isConcreteType(target)) {
@@ -8657,32 +8658,53 @@ namespace ts {
         function isCementedPropertyFromBaseTypes(type: InterfaceType, member: string): boolean {
             let baseTypes = getBaseTypes(type);
             for (let baseType of baseTypes) {
-                if (isCementedProperty(baseType, member)) {
+                if (isCementedPropertyWorker(baseType, member)) {
                     return true;
                 }
             }
             return false;
         }
-        // [ConcreteTypeScript] We must avoid inferring concrete types accessed from an interface base type as cemented
-        // Interface base types are possible with Declare types.
-        function isCementedProperty(type: Type, member: string): boolean {
+/*
+        // Should we cement or protect this property?
+        // Cementing happens for weak concrete inference.
+        function getProtectionForType(propType: Type): ProtectionFlags {
+            Debug.assert(isConcreteType(propType));
+            return isWeakConcreteType(propType) ? ProtectionFlags.Cemented : ProtectionFlags.Protected;
+        }
+
+        function getPropertyProtection(type: Type, member: string): ProtectionFlags {
+            if (type.flags & TypeFlags.IntermediateFlow || isConcreteType(type)) {
+                return getPropertyProtectionWorker(type, member);
+            }
+            return ProtectionFlags.None;
+        }
+
+        // [ConcreteTypeScript]
+        // Analyze the concrete portions of an object when making a decision of wether 
+        function getPropertyProtectionWorker(type: Type, member: string): ProtectionFlags {
             type = stripConcreteType(type);
             if (type.flags & TypeFlags.IntermediateFlow) {
                 let targetType = (<IntermediateFlowType>type).targetType;
                 if ((<IntermediateFlowType>type).declareTypeNode) {
                     let flowData = getFlowDataForType(type);
                     let memberData = getProperty(flowData.memberSet, member);
-                    if (memberData && isConcreteType(flowTypeGet(memberData))) {
-                        return true;
+                    if (memberData) {
+                        let propType = flowTypeGet(memberData);
+                        if (isConcreteType(propType)) {
+                            return getProtectionForType(propType);
+                        }
                     }
                     // Otherwise, analyze the starting type:
-                    return isCementedProperty(flowDataFormalType((<IntermediateFlowType>type).flowData), member);
+                    return getPropertyProtection(flowDataFormalType((<IntermediateFlowType>type).flowData), member);
                 }
             } else if (type.flags & TypeFlags.Declare) {
                 resolveStructuredTypeMembers(<InterfaceType>type);
                 let symbol = getProperty(type.symbol.members, member);
-                if (symbol && isConcreteType(getTypeOfSymbol(symbol))) {
-                    return true;
+                if (symbol) {
+                    let propType = getTypeOfSymbol(symbol);
+                    if (isConcreteType(propType)) {
+                        return getProtectionForType(propType);
+                    }
                 }
                 return isCementedPropertyFromBaseTypes(<InterfaceType>type, member);
             } else if (type.flags & TypeFlags.Class) {
@@ -8690,10 +8712,20 @@ namespace ts {
                 if (propSymbol) {
                     return isConcreteType(getTypeOfSymbol(propSymbol));
                 }
+            } else if (type.flags & TypeFlags.Anonymous) {
+                let propSymbol = getPropertyOfType(type, member)
+                
             }
-            return false;
+            return ProtectionFlags.None;
         }
+*/
 
+        function getPropertyProtection(symbol: Symbol): ProtectionFlags {
+            if (symbol.parent) {
+                smartPrint(symbol.parent.valueDeclaration, 'valueDclaration');
+            }
+            return ProtectionFlags.None;
+        }
         function checkPropertyAccessExpressionOrQualifiedName(node: PropertyAccessExpression | QualifiedName, left: Expression | QualifiedName, right: Identifier) {
             let type:Type = checkExpression(left);
             if (isTypeAny(type)) {
