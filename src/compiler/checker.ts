@@ -761,6 +761,9 @@ namespace ts {
         // If mustBeRuntimeCheckable is true, errors if the type is not runtime-checkable.
         function createConcreteType(target: Type, mustBeRuntimeCheckable = true) {
             Debug.assert(target != null);
+            if (target.flags & TypeFlags.Intersection) {
+                return getIntersectionType((<IntersectionType>target).types.map(createConcreteTypeIfCheckable));
+            }
             let type = target.concreteType;
             if (!type) {
                 if (mustBeRuntimeCheckable && !isRuntimeCheckable(target)) {
@@ -808,6 +811,13 @@ namespace ts {
         }
 
         function isConcreteType(type:Type):boolean {
+            if (type.flags & TypeFlags.Intersection) {
+                for (let subtype of (<IntersectionType> type).types) {
+                    if (isConcreteType(subtype)) {
+                        return true;
+                    }
+                }
+            }
             return !!(type.flags & TypeFlags.Concrete);
         }
 
@@ -815,7 +825,11 @@ namespace ts {
         function stripConcreteType(target: Type) {
             Debug.assert(target != null);
             if (isConcreteType(target)) {
-                return (<ConcreteType>target).baseType;
+                if (target.flags & TypeFlags.Intersection) {
+                    return getIntersectionType((<IntersectionType>target).types.map(stripConcreteType));
+                } else {
+                    return (<ConcreteType>target).baseType;
+                }
             } else {
                 return target;
             }
@@ -2487,15 +2501,21 @@ namespace ts {
             // Every class automatically contains a static property member named 'prototype',
             // the type of which is an instantiation of the class type with type Any supplied as a type argument for each type parameter.
             // It is an error to explicitly declare a static property member with the name 'prototype'.
-            // [ConcreteTypeScript]
-            if (prototype.brandType) {
-                return createConcreteType(getDeclaredTypeOfSymbol(prototype.brandType.symbol));
+
+            // [ConcreteTypeScript] We make the prototype property its own Declare type
+            let links = getSymbolLinks(prototype);
+            if (!links.type) {
+                prototype.members = {};
+                links.type = links.declaredType = <InterfaceType>createObjectType(TypeFlags.Declare, prototype);
+                let declareType = <DeclareTypeNode> createSynthesizedNode(SyntaxKind.DeclareType);
+                let identifier = <Identifier> createSynthesizedNode(SyntaxKind.Identifier);
+                let classType = <InterfaceType>getDeclaredTypeOfSymbol(prototype.parent);
+                identifier.text = classType.symbol.name + '.prototype';
+                declareType.name = identifier;
+                // Hack, push the declaration on for during type inspection
+                prototype.declarations = [declareType];
             }
-            // [/ConcreteTypeScript]
-            let classType = <InterfaceType>getDeclaredTypeOfSymbol(prototype.parent);
-            // [ConcreteTypeScript]
-            let prototypeType = classType.typeParameters ? createTypeReference(<GenericType>classType, map(classType.typeParameters, _ => anyType)) : classType;
-            return canBeConcrete(prototypeType) ? createConcreteType(prototypeType) : prototypeType;
+            return links.type;
             // [/ConcreteTypeScript]
         }
 
@@ -2575,10 +2595,6 @@ namespace ts {
 
         // Return the inferred type for a variable, parameter, or property declaration
         function getTypeForVariableLikeDeclaration(declaration: VariableLikeDeclaration): Type {
-            // TODO Remove
-            /*if (declaration.kind === SyntaxKind.BrandProperty) {
-                return getTypeOfBrandProperty(<BrandPropertyDeclaration> declaration);
-            }*/
             // A variable declared in a for..in statement is always of type any
             if (declaration.parent.parent.kind === SyntaxKind.ForInStatement) {
                 return anyType;
@@ -3065,7 +3081,7 @@ namespace ts {
             type = <InterfaceType> stripConcreteType(type);
             // [/ConcreteTypeScript]
             if (!type.resolvedBaseTypes) {
-                if (type.symbol.flags & SymbolFlags.Declare) {
+                if (type.flags & TypeFlags.Declare) {
                     resolveBaseTypesOfDeclare(type);
                 } else if (type.symbol.flags & SymbolFlags.Class) {
                     resolveBaseTypesOfClass(type);
@@ -3091,12 +3107,14 @@ namespace ts {
                 var baseTypes:TypeNode[] = [];
             }
             baseTypes = baseTypes.concat(getDeclareTypeBaseTypeNodes(declaration) || []);
+            
+            //let classType = <InterfaceType>getDeclaredTypeOfSymbol(type.symbol.parent);
             for (let node of baseTypes) {
                 let baseType = getTypeFromTypeNode(node);
                 if (baseType !== unknownType) {
                     if (getTargetType(baseType).flags & (TypeFlags.Class | TypeFlags.Declare | TypeFlags.Interface)) {
                         if (type !== baseType && !hasBaseType(<InterfaceType>baseType, type)) {
-                            type.resolvedBaseTypes.push(baseType);
+                            type.resolvedBaseTypes.push(createConcreteTypeIfCheckable(baseType));
                         }
                         else {
                             error(declaration, Diagnostics.Type_0_recursively_references_itself_as_a_base_type, typeToString(type, /*enclosingDeclaration*/ undefined, TypeFormatFlags.WriteArrayAsGenericType));
@@ -3104,7 +3122,7 @@ namespace ts {
                     }
                     else {
                         // We allow anything as a base type, don't check if it has a base type in this case: 
-                        type.resolvedBaseTypes.push(baseType);
+                        type.resolvedBaseTypes.push(createConcreteTypeIfCheckable(baseType));
                     }
                 }
             }
@@ -3114,7 +3132,6 @@ namespace ts {
                 let minimalFlowTypes = getMinimalTypeList(flowTypes.map(ft => ft.type));
                 type.resolvedBaseTypes = type.resolvedBaseTypes.concat(minimalFlowTypes);
             }
-
         }
         // [/ConcreteTypeScript]
 
@@ -3415,6 +3432,7 @@ namespace ts {
                 for (let key of Object.keys(flowData.memberSet)) {
                     let flowTypes = getProperty(flowData.memberSet, key).flowTypes;
                     let symbol = createSymbol(SymbolFlags.Property, key);
+                    symbol.declarations = [<Declaration>createSynthesizedNode(SyntaxKind.BrandTypeDeclaration)];
                     let typesToUnion = flowTypes.map(({type}) => type);
                     getSymbolLinks(symbol).type = getUnionType(typesToUnion);
                     if (getProperty(members,key)) {
@@ -3955,7 +3973,7 @@ namespace ts {
          */
         function getSignaturesOfType(type: Type, kind: SignatureKind): Signature[] {
             // [ConcreteTypeScript]
-            // Signatures of a concrete type are that of the 
+            // Signatures of a concrete type are that of the base type.
             // This applies most importantly to weakly concrete function declarations.
             type = stripConcreteType(type);
             // [/ConcreteTypeScript]
@@ -4620,6 +4638,17 @@ namespace ts {
                     startingType = getTypeFromTypeNode(node.startingType);
                 }
                 let targetType:Type  = getTypeFromTypeNode(node.endingType);
+                if (node.endingType.kind === SyntaxKind.DeclareType) {
+
+                    let extendedTypes = getDeclareTypeBaseTypeNodes(<DeclareTypeNode> node.endingType).map(getTypeFromTypeNode);
+                    if (extendedTypes.length > 0) {
+                        if (startingType === emptyObjectType) {
+                            startingType = extendedTypes[0];
+                        } else {
+                            startingType = getIntersectionType([startingType, extendedTypes[0]]);
+                        }
+                    }
+                }
                 links.resolvedType = createFlowTypeIntermediate(node, startingType, targetType);
             }
             return links.resolvedType;
@@ -6373,7 +6402,7 @@ namespace ts {
             let typeAsString = typeToString(getWidenedType(type));
             let diagnostic: DiagnosticMessage;
             switch (declaration.kind) {
-                case SyntaxKind.BrandProperty: // [ConcreteTypeScript]
+                case SyntaxKind.BrandPropertyDeclaration: // [ConcreteTypeScript]
                 case SyntaxKind.PropertyDeclaration:
                 case SyntaxKind.PropertySignature:
                     diagnostic = Diagnostics.Member_0_implicitly_has_an_1_type;
@@ -8653,7 +8682,7 @@ namespace ts {
         function checkQualifiedName(node: QualifiedName) {
             return checkPropertyAccessExpressionOrQualifiedName(node, node.left, node.right);
         }
-
+/*
         // [ConcreteTypeScript]
         function isCementedPropertyFromBaseTypes(type: InterfaceType, member: string): boolean {
             let baseTypes = getBaseTypes(type);
@@ -8664,7 +8693,6 @@ namespace ts {
             }
             return false;
         }
-/*
         // Should we cement or protect this property?
         // Cementing happens for weak concrete inference.
         function getProtectionForType(propType: Type): ProtectionFlags {
@@ -8678,54 +8706,135 @@ namespace ts {
             }
             return ProtectionFlags.None;
         }
+*/
+        // [ConcreteTypeScript]
+        // Analyze the concrete portions of an object type to find out the following about a member:
+        //  - Is it cemented?
+        //  - Is it protected?
+        //  - Is it stable for the type, in the property assignment order sense? (Only for classes)
+        //  - Does it require a runtime validation check?
+        //  - Should we demote the concreteness?
+        function getPropertyProtection(type: Type, propType: Type, member: string): ProtectionFlags {
+            // If the property type is not concrete, no action must be taken.
+            if (!isConcreteType(propType)) {
+                return ProtectionFlags.None;
+            }
+            let flags = ProtectionFlags.None;
+            if (isConcreteType(type)) {
+                flags = getPropertyProtectionWorker(type, member);
+            }
+            // By default, if we do not have this type from a verified component, we must check or demote.
+            if (flags === ProtectionFlags.None) {
+                flags = isWeakConcreteType(propType) ? ProtectionFlags.MustDemote : ProtectionFlags.MustCheck;
+            }
+            return flags;
+        }
 
         // [ConcreteTypeScript]
-        // Analyze the concrete portions of an object when making a decision of wether 
-        function getPropertyProtectionWorker(type: Type, member: string): ProtectionFlags {
-            type = stripConcreteType(type);
-            if (type.flags & TypeFlags.IntermediateFlow) {
-                let targetType = (<IntermediateFlowType>type).targetType;
-                if ((<IntermediateFlowType>type).declareTypeNode) {
-                    let flowData = getFlowDataForType(type);
-                    let memberData = getProperty(flowData.memberSet, member);
-                    if (memberData) {
-                        let propType = flowTypeGet(memberData);
-                        if (isConcreteType(propType)) {
-                            return getProtectionForType(propType);
-                        }
-                    }
-                    // Otherwise, analyze the starting type:
-                    return getPropertyProtection(flowDataFormalType((<IntermediateFlowType>type).flowData), member);
-                }
-            } else if (type.flags & TypeFlags.Declare) {
-                resolveStructuredTypeMembers(<InterfaceType>type);
-                let symbol = getProperty(type.symbol.members, member);
-                if (symbol) {
-                    let propType = getTypeOfSymbol(symbol);
-                    if (isConcreteType(propType)) {
-                        return getProtectionForType(propType);
-                    }
-                }
-                return isCementedPropertyFromBaseTypes(<InterfaceType>type, member);
-            } else if (type.flags & TypeFlags.Class) {
-                let propSymbol = getPropertyOfType(type, member)
-                if (propSymbol) {
-                    return isConcreteType(getTypeOfSymbol(propSymbol));
-                }
-            } else if (type.flags & TypeFlags.Anonymous) {
-                let propSymbol = getPropertyOfType(type, member)
-                
-            }
-            return ProtectionFlags.None;
+        function isConcreteSymbol(symbol: Symbol): boolean {
+            if (!symbol) return false;
+            let type = getTypeOfSymbol(symbol);
+            return isConcreteType(type);
         }
-*/
 
-        function getPropertyProtection(symbol: Symbol): ProtectionFlags {
-            if (symbol.parent) {
-                smartPrint(symbol.parent.valueDeclaration, 'valueDclaration');
+        // [ConcreteTypeScript]
+        function isStronglyConcreteSymbol(symbol: Symbol): boolean {
+            if (!symbol) return false;
+            let type = getTypeOfSymbol(symbol);
+            return isConcreteType(type) && !isWeakConcreteType(type);
+        }
+
+        // [ConcreteTypeScript]
+        function getPropertyProtectionIntersection(type: IntersectionType, member: string): ProtectionFlags {
+            for (let subtype of (<IntersectionType>type).types) {
+                let flags = getPropertyProtectionWorker(subtype, member);
+                if (flags) {
+                    return flags;
+                }
             }
             return ProtectionFlags.None;
         }
+        // [ConcreteTypeScript]
+        function getPropertyProtectionIntermediateFlow(type: IntermediateFlowType, member: string): ProtectionFlags {
+            let targetType = (<IntermediateFlowType>type).targetType;
+            if ((<IntermediateFlowType>type).declareTypeNode) {
+                let flowData = getFlowDataForType(type);
+                let memberData = getProperty(flowData.memberSet, member);
+                if (memberData) {
+                    let propType = flowTypeGet(memberData);
+                    if (isConcreteType(propType)) {
+                        return isWeakConcreteType(propType) ? ProtectionFlags.Cemented : ProtectionFlags.Protected;
+                    }
+                }
+            }
+            // Otherwise, analyze the starting type:
+            return getPropertyProtectionWorker(flowDataFormalType((<IntermediateFlowType>type).flowData), member);
+        }
+        // [ConcreteTypeScript]
+        function getPropertyProtectionAnonymous(type: Type, member: string): ProtectionFlags {
+            let symbol = type.symbol;
+            if (symbol && symbol.flags & (SymbolFlags.Class | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
+                let propSymbol = getPropertyOfType(type, member)
+                if (isStronglyConcreteSymbol(propSymbol)) {
+                    return ProtectionFlags.Protected;
+                } else if (isConcreteSymbol(propSymbol)) {
+                    return ProtectionFlags.Cemented;
+                }            
+            }
+            return ProtectionFlags.None;
+        }
+        // [ConcreteTypeScript]
+        function getPropertyProtectionClass(type: Type, member: string): ProtectionFlags {
+            let propSymbol = getPropertyOfType(type, member)
+            if (isStronglyConcreteSymbol(propSymbol)) {
+                return ProtectionFlags.Protected | ProtectionFlags.Stable;
+            } else if (isConcreteSymbol(propSymbol)) {
+                return ProtectionFlags.Cemented | ProtectionFlags.Stable;
+            }            
+            return ProtectionFlags.None;
+        }
+        // [ConcreteTypeScript]
+        function getPropertyProtectionDeclare(type: InterfaceType, member: string): ProtectionFlags {
+            resolveStructuredTypeMembers(type);
+            let propSymbol = getProperty(type.symbol.members, member);
+            if (isStronglyConcreteSymbol(propSymbol)) {
+                return ProtectionFlags.Protected;
+            } else if (isConcreteSymbol(propSymbol)) {
+                return ProtectionFlags.Cemented;
+            }    
+            for (let subtype of getBaseTypes(type)) {
+                let flags = getPropertyProtectionWorker(subtype, member);
+                if (flags) {
+                    return flags;
+                }
+            }
+            return ProtectionFlags.None;
+        }
+        // [ConcreteTypeScript]
+        function getPropertyProtectionConcrete(type: Type, member: string): ProtectionFlags {
+            type = stripConcreteType(type);
+            if (type.flags & TypeFlags.Class) {
+                return getPropertyProtectionClass(type, member);
+            } else if (type.flags & TypeFlags.Anonymous) {
+                return getPropertyProtectionAnonymous(type, member);
+            } else if (type.flags & TypeFlags.Declare) {
+                return getPropertyProtectionDeclare(<InterfaceType>type, member);
+            }
+            return ProtectionFlags.None;
+        }
+        // [ConcreteTypeScript]
+        // Handle everything except MustDemote and MustCheck, implied from None in getPropertyProtection
+        function getPropertyProtectionWorker(type: Type, member: string): ProtectionFlags {
+            if (type.flags & TypeFlags.Intersection) {
+                return getPropertyProtectionIntersection(<IntersectionType>type, member);
+            } else if (type.flags & TypeFlags.IntermediateFlow) {
+                return getPropertyProtectionIntermediateFlow(<IntermediateFlowType>type, member);
+            } else if (isConcreteType(type))  {
+                return getPropertyProtectionConcrete(type, member);
+            }
+            return ProtectionFlags.None;
+        }
+
         function checkPropertyAccessExpressionOrQualifiedName(node: PropertyAccessExpression | QualifiedName, left: Expression | QualifiedName, right: Identifier) {
             let type:Type = checkExpression(left);
             if (isTypeAny(type)) {
@@ -8752,52 +8861,37 @@ namespace ts {
 
             // [ConcreteTypeScript] From here on, emit-relevant logic:
             let propType = getTypeOfSymbol(prop);
-            if (isConcreteType(type) && stripConcreteType(type).flags & TypeFlags.Class) {
-                // Classes cannot inherit members in ways that breaks the map stability invariant.
-                node.direct = true;
-            }
-
-            if (!isConcreteType(propType)) {
-                return propType; // Remaining logic only applies to concrete property types.
-            }
-            if (!isConcreteType(type)) {
+            let flags = getPropertyProtection(type, propType, right.text);
+            if (flags & ProtectionFlags.MustCheck) {
+                // If we are not a concrete member that stemmed from a Class or Declare declaration site, we must check.
+                // The alternative would be to demote the concrete type, which was decided against as making
+                // the annotations have less impact.
                 node.mustCheck = propType;
-                return propType; // Remaining logic only applies to concrete container types.
+            } 
+            if (flags & ProtectionFlags.MustDemote) {
+                propType = stripConcreteType(propType);
+            } 
+            if (flags & ProtectionFlags.Stable) {
+                node.direct = true; // Can use v8 accessors
             }
-
-            // And float/intness
-            if (stripConcreteType(propType).flags & TypeFlags.FloatHint) {
-                node.assertFloat = true;
-            } else if (stripConcreteType(propType).flags & TypeFlags.IntHint) {
-                node.assertInt = true;
-            }
-
-            // If we are not a concrete member that stemmed from a Class or Declare declaration site, we must check.
-            // The alternative would be to demote the concrete type, which was decided against as making
-            // the annotations have less impact.
-            if ((<PropertyAccessExpression>node).name && !isCementedProperty(type, (<PropertyAccessExpression>node).name.text)) {
-                if (prop.flags & SymbolFlags.Prototype || stripConcreteType(type).flags & TypeFlags.Anonymous) {
-                    // On anonymous types, we have guaranteed they are protected if they are concrete in the system
-                    return propType;
-                } else {
-                    if (isWeakConcreteType(propType)) {
-                        return stripWeakConcreteType(propType);
-                    } else {
-                        node.mustCheck = propType;
-                        return propType; // Remaining logic only applies to cemented members.
-                    }
+            if (flags & ProtectionFlags.ProtectedOrCemented) {
+                // And float/intness
+                if (stripConcreteType(propType).flags & TypeFlags.FloatHint) {
+                    node.assertFloat = true;
+                } else if (stripConcreteType(propType).flags & TypeFlags.IntHint) {
+                    node.assertInt = true;
                 }
             }
-
-            // We may use protection-eliding name-mangled access if the target value is concrete.
-            if (prop.flags & SymbolFlags.Method) {
-                // Method's of classes are concrete and can be accessed in this way, but only during method calls.
+            // We may use protection-eliding name-mangled access if the target value is protected.
+            if (flags & ProtectionFlags.Protected) {
+                node.mangled = true;
+            } 
+            if (flags & ProtectionFlags.Cemented) {
+                // As well, cemented method's of classes are concrete and can be accessed in this way, but only during method calls.
                 if (node.parent.kind === SyntaxKind.CallExpression) {
                     // TODO fix direct calls for prototypes
                     node.mangled = true;
                 }
-            } else {
-                node.mangled = true;
             }
 
             return propType;
@@ -16190,7 +16284,7 @@ namespace ts {
                 case SyntaxKind.SetAccessor:
                 case SyntaxKind.Constructor:
                 case SyntaxKind.PropertyDeclaration:
-                case SyntaxKind.BrandProperty: // [ConcreteTypeScript]
+                case SyntaxKind.BrandPropertyDeclaration: // [ConcreteTypeScript]
                 case SyntaxKind.PropertySignature:
                 case SyntaxKind.MethodDeclaration:
                 case SyntaxKind.MethodSignature:

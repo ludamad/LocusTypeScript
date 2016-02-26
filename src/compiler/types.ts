@@ -78,7 +78,7 @@ namespace ts {
         BecomesType, // [ConcreteTypeScript]
         DeclareType, // [ConcreteTypeScript]
         BrandTypeDeclaration, // [ConcreteTypeScript]
-        BrandProperty, // [ConcreteTypeScript]
+        BrandPropertyDeclaration, // [ConcreteTypeScript]
         // [/ConcreteTypeScript]
         Unknown,
         EndOfFileToken,
@@ -1651,7 +1651,9 @@ namespace ts {
         Cemented = 1 << 0,
         Protected = 1 << 1,
         Stable = 1 << 2,
-        MustCheck = 1 << 3
+        MustCheck = 1 << 3,
+        MustDemote = 1 << 4,
+        ProtectedOrCemented = Cemented | Protected
     }
     export interface SymbolDisplayBuilder {
         buildTypeDisplay(type: Type, writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags): void;
@@ -1892,6 +1894,7 @@ namespace ts {
         /* @internal */ exportSymbol?: Symbol;  // Exported symbol associated with this symbol
         /* @internal */ constEnumOnlyModule?: boolean; // True if module contains only const enums or other modules with only const enums
         brandType?: DeclareTypeNode; // [ConcreteTypeScript] set for .prototype properties
+        protectionFlags?: ProtectionFlags; // [ConcreteTypeScript] For 
     }
 
     /* @internal */

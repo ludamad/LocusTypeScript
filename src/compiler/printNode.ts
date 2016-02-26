@@ -99,7 +99,7 @@ module ts {
         case SyntaxKind.EnumDeclaration: return print(node, "EnumDeclaration");
         case SyntaxKind.ModuleDeclaration: return print(node, "ModuleDeclaration");
         case SyntaxKind.ImportDeclaration: return print(node, "ImportDeclaration");
-        case SyntaxKind.BrandProperty: return print(node, "BrandProperty");
+        case SyntaxKind.BrandPropertyDeclaration: return print(node, "BrandPropertyDeclaration");
         case SyntaxKind.SourceFile: return print(node, "SourceFile");
         default: return print(node, `<${node.kind}>`);
         }

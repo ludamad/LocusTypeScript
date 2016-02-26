@@ -107,9 +107,11 @@ namespace ts {
     }
 
     export function getSymbolDecl(symbol:Symbol, kind:SyntaxKind): Declaration {
-        for (var i = 0; i < symbol.declarations.length; i++) {
-            if (symbol.declarations[i].kind === kind) {
-                return symbol.declarations[i];
+        if (symbol.declarations) {
+            for (var i = 0; i < symbol.declarations.length; i++) {
+                if (symbol.declarations[i].kind === kind) {
+                    return symbol.declarations[i];
+                }
             }
         }
         return null
