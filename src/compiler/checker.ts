@@ -1654,6 +1654,12 @@ namespace ts {
         function getSymbolDisplayBuilder(): SymbolDisplayBuilder {
 
             function getNameOfSymbol(symbol: Symbol): string {
+                // [ConcreteTypeScript]
+                if (symbol.flags & SymbolFlags.Prototype) {
+                    getTypeOfSymbol(symbol); // Ensure code runs.
+                    return (<Identifier>symbol.declarations[0].name).text;
+                }
+                // [/ConcreteTypeScript]
                 if (symbol.declarations && symbol.declarations.length) {
                     let declaration = symbol.declarations[0];
                     if (declaration.name) {
@@ -2511,9 +2517,12 @@ namespace ts {
                 let identifier = <Identifier> createSynthesizedNode(SyntaxKind.Identifier);
                 let classType = <InterfaceType>getDeclaredTypeOfSymbol(prototype.parent);
                 identifier.text = classType.symbol.name + '.prototype';
+                identifier.pos = 0; // Hack
+                identifier.end = 1;
                 declareType.name = identifier;
                 // Hack, push the declaration on for during type inspection
                 prototype.declarations = [declareType];
+                prototype.valueDeclaration = declareType;
             }
             return links.type;
             // [/ConcreteTypeScript]
@@ -3378,6 +3387,9 @@ namespace ts {
                     return undefined;
                 }
                 let declNode = <DeclareTypeNode> getSymbolDecl(type.symbol, SyntaxKind.DeclareType);
+                if (type.symbol.flags & SymbolFlags.Prototype) {
+                    return undefined;
+                }
 
                 if (!(<InterfaceType>type).flowData) {
                     // Placeholder:
