@@ -522,6 +522,11 @@ namespace ts {
     export interface FlowData {
         memberSet:FlowMemberSet;
         flowTypes:FlowType[];
+        // Set after a pass to indicate areas where emit work must be done:
+        fieldToProtectInline?: string;
+        guardVarName?: string; // Automatically generated
+        prototypeType?: string;
+        fieldsToProtectAfter?: string[];
     }
 
     export interface EmitterFunctions {
@@ -552,12 +557,10 @@ namespace ts {
         /* @internal */ nextContainer?: Node;           // Next container in declaration order (initialized by binding)
         /* @internal */ localSymbol?: Symbol;           // Local symbol declared by node (initialized by binding only for exported nodes)
 
+        // [ConcreteTypeScript]
         // Set during checker.ts.
-        // Cached results of assignment-analysis, one per object being analyzed through this node.
-        // We keep an array because it is default to make a true map.
-        // as our key is a sample node used for very simple alias analysis.
-        // Furthermore, we don't expect many overlapping assignment analyses, so this should be a small set (of AssignmentSet's).
         mustCheck?: Type;             // If this node must be type-checked at runtime, the type to check
+        mustCheckBecomes?: {expr: Node, type: Type}[];    // For call expressions with become types on nonconcrete functions.
         mustFloat?: boolean;          // If set, this value must be explicitly coerced to float instead of generic number
         mustInt?: boolean;            // If set, this value must be explicitly coerced to int instead of generic number
         forceFalseyCoercion?: Type;   // If set, must coerce falsey values to the given type
@@ -568,15 +571,16 @@ namespace ts {
         // Set in checker.ts
         resolvedType?:            Type;
         ctsDowngradeToBaseClass?: boolean
-        preEmitCallbacks?: EmitCallback[];
-        postEmitCallbacks?: EmitCallback[];
-        brandsToEmitAfterwards?:  DeclareTypeNode[];
-        brandsToEmitAtBeginning?: DeclareTypeNode[]; // Special case for parameter-this
-
+        brandsToEmitAfterwards?:  DeclareTypeDeclaration[];
+        brandsToEmitAtBeginning?: DeclareTypeDeclaration[]; // Special case for parameter-this
+//        protectionTempVars?: {[member:string]: {tempVarName: string, type: Type}};
+//        protectionFields?: {[member:string]: {tempVarName: string, expr: Node, type: Type}};
+        // If 'getter' and 'setter' are not present, the field protection is emitted using 'cement', otherwise it is emitted using 'protectAssignment'
+        brandProtectionsToEmit?: {getter?: string, setter?: string, expr: Node, field: string}[];
+        nextTempVar? : number; // Used to create the temporary variable names above.
+        tempVarsToEmit?: {[tempVarName: string]: boolean};
         ctsFlowData?:       FlowData; // What flow-members have been calculated for this specific node instance?
         ctsFinalFlowData?:  FlowData; // What are the final flow members for this node, after all assignments?
-        /* [/ConcreteTypeScript] */
- 
         // [/ConcreteTypeScript]
     }
 
@@ -2015,7 +2019,7 @@ namespace ts {
         StringLike = String | StringLiteral,
         NumberLike = Number | Enum,
         ObjectType = Class | Declare | Interface | Reference | Tuple | Anonymous | IntermediateFlow,
-        RuntimeCheckable = Intrinsic  | StringLiteral | Class | Declare, // TODO Rename to RuntimeCheckablePrimitive
+        RuntimeCheckable = Intrinsic  | StringLiteral | Class | Declare, // [ConcreteTypeScript] Unconditionally runtime checkable
         UnionOrIntersection = Union | Intersection,
         StructuredType = ObjectType | Union | Intersection | IntermediateFlow,
         /* @internal */

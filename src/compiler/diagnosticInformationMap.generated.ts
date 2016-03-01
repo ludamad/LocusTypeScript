@@ -5,6 +5,9 @@ namespace ts {
     export var Diagnostics = {
         ConcreteTypeScript_Expected_identifier_which_resolves_to_type_created_with_declare: { code: 2000, category: DiagnosticCategory.Error, key: "[ConcreteTypeScript] Expected identifier which resolves to type created with 'declare'." },
         ConcreteTypeScript_Inferred_type_conflict_0_is_not_a_subtype_of_1: { code: 2001, category: DiagnosticCategory.Error, key: "[ConcreteTypeScript] Inferred type conflict. '{0}' is not a subtype of '{1}'. " },
+        ConcreteTypeScript_Object_of_type_0_cannot_call_methods_expecting_1_as_their_receiver: { code: 2002, category: DiagnosticCategory.Error, key: "[ConcreteTypeScript] Object of type '{0}' cannot call methods expecting '{1}' as their receiver." },
+        ConcreteTypeScript_Cannot_create_check_for_type_0_but_required_for_becomes: { code: 2003, category: DiagnosticCategory.Error, key: "[ConcreteTypeScript] Cannot create check for type '{0}', but required for becomes." },
+        ConcreteTypeScript_Cannot_become_type_0_Can_only_become_interface_brand_interface_or_Declare_types: { code: 2004, category: DiagnosticCategory.Error, key: "[ConcreteTypeScript] Cannot become type '{0}'. Can only become interface, brand interface, or Declare types." },
         Unterminated_string_literal: { code: 1002, category: DiagnosticCategory.Error, key: "Unterminated string literal." },
         Identifier_expected: { code: 1003, category: DiagnosticCategory.Error, key: "Identifier expected." },
         _0_expected: { code: 1005, category: DiagnosticCategory.Error, key: "'{0}' expected." },

@@ -7,6 +7,19 @@
         "category": "Error",
         "code": 2001
     },
+    "[ConcreteTypeScript] Object of type '{0}' cannot call methods expecting '{1}' as their receiver.": {
+        "category": "Error",
+        "code": 2002
+    },
+   "[ConcreteTypeScript] Cannot create check for type '{0}', but required for becomes.": {
+        "category": "Error",
+        "code": 2003
+    },
+   "[ConcreteTypeScript] Cannot become type '{0}'. Can only become interface, brand interface, or Declare types.": {
+        "category": "Error",
+        "code": 2004
+    },
+
     "Unterminated string literal.": {
         "category": "Error",
         "code": 1002

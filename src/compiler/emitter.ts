@@ -2446,7 +2446,21 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 write(",(");
             }
 
-            function emitCastPost(type: Type) {
+            function emitBecomesCastPre(becomingNode: Node, type: Type) {
+                if (type.flags & TypeFlags.Concrete) {
+                    type = (<ConcreteType>type).baseType;
+                }
+                write("(");
+                emitCTSRT("castRet3rd");
+                write("(");
+                emitCTSType(type);
+                write(",(");
+                emitNodeWithoutSourceMap(becomingNode); // Usually an identifier
+                write("),(");
+            }
+
+
+            function emitCastPost() {
                 write(")))");
             }
 
@@ -2713,7 +2727,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         emitCTSType((<ConcreteType>declaration.resolvedType).baseType);
                         let extendedPrototypeStr = "undefined";
                         if (brandDecl.extendedTypeResolved && (brandDecl.extendedTypeResolved.flags & TypeFlags.Declare)) {
-                            let extendedBrandDecl = <DeclareTypeNode> getSymbolDecl(brandDecl.extendedTypeResolved.symbol, SyntaxKind.BrandTypeDeclaration);
+                            let extendedBrandDecl = <DeclareTypeDeclaration> getSymbolDecl(brandDecl.extendedTypeResolved.symbol, SyntaxKind.BrandTypeDeclaration);
                             if (extendedBrandDecl.prototypeBrandDeclaration) {
                                 extendedPrototypeStr = "$$cts$$runtime.brandTypes." + extendedBrandDecl.name.text + ".prototype";
                             }
@@ -2749,23 +2763,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             }
 
             function emitBinaryExpression(node: BinaryExpression) {
-                // [ConcreteTypeScript] Handle binding assignment
+                // [ConcreteTypeScript] Handle 'declaredas'
                 if (node.operatorToken.kind === SyntaxKind.DeclaredAsKeyword) {
                     emitDeclaredAsExpression(node.left, node.right);
                     return;
                 }
-                // [/ConcreteTypeScript] Handle binding assignment
+                // [/ConcreteTypeScript] 
                 // [ConcreteTypeScript] Handle binding assignment
-                if (isPropertyAssignment(node)) {
-                    let propAccess:PropertyAccessExpression = <PropertyAccessExpression>node.left;
-                    // console.log("Here with ", propAccess.name.text);
-                    if ((propAccess).ctsFinalFlowData) {
-                        if (emitConcreteAssignment(node, propAccess.expression, propAccess)) {
-                            return;
-                        }
-                    }                    
-                }
-                // [/ConcreteTypeScript]
                 // [ConcreteTypeScript] Direct access (for assignments)
                 if (node.direct && compilerOptions.emitV8Intrinsics) write("%_UnsafeAssumeMono(");
                 // [/ConcreteTypeScript]
@@ -2849,19 +2853,18 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 }
             }
             // [ConcreteTypeScript]
-            function emitBrandObject(brand:DeclareTypeNode) {
+            function emitBrandObject(brand:DeclareTypeDeclaration) {
                 let brandName:Identifier = brand.name;
                 writeLine();
                 write("$$cts$$runtime.brandTypes.");
                 writeTextOfNode(currentSourceFile, brandName);
                 write(" = new $$cts$$runtime.Brand('"+ brandName.text + "');");
-                if (brand.prototypeBrandDeclaration) {
-                    writeLine();
-                    write("$$cts$$runtime.brandTypes.");
-                    writeTextOfNode(currentSourceFile, brandName);
-                    write(".prototype");
-                    write(" = new $$cts$$runtime.Brand();")
-                }
+                // Prototype brand object:
+                writeLine();
+                write("$$cts$$runtime.brandTypes.");
+                writeTextOfNode(currentSourceFile, brandName);
+                write(".prototype");
+                write(" = new $$cts$$runtime.Brand();")
                 writeLine();
                 emitDeclarationCement(brand);
             }
@@ -2869,7 +2872,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             function emitBrandTypesAtBlockStart(block:Node) {
                 let brandTypes = getBrandTypesInScope(block);
                 if (brandTypes.length > 0) {
-                    write("var $$cts$$brandTypes/* TODO UNUSED */ = {};"); writeLine();
+                    write("var $$cts$$brandTypes = {};"); writeLine();
                 }
                 for (let brand of brandTypes) {
                     emitBrandObject(brand);
@@ -2956,6 +2959,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 increaseIndent();
                 scopeEmitStart(node.parent);
                 emitBrandTypesAtBlockStart(node);
+                emitProtectionTempVarsAtBlockStart(node);
                 emitBrandPrototypeAsserts(node);
                 if (node.kind === SyntaxKind.ModuleBlock) {
                     Debug.assert(node.parent.kind === SyntaxKind.ModuleDeclaration);
@@ -2964,7 +2968,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 emitLines(node.statements);
                 // TODO Remove this sometime. rendered obsolete in brand-tightening
                 // writeLine();
-                // emitBrandingsForBlockEnd(node);
+                emitBrandingsForBlockEnd(node);
  
                 if (node.kind === SyntaxKind.ModuleBlock) {
                     emitTempDeclarations(/*newLine*/ true);
@@ -5913,7 +5917,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
 
             // [ConcretTypeScript]
 
-            function emitBrandTypeDeclaration(node: DeclareTypeNode) {
+            function emitBrandTypeDeclaration(node: DeclareTypeDeclaration) {
 
                 // Nothing to do, for now.
 
@@ -7523,34 +7527,53 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             }
 
             // [ConcreteTypeScript]
-            function emitBranding(brand:DeclareTypeNode) {
+            function emitBranding(brand:DeclareTypeDeclaration) {
                 let isBrandOfPrototypeObject:boolean = (brand.parent.kind === SyntaxKind.BrandTypeDeclaration);
                 if (isBrandOfPrototypeObject) {
                     writeLine();
                     write("$$cts$$runtime.brand($$cts$$runtime.brandTypes.");
-                    writeTextOfNode(currentSourceFile, (<DeclareTypeNode>brand.parent).name);
+                    writeTextOfNode(currentSourceFile, (<DeclareTypeDeclaration>brand.parent).name);
                     write(".prototype")
                     write(", ");
-                    writeTextOfNode(currentSourceFile, (<DeclareTypeNode>brand.parent).functionDeclaration.name);
+                    throw new Error();
+                    //writeTextOfNode(currentSourceFile, (<DeclareTypeDeclaration>brand.parent).functionDeclaration.name);
                     write(".prototype);");
                 } else {
                     writeLine();
                     write("$$cts$$runtime.brand($$cts$$runtime.brandTypes.");
                     writeTextOfNode(currentSourceFile, brand.name);
                     write(", ");
-                    writeTextOfNode(currentSourceFile, brand.varOrParamDeclaration.name);
+                    throw new Error();
+                    // writeTextOfNode(currentSourceFile, brand.varOrParamDeclaration.name);
                     write(");");
-                    if (brand.varOrParamDeclaration.kind === SyntaxKind.ThisParameter) {
+                    /*if (brand.varOrParamDeclaration.kind === SyntaxKind.ThisParameter) {
                         writeLine();
                         write("$$cts$$runtime.brand($$cts$$runtime.brandTypes.");
                         writeTextOfNode(currentSourceFile, brand.name);
                         write(".prototype, ");
                         writeTextOfNode(currentSourceFile, brand.varOrParamDeclaration.name);
                         write(");");
-                    }
+                    }*/
                 }
                 writeLine();
             }
+            function emitProtectionTempVarForBlock(member:string, {tempVarName}) {
+                write(`var ${tempVarName} = false;`);
+                writeLine();
+            }
+emitProtectionTempVarsAtBlockStart
+            function emitProtectionForField(member:string, {tempVarName, expr, type}) {
+                if (isPropertyAssignment(node)) {
+                    let propAccess:PropertyAccessExpression = <PropertyAccessExpression>node.left;
+                    // console.log("Here with ", propAccess.name.text);
+                    if ((propAccess).ctsFinalFlowData) {
+                        if (emitConcreteAssignment(node, propAccess.expression, propAccess)) {
+                            return;
+                        }
+                    }                    
+                }
+            }
+                // [/ConcreteTypeScript]
             function emitNodeWithoutSourceMap(node: Node): void {
                 emitStart(node, false); // [ConcreteTypeScript]
                 if (node) {
@@ -7567,21 +7590,30 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         emitCastPre(node.mustCheck);
                     }
 
+                    if (node.mustCheckBecomes) {
+                        for (let {expr, type} of node.mustCheckBecomes) {
+                            emitBecomesCastPre(expr, type);
+                        }
+                    }
+
                     if (node.forceFalseyCoercion) {
                         emitFalseyCoercionPre(node.forceFalseyCoercion);
                     }
             
-                    if ((node).ctsDowngradeToBaseClass) {
-                        write("/*downgraded*/"); 
-                    }       
                     emitJavaScriptWorker(node);
 
                     if (node.forceFalseyCoercion) {
                         emitFalseyCoercionPost(node.forceFalseyCoercion);
                     }
 
+                    if (node.mustCheckBecomes) {
+                        for (let _ of node.mustCheckBecomes) {
+                            emitCastPost();
+                        }
+                    }
+
                     if (node.mustCheck) {
-                        emitCastPost(node.mustCheck);
+                        emitCastPost();
                     }
 
                     if (node.mustInt) {
@@ -7650,18 +7682,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 return true;
             }
             
-            // [ConcreteTypeScript]
             function emitJavaScriptWorker(node: Node) {
-                for (let cb of node.preEmitCallbacks || []) {
-                    cb(emitterFunctions);
-                }
-                emitJavaScriptNoGuards(node);
-                for (let cb of node.postEmitCallbacks || []) {
-                    cb(emitterFunctions);
-                }
-            }
-            function emitJavaScriptNoGuards(node: Node) {
-            // [/ConcreteTypeScript]
                 // Check if the node can be emitted regardless of the ScriptTarget
                 switch (node.kind) {
                     case SyntaxKind.Identifier:
@@ -7825,7 +7846,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     case SyntaxKind.ClassDeclaration:
                         return emitClassDeclaration(<ClassDeclaration>node);
                     case SyntaxKind.BrandTypeDeclaration:
-                         return emitBrandTypeDeclaration(<DeclareTypeNode>node);
+                         return emitBrandTypeDeclaration(<DeclareTypeDeclaration>node);
                     case SyntaxKind.InterfaceDeclaration:
                         return emitInterfaceDeclaration(<InterfaceDeclaration>node);
                     case SyntaxKind.EnumDeclaration:

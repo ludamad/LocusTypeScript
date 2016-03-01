@@ -40,7 +40,7 @@ function assertType(val, prop, type) {
         return;
     }
     exports.assert(setter, "Setter should be installed!");
-    if (($$cts$$runtime.cast(isArray,(Array.isArray)))(type)) {
+    if (Array.isArray(type)) {
         exports.assert(setter.$$cts$$type instanceof $$cts$$runtime.UnionType, "Union type not installed!");
         // FIX: Make sure type order doesn't matter. It changed from 1.4 to 1.6
         type.sort();

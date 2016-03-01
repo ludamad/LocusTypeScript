@@ -736,7 +736,9 @@ namespace ts {
         // Is the type runtime checkable?
         // Implies the type can be strongly concrete.
         function isRuntimeCheckable(target: Type) {
-            if (target.flags & TypeFlags.Union) {
+            if (isTypeAny(target)) {
+                return false;
+            } else if (target.flags & TypeFlags.Union) {
                 return (<UnionType>target).isRuntimeCheckable;
             } else if (target.flags & TypeFlags.Intersection) {
                 for (let type of (<IntersectionType>target).types) {
@@ -769,6 +771,9 @@ namespace ts {
                 if (mustBeRuntimeCheckable && !isRuntimeCheckable(target)) {
                     throw new Error("Cannot create concrete type out of '" + typeToString(target) + "'!.");
                 }
+                if (!canBeConcrete(target)) {
+                    throw new Error("Cannot create concrete type out of '" + typeToString(target) + "'!.");
+                }
                 type = target.concreteType = <ConcreteType>createType(TypeFlags.Concrete);
                 type.baseType = target;
             }
@@ -787,6 +792,9 @@ namespace ts {
         // They allow checks to be bypassed if used directly, but not across binding sites.
         // Weak concrete types lose their concreteness whenever getBindingType is called.
         function canBeConcrete(target) {
+            if (isTypeAny(target)) {
+                return false;
+            }
             // Interface types don't support even the weak form of concreteness.
             // We could use them to represent information about cemented objects,
             // but we have more appropriate types for those scenarios.
@@ -2178,8 +2186,8 @@ namespace ts {
                     buildTypeDisplay(thisType, writer);
                     if (parameters.length > 0) {
                         writePunctuation(writer, SyntaxKind.SemicolonToken);
+                        writer.writePunctuation(" ");
                     }
-                    writer.writePunctuation(" ");
                 }
                 for (let i = 0; i < parameters.length; i++) {
                     if (i > 0) {
@@ -2512,17 +2520,19 @@ namespace ts {
             let links = getSymbolLinks(prototype);
             if (!links.type) {
                 prototype.members = {};
-                links.type = links.declaredType = <InterfaceType>createObjectType(TypeFlags.Declare, prototype);
-                let declareType = <DeclareTypeNode> createSynthesizedNode(SyntaxKind.DeclareType);
+                let declareType = <InterfaceType>createObjectType(TypeFlags.Declare, prototype);
+                declareType.symbol = prototype;
+                links.type = links.declaredType = createConcreteType(declareType);
+                let declareTypeNode = <DeclareTypeNode> createSynthesizedNode(SyntaxKind.DeclareType);
                 let identifier = <Identifier> createSynthesizedNode(SyntaxKind.Identifier);
                 let classType = <InterfaceType>getDeclaredTypeOfSymbol(prototype.parent);
                 identifier.text = classType.symbol.name + '.prototype';
-                identifier.pos = 0; // Hack
-                identifier.end = 1;
-                declareType.name = identifier;
+                identifier.pos = prototype.parent.declarations[0].pos; // Wrong but needs to be nonzero range
+                identifier.end = prototype.parent.declarations[0].end; 
+                declareTypeNode.name = identifier;
                 // Hack, push the declaration on for during type inspection
-                prototype.declarations = [declareType];
-                prototype.valueDeclaration = declareType;
+                prototype.declarations = [declareTypeNode];
+                prototype.valueDeclaration = declareTypeNode;
             }
             return links.type;
             // [/ConcreteTypeScript]
@@ -3135,6 +3145,7 @@ namespace ts {
                     }
                 }
             }
+
             let flowData = getFlowDataForType(type);
             if (flowData) {
                 let {flowTypes} = flowData;
@@ -3435,6 +3446,16 @@ namespace ts {
             }
 
             // [ConcreteTypeScript]
+            if (type.symbol.flags & SymbolFlags.Prototype) {
+                let relatedType:Type = getDeclaredTypeOfSymbol(type.symbol.parent);
+                relatedType = stripConcreteType(relatedType);
+                if (relatedType.flags & TypeFlags.Class) {
+                    addInheritedMembers(members, getPropertiesOfObjectType(relatedType).filter(s => !!(s.flags & SymbolFlags.Method)));
+                }
+            }
+            // [/ConcreteTypeScript]
+
+            // [ConcreteTypeScript]
             // TODO un-resolve classes that were 'resolved' during recursive computation
             let flowData = getFlowDataForType(type);
             if (flowData) {
@@ -3694,7 +3715,9 @@ namespace ts {
                 if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method)) {
                     callSignatures = getSignaturesOfSymbol(symbol);
                     // [ConcreteTypeScript]
-                    constructSignatures = getSignaturesOfSymbol(symbol).filter(({resolvedThisType}) => !!resolvedThisType);
+                    if (symbol.flags & SymbolFlags.Function) {
+                        constructSignatures = getSignaturesOfSymbol(symbol).filter(({resolvedThisType}) => !!resolvedThisType);
+                    }
                     // [/ConcreteTypeScript]
                 }
                 if (symbol.flags & SymbolFlags.Class) {
@@ -4128,13 +4151,16 @@ namespace ts {
 
                 links.resolvedSignature = createSignature(declaration, typeParameters, parameters, returnType, typePredicate,
                         minArgumentCount, hasRestParameter(declaration), hasStringLiterals);
-
                 // [ConcreteTypeScript]
-                // If there is an explicit 'this' annotation, use this to determine the 'this' type.
+                // If there is an explicit 'this' annotation, use it to determine the 'this' type.
                 if (declaration.parameters.thisParam) {
                     links.resolvedSignature.resolvedThisType = getTypeFromTypeNode(declaration.parameters.thisParam.type);
                 } else if (declaration.kind === SyntaxKind.FunctionExpression && declaration.parent.kind === SyntaxKind.BinaryExpression) {
                     links.resolvedSignature.resolvedThisType = getThisTypeFromAssignment(<FunctionExpression> declaration, <BinaryExpression> declaration.parent);
+                } else if (declaration.kind === SyntaxKind.MethodDeclaration && declaration.parent.kind === SyntaxKind.ClassDeclaration) {
+                    // If we are a method in a class, we are cemented, and therefore have concrete 'this':
+                    let symbol = getSymbolOfNode(declaration.parent);
+                    links.resolvedSignature.resolvedThisType = createConcreteType(getDeclaredTypeOfSymbol(symbol));
                 }
                 // [/ConcreteTypeScript]
             }
@@ -8731,10 +8757,7 @@ namespace ts {
             if (!isConcreteType(propType)) {
                 return ProtectionFlags.None;
             }
-            let flags = ProtectionFlags.None;
-            if (isConcreteType(type)) {
-                flags = getPropertyProtectionWorker(type, member);
-            }
+            let flags = getPropertyProtectionWorker(type, member);
             // By default, if we do not have this type from a verified component, we must check or demote.
             if (flags === ProtectionFlags.None) {
                 flags = isWeakConcreteType(propType) ? ProtectionFlags.MustDemote : ProtectionFlags.MustCheck;
@@ -10224,8 +10247,12 @@ namespace ts {
                 }
             }
 
-            //return getReturnTypeOfSignature(signature);
             // [ConcreteTypeScript]
+
+            // We check against the resolvedThisType if present:
+            if (node.expression.kind === SyntaxKind.PropertyAccessExpression && signature.resolvedThisType) {
+                checkTypeAssignableTo(getTypeOfNode((<PropertyAccessExpression>node.expression).expression), signature.resolvedThisType, node, Diagnostics.ConcreteTypeScript_Object_of_type_0_cannot_call_methods_expecting_1_as_their_receiver);
+            }
             // If this:
             // 1. Is a method call,
             // 2. returns a concrete type, and
@@ -17675,6 +17702,13 @@ namespace ts {
             return reference.ctsFlowData;
         }
 
+        function getTempVarForScope(scope: Node, member: string) {
+            if (scope.protectionTempVars && scope.protectionTempVars[member]) {
+                return scope.protectionTempVars[member].tempVarName;
+            }
+            scope.nextTempVar = scope.nextTempVar || 0;
+            return `cts$$temp$$${member}${scope.nextTempVar++}`;
+        }
         function ensureFlowDataIsSet(reference: Node, type: Type) {
             Debug.assert(reference.kind === SyntaxKind.Identifier || reference.kind === SyntaxKind.ThisKeyword);
             // If it is null, we simply ignore. The implies recursive evaluation.
@@ -17695,6 +17729,7 @@ namespace ts {
                         node.ctsFinalFlowData = null;
                     }
                 });
+                let protectionQueue = [];
                 // Analysis was not yet run for this scope
                 let finalFlowData = computeAndSetFlowDataForReferencesInScope(
                     /*Reference decider: */ (node) => areSameValue(node, reference),
@@ -17702,7 +17737,9 @@ namespace ts {
                     /*Node-links: */ {},
                     /*Container scope: */ containerScope,
                     /*Current node in recursive scan: */ containerScope,
-                    /*Flow-data: */ flowData
+                    /*Protection emit callback, possibly no-op*/ emitProtection, 
+                    /*Current flow-data: */ flowData, 
+                    /*Original flow-data: */ flowData
                 );
                 forEachChildRecursive(containerScope, node => {
                     if (areSameValue(node, reference)) {
@@ -17713,7 +17750,23 @@ namespace ts {
                 if (type.flags & TypeFlags.IntermediateFlow) {
                     flowDependentTypeStack.pop();
                 }
+                for (let protect of protectionQueue) {
+                    protect(finalFlowData);
+                }
                 return;
+                function emitProtection(expr:Node, member:string) {
+                    protectionQueue.push(({memberSet}) => {
+                        let type = flowTypeGet(memberSet[member]);
+                        let statement = getOuterStatement(expr);
+                        if (isConcreteType(type)) {
+                            let tempVarName = getTempVarForScope(containerScope, member);
+                            containerScope.protectionTempVars = containerScope.protectionTempVars || {};
+                            containerScope.protectionTempVars[member] = {tempVarName, type};
+                            expr.protectionFields = expr.protectionFields || {};
+                            expr.protectionFields[member] = {tempVarName, expr, type};
+                        }
+                    });
+                }
                 // Where:
                 function getTargetTypeForMember(member:string): Type {
                     let isFlowType = (type.flags & TypeFlags.IntermediateFlow);
@@ -17735,8 +17788,9 @@ namespace ts {
                                          getTargetTypeForMember: (member:string)=>Type, 
                                          nodePostLinks,
                                          containerScope, 
+                                         emitProtection,
                                          // Current node in recursive scan:
-                                         node:Node, prev:FlowData):FlowData {
+                                         node:Node, prev:FlowData, orig:FlowData):FlowData {
             /** Function skeleton: **/
             // Correct conditional marks: (TODO inefficient)
             if (isReference(node)) {
@@ -17769,7 +17823,8 @@ namespace ts {
                 for (let argument of node.arguments) {
                     prev = recurse(argument, prev);
                 }
-                let callSignatures = getSignaturesOfType(getApparentType(getTypeOfNode(node.expression)), SignatureKind.Call);
+                let exprType = getTypeOfNode(node.expression);
+                let callSignatures = getSignaturesOfType(getApparentType(exprType), SignatureKind.Call);
                 // TODO Work-around for circular logic with getResolvedSignature
                 if (callSignatures.length !== 1) {
                     return;
@@ -17787,8 +17842,12 @@ namespace ts {
                             becomesAmount++;
                             let flowType = (<IntermediateFlowType>paramType);
                             let targetType = flowType.targetType;
-                            // TODO: EMIT add guards if the parameter type was concrete.
                             prev = flowDataBecomesType(node, prev, targetType)
+                            if (isConcreteType(targetType) && !isConcreteType(exprType)) {
+                                // For emit:
+                                node.mustCheckBecomes = node.mustCheckBecomes || [];
+                                node.mustCheckBecomes.push({node: node.arguments[i], type: targetType});
+                            }
 
                         }
                     }
@@ -17830,6 +17889,7 @@ namespace ts {
                     }
                 }
                 // Incorporate into our type:
+                emitProtection(flowType.firstBindingSite, member);
                 prev = flowDataAssignment(prev, member, flowType);
             }
             function scanBinaryExpression(node: BinaryExpression) {
@@ -17849,7 +17909,10 @@ namespace ts {
                 /* Check if we have a relevant binding assignment: */
                 if (node.operatorToken.kind === SyntaxKind.EqualsToken) {
                     let {left, right} = node;
-                    if (isMemberAccess(left)) {
+                    // If there are any assignments to our LHS, throw away the previous information!
+                    if (isReference(left)) {
+                        //prev = orig;
+                    } else if (isMemberAccess(left)) {
                         let type = getTypeOfNode(right);
                         scanMemberBinding(left.name.text, {firstBindingSite: node, type});
                         // Ensure that nodes being assigned to are aware of their incoming types
@@ -17873,20 +17936,20 @@ namespace ts {
                 // [ConcreteTypeScript] Emit protectors that were not emitted in the object initializer
                 let literalType = checkObjectLiteral(node);
                 let properties:Symbol[] = getPropertiesOfType(literalType);
-                properties.forEach(property => {
+                for (let property of properties) {
                     let elementNode = <PropertyAssignment> getSymbolDecl(property, SyntaxKind.PropertyAssignment);
                     var type = getTypeOfSymbol(property);
-                    scanMemberBinding(property.name, {firstBindingSite: elementNode, type});
+                    scanMemberBinding(property.name, {firstBindingSite: node, type});
                     if (isConcreteType(type) && !DISABLE_PROTECTED_MEMBERS) {
-                        addPostEmit(node, ({write, writeLine, emitCTSRT, emitCTSType, emit}) => {
+                /*        addPostEmit(node, ({write, writeLine, emitCTSRT, emitCTSType, emit}) => {
                             write(";"); writeLine();
                             emitCTSRT("protectAssignment");
                             write("(");
                             emitCTSType(stripConcreteType(type));
                             write(`, "${property.name}", ${varName}, ${varName}.${property.name})`);
-                        });
+                        });*/
                     }
-                });
+                }
 
             }
             function scanVariableLikeDeclaration(node: VariableLikeDeclaration) {
@@ -17991,7 +18054,7 @@ namespace ts {
             }
 
             function recurse(node:Node, prev:FlowData) {
-                return computeAndSetFlowDataForReferencesInScope(isReference, getTargetTypeForMember, nodePostLinks, containerScope, node, prev);
+                return computeAndSetFlowDataForReferencesInScope(isReference, getTargetTypeForMember, nodePostLinks, containerScope, emitProtection, node, prev, orig);
             }
             function descend() {
                 forEachChild(node, (subchild) => {

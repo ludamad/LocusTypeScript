@@ -21,8 +21,9 @@ namespace ts {
         }
         callbackPrime(node);
     }
-
+/*
     export function addPreEmit(node: Node, emitCallback:EmitCallback) {
+
         if (!node.preEmitCallbacks) {
             node.preEmitCallbacks = [];
         }
@@ -35,7 +36,7 @@ namespace ts {
         }
         node.postEmitCallbacks.push(emitCallback);
     }
-    
+  */  
     // Is this an expression of type <identifier>.<identifier> = <expression>?
     export function isPropertyAssignment(node:Node) {
         if (node.kind === SyntaxKind.BinaryExpression && (<BinaryExpression>node).operatorToken.kind === SyntaxKind.EqualsToken) {
@@ -81,12 +82,13 @@ namespace ts {
         return null;
    }
 
-    export function getBrandTypesInScope(scope:Node):DeclareTypeNode[] {
+    export function getBrandTypesInScope(scope:Node):DeclareTypeDeclaration[] {
         var useExports = (scope.symbol && scope.symbol.flags & SymbolFlags.HasExports);
         var symbols:SymbolTable =  (useExports? scope.symbol.exports : scope.locals) || {};
-        var declarations:DeclareTypeNode[] = [];
+        var declarations:DeclareTypeDeclaration[] = [];
         for (var symbolName of Object.keys(symbols)) {
-            var brandType = <DeclareTypeNode> getSymbolDecl(symbols[symbolName], SyntaxKind.BrandTypeDeclaration);
+            var brandType = <DeclareTypeDeclaration> getSymbolDecl(symbols[symbolName], SyntaxKind.BrandTypeDeclaration);
+            brandType = brandType || <DeclareTypeDeclaration> getSymbolDecl(symbols[symbolName], SyntaxKind.BrandTypeDeclaration);
             if (brandType) {
                 declarations.push(brandType);
             }
@@ -290,6 +292,13 @@ namespace ts {
               return (<FunctionDeclaration>scope).parameters.thisParam.type.brandTypeDeclaration === brandTypeDecl;
           }
           return false;
+      }
+
+      export function getOuterStatement(scope:Node): Statement {
+          while (scope && !isStatement(scope)) {
+              scope = scope.parent;
+          }
+          return <Statement> scope;
       }
 
       export function getModuleOrSourceFile(scope:Node) {

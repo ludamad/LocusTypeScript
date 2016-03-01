@@ -4,6 +4,7 @@ import {assert, assertNotBranded, assertBranded, assertType, assertFails} from "
 var test : declare Test = {};
 
 test.x = 0;
+assert(test.x === 1);
 (<any>test).x = 1;
 test.y = 0;
 (<any>test).y = 2;

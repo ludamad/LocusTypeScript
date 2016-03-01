@@ -137,7 +137,13 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             }
             throw new Error("Cannot cast value " + val + " to type " + type);
         }
+        // A special case for emitting purposes, that takes the value to cast in 'val', but a value to propagate in 'ret'
+        function castRet3rd(type, val, ret) {
+            cast(type, val);
+            return ret;
+        }
         cement(this, "cast", cast, true);
+        cement(this, "castRet3rd", cast, true);
 
         // because there are so few falsey values, we can do a "half-coercion"
         // of false values. This is useful for the common pattern of using &&
@@ -163,7 +169,6 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             }
 
             if (Object.defineProperty) {
-                console.log(setter.toString())
                 Object.defineProperty(obj, name, {
                     configurable: false,
                     enumerable: (typeof enumerable === "undefined") ? true : !!enumerable,
@@ -210,7 +215,10 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
 
         // the "protectAssignment" adds a protector for a given type and name to an object, if one does not
         // already exist.
-        cement(this, "protectAssignment", function(type, name, obj, value) {
+        cement(this, "protectAssignment", function(disabled, type, name, obj, value) {
+            if (disabled) {
+                return value;
+            }
             var existingSetter = getSetter(obj, name);
             if (existingSetter != null && typeEquals(existingSetter.$$cts$$type, type)) {
                 // Just use existing setter:
@@ -224,19 +232,32 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             // OK, protection needed:
             addUnenum(obj,"$$cts$$value$" + name, value);
             protect(type, name, obj, true);
+            return value;
+        });
+        cement(this, "protectAssignmentThenBrand", function(protectDisabled, type, name, obj, value, 
+                    brandDisabled, brandType) {
+            if (protectDisabled) {
+                this.protectAssignment(false, type, name, obj, value);
+            }
+            if (!brandDisabled) {
+                this.brand(brandType, obj);
+            }
+            return value;
         });
 
-        cement(this, "protectProtoAssignment", function(type, protoCheckType, protoBrandType, name, obj, value) {
+        cement(this, "protectProtoAssignment", function(disabled, type, protoCheckType, name, obj, value) {
+            if (disabled) {
+                return value;
+            }
             if (!hasProperty(obj, "$$cts$$prototypeFrozen")) {
                 addUnenum(obj,"$$cts$$prototypeFrozen", true);
                 var prototype = obj.prototype;
                 if (typeof protoCheckType !== "undefined") {
                     cast(protoCheckType, prototype);
                 }
-                this.brand(protoBrandType, prototype);
                 cement(obj, "prototype", prototype);
             }
-            this.protectAssignment(type, name, obj.prototype, value);
+            this.protectAssignment(false, type, name, obj.prototype, value);
         });
 
         function Brand(brandName) {
