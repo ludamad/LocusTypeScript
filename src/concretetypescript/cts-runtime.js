@@ -219,6 +219,10 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             if (disabled) {
                 return value;
             }
+            if (!type) {
+                cement(obj, name, value);
+                return value;
+            }
             var existingSetter = getSetter(obj, name);
             if (existingSetter != null && typeEquals(existingSetter.$$cts$$type, type)) {
                 // Just use existing setter:

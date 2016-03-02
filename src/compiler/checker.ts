@@ -2526,6 +2526,7 @@ namespace ts {
                 let declareTypeNode = <DeclareTypeNode> createSynthesizedNode(SyntaxKind.DeclareType);
                 let identifier = <Identifier> createSynthesizedNode(SyntaxKind.Identifier);
                 let classType = <InterfaceType>getDeclaredTypeOfSymbol(prototype.parent);
+                declareType.prototypeDeclareType = links.type;
                 identifier.text = classType.symbol.name + '.prototype';
                 identifier.pos = prototype.parent.declarations[0].pos; // Wrong but needs to be nonzero range
                 identifier.end = prototype.parent.declarations[0].end; 
@@ -3275,9 +3276,7 @@ namespace ts {
             if (!links.declaredType) {
                 // TODO set the declaredProperties somewhere else
                 /* On first occurrence */
-                let declareTypeDecl = <DeclareTypeDeclaration> (
-                        getSymbolDecl(symbol, SyntaxKind.DeclareType) || getSymbolDecl(symbol, SyntaxKind.DeclareTypeDeclaration)
-                        );
+                let declareTypeDecl = getSymbolDeclareTypeDecl(symbol);
                 Debug.assert(!!declareTypeDecl, "Not a BrandTypeDeclaration!");
                 links.declaredType = <InterfaceType>createObjectType(TypeFlags.Declare, symbol);
             }
@@ -17702,21 +17701,25 @@ namespace ts {
             return reference.ctsFlowData;
         }
 
-        function getTempVarForScope(scope: Node, member: string) {
-            if (scope.protectionTempVars && scope.protectionTempVars[member]) {
-                return scope.protectionTempVars[member].tempVarName;
-            }
+        // If 'null' is returned, 
+        function getTempVarForScope(scope: Node, type: Type, member: string) {
             scope.nextTempVar = scope.nextTempVar || 0;
-            return `cts$$temp$$${member}${scope.nextTempVar++}`;
+            let {name} = type.symbol.declarations[0];
+            return scope.tempVarsToEmit[`${name}.${member}`] || (scope.tempVarsToEmit[`${name}.${member}`] = `cts$$temp$$${name + '_' + member}$$${scope.nextTempVar++}`);
         }
+
         function ensureFlowDataIsSet(reference: Node, type: Type) {
             Debug.assert(reference.kind === SyntaxKind.Identifier || reference.kind === SyntaxKind.ThisKeyword);
-            // If it is null, we simply ignore. The implies recursive evaluation.
+            // If it is null, we simply ignore. The null value implies recursive evaluation was hit.
             if (reference.ctsFinalFlowData === undefined) {
+                let targetDeclareType:Type = null;
                 // Get the type, be careful not to trigger a loop:
                 if (type.flags & TypeFlags.IntermediateFlow) {
                     flowDependentTypeStack.push(type);
                     var flowData:FlowData = (<IntermediateFlowType>type).flowData;
+                    if ((<IntermediateFlowType>type).targetType.flags & TypeFlags.Declare) {
+                        targetDeclareType = (<IntermediateFlowType>type).targetType;
+                    }
                 } else {
                     var flowData:FlowData = {flowTypes: [{type, firstBindingSite: reference}], memberSet: {}};
                 }
@@ -17736,8 +17739,8 @@ namespace ts {
                     /*Non-inferred member types (besides base types): */ getTargetTypeForMember,
                     /*Node-links: */ {},
                     /*Container scope: */ containerScope,
+                    /*Protection emit callback, no-op if not declare type target:*/ targetDeclareType ? emitProtection : <any> (() => {}), 
                     /*Current node in recursive scan: */ containerScope,
-                    /*Protection emit callback, possibly no-op*/ emitProtection, 
                     /*Current flow-data: */ flowData, 
                     /*Original flow-data: */ flowData
                 );
@@ -17754,16 +17757,24 @@ namespace ts {
                     protect(finalFlowData);
                 }
                 return;
-                function emitProtection(expr:Node, member:string) {
+                // Note: 'right' can be null, signifying that we are protecting the existing value.
+                function emitProtection(node:Node, left: Node, member: string, right?: Node) {
                     protectionQueue.push(({memberSet}) => {
-                        let type = flowTypeGet(memberSet[member]);
-                        let statement = getOuterStatement(expr);
-                        if (isConcreteType(type)) {
-                            let tempVarName = getTempVarForScope(containerScope, member);
-                            containerScope.protectionTempVars = containerScope.protectionTempVars || {};
-                            containerScope.protectionTempVars[member] = {tempVarName, type};
-                            expr.protectionFields = expr.protectionFields || {};
-                            expr.protectionFields[member] = {tempVarName, expr, type};
+                        let type = flowTypeGet(<any>getProperty(memberSet, member));
+                        if (!isConcreteType(type)) {
+                            return;
+                        }
+                        let guardVariable = getTempVarForScope(containerScope, targetDeclareType, member);
+                        let bindingData = {
+                            left, member, right, type: (isWeakConcreteType(type) ? null : type), targetDeclareType, guardVariable
+                        };
+
+                        if (node.kind === SyntaxKind.ObjectLiteralExpression) {
+                            node.ctsEmitData = node.ctsEmitData || {after: []};
+                            node.ctsEmitData.after.push(bindingData);
+                        } else {
+                            node.ctsEmitData = node.ctsEmitData || {};
+                            node.ctsEmitData.inline = bindingData;
                         }
                     });
                 }
@@ -17787,8 +17798,8 @@ namespace ts {
                                          isReference: ReferenceDecider, 
                                          getTargetTypeForMember: (member:string)=>Type, 
                                          nodePostLinks,
-                                         containerScope, 
-                                         emitProtection,
+                                         containerScope:Node, 
+                                         emitProtection: (node:Node, left: Node, member: string, right: Node) => void,
                                          // Current node in recursive scan:
                                          node:Node, prev:FlowData, orig:FlowData):FlowData {
             /** Function skeleton: **/
@@ -17846,7 +17857,7 @@ namespace ts {
                             if (isConcreteType(targetType) && !isConcreteType(exprType)) {
                                 // For emit:
                                 node.mustCheckBecomes = node.mustCheckBecomes || [];
-                                node.mustCheckBecomes.push({node: node.arguments[i], type: targetType});
+                                node.mustCheckBecomes.push({expr: node.arguments[i], type: targetType});
                             }
 
                         }
@@ -17889,7 +17900,6 @@ namespace ts {
                     }
                 }
                 // Incorporate into our type:
-                emitProtection(flowType.firstBindingSite, member);
                 prev = flowDataAssignment(prev, member, flowType);
             }
             function scanBinaryExpression(node: BinaryExpression) {
@@ -17931,7 +17941,7 @@ namespace ts {
                     prev = recurse(decl, prev);
                 }
             }
-            function scanObjectLiteralInitializer(varName: string, node: ObjectLiteralExpression) {
+            function scanObjectLiteralInitializer(varName: Identifier, node: ObjectLiteralExpression) {
                 // TODO also implement for special object literal emits
                 // [ConcreteTypeScript] Emit protectors that were not emitted in the object initializer
                 let literalType = checkObjectLiteral(node);
@@ -17939,23 +17949,16 @@ namespace ts {
                 for (let property of properties) {
                     let elementNode = <PropertyAssignment> getSymbolDecl(property, SyntaxKind.PropertyAssignment);
                     var type = getTypeOfSymbol(property);
-                    scanMemberBinding(property.name, {firstBindingSite: node, type});
-                    if (isConcreteType(type) && !DISABLE_PROTECTED_MEMBERS) {
-                /*        addPostEmit(node, ({write, writeLine, emitCTSRT, emitCTSType, emit}) => {
-                            write(";"); writeLine();
-                            emitCTSRT("protectAssignment");
-                            write("(");
-                            emitCTSType(stripConcreteType(type));
-                            write(`, "${property.name}", ${varName}, ${varName}.${property.name})`);
-                        });*/
-                    }
+                    scanMemberBinding(property.name, {firstBindingSite: elementNode, type});
+                    // Emit protection after:
+                    emitProtection(node, varName, property.name, null);
                 }
 
             }
             function scanVariableLikeDeclaration(node: VariableLikeDeclaration) {
                 if (node.initializer && isReference(node.name)) {
                     if (node.initializer.kind === SyntaxKind.ObjectLiteralExpression) {
-                        scanObjectLiteralInitializer((<Identifier>node.name).text, <ObjectLiteralExpression> node.initializer);
+                        scanObjectLiteralInitializer(<Identifier>node.name, <ObjectLiteralExpression> node.initializer);
                     }
                 }
                 descend();

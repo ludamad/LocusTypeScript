@@ -191,13 +191,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             /** If removeComments is true, no leading-comments needed to be emitted **/
             let emitLeadingCommentsOfPosition = compilerOptions.removeComments ? function (pos: number) { } : emitLeadingCommentsOfPositionWorker;
 
-            /* [ConcreteTypeScript] */
-            let emitterFunctions:EmitterFunctions = {
-                write, writeLine,
-                emitCTSRT,
-                emit: (node: Node) => emit(node),
-                emitCTSType
-            };
             if (compilerOptions.sourceMap || compilerOptions.inlineSourceMap) {
                 initializeEmitterWithSourceMaps();
             }
@@ -2345,15 +2338,17 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
 
             // [ConcreteTypeScript]
             // Emitter for references to CTS runtime functions
-            function emitCTSRT(name: string) {
+            function emitCtsRt(name: string) {
                 if (compilerOptions.emitV8Intrinsics) write("%_UnsafeAssumeMono(");
                 write("$$cts$$runtime." + name);
                 if (compilerOptions.emitV8Intrinsics) write(")");
             }
 
             // Emitter for a type, as part of casting/protection/etc
-            function emitCTSType(type: Type) {
-                if (type.flags & TypeFlags.String ||
+            function emitCtsType(type: Type) {
+                if (type === undefined) {
+                    write("void 0");
+                } else if (type.flags & TypeFlags.String ||
                     type.flags & TypeFlags.StringLiteral) {
                     write("String");
                 } else if (type.flags & TypeFlags.Number) {
@@ -2361,15 +2356,15 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 } else if (type.symbol && type.symbol.flags & SymbolFlags.Declare) {
                     write("$$cts$$runtime.brandTypes." + type.symbol.name);
                 } else if (type.flags & TypeFlags.Null) {
-                    emitCTSRT("Null");
+                    emitCtsRt("Null");
                 } else if (type.flags & TypeFlags.Undefined) {
-                    emitCTSRT("Undefined");
+                    emitCtsRt("Undefined");
                 } else if (type.flags & TypeFlags.Union) {
-                    write("(new "); emitCTSRT("UnionType");
+                    write("(new "); emitCtsRt("UnionType");
                     write("("); 
                     let types:ConcreteType[] = <ConcreteType[]>(<UnionType>type).types;
                     for (let i = 0; i < types.length; i++) {
-                        emitCTSType(types[i].baseType || types[i]);
+                        emitCtsType(types[i].baseType || types[i]);
                         if (i !== types.length - 1) write(", ");
                     }
                     write("))");
@@ -2385,7 +2380,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             }
 
             // Emitter for a TypeNode, similar to a Type but without the checker
-            function emitCTSTypeNode(type: TypeNode) {
+            function emitCtsTypeNode(type: TypeNode) {
                 function emitEntityName(entityName: EntityName) {
                     if (entityName.kind === SyntaxKind.Identifier) {
                         writeTextOfNode(currentSourceFile, entityName);
@@ -2440,9 +2435,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     type = (<ConcreteType>type).baseType;
                 }
                 write("(");
-                emitCTSRT("cast");
+                emitCtsRt("cast");
                 write("(");
-                emitCTSType(type);
+                emitCtsType(type);
                 write(",(");
             }
 
@@ -2451,9 +2446,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     type = (<ConcreteType>type).baseType;
                 }
                 write("(");
-                emitCTSRT("castRet3rd");
+                emitCtsRt("castRet3rd");
                 write("(");
-                emitCTSType(type);
+                emitCtsType(type);
                 write(",(");
                 emitNodeWithoutSourceMap(becomingNode); // Usually an identifier
                 write("),(");
@@ -2470,7 +2465,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     type = (<ConcreteType>type).baseType;
                 }
                 write("(");
-                emitCTSType(type);
+                emitCtsType(type);
                 write(".$$cts$$falsey(");
             }
 
@@ -2710,48 +2705,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             }
 
             // [ConcreteTypeScript]
-            function emitConcreteAssignment(node:BinaryExpression, expression:Expression, propAccess:PropertyAccessExpression):boolean {
-                if (DISABLE_PROTECTED_MEMBERS) return false;
-                if (propAccess.expression.ctsFinalFlowData) {
-                }
-                /*let declaration: BrandPropertyDeclaration = (propAccess).ctsAssignmentAnalysis.getDeclaration();
-                let brandDecl = declaration.brandTypeDeclaration;
-                let resolvedToConcrete = (declaration.resolvedType.flags & TypeFlags.Concrete);
-                let assignmentValues = (propAccess).ctsAssignmentAnalysis.assignments;
-                // console.log("Here with ", propAccess.name.text,  assignmentValues.length, resolvedToConcrete);
-                if (resolvedToConcrete && assignmentValues.length === 1 && assignmentValues[0] === node.right) {
-                    // Emit protection if this is a binding-relevant assignment:
-                    // console.log("Here with ", propAccess.name.text, propAccess.brandAnalysis.isPrototypeProperty());
-                    if ((propAccess).ctsAssignmentAnalysis.isPrototypeProperty()) {
-                        emitCTSRT("protectProtoAssignment(");
-                        emitCTSType((<ConcreteType>declaration.resolvedType).baseType);
-                        let extendedPrototypeStr = "undefined";
-                        if (brandDecl.extendedTypeResolved && (brandDecl.extendedTypeResolved.flags & TypeFlags.Declare)) {
-                            let extendedBrandDecl = <DeclareTypeDeclaration> getSymbolDecl(brandDecl.extendedTypeResolved.symbol, SyntaxKind.BrandTypeDeclaration);
-                            if (extendedBrandDecl.prototypeBrandDeclaration) {
-                                extendedPrototypeStr = "$$cts$$runtime.brandTypes." + extendedBrandDecl.name.text + ".prototype";
-                            }
-                        }
-                        write(", " + extendedPrototypeStr + ", $$cts$$runtime.brandTypes.");
-                        emit(brandDecl.name);
-                        write(".prototype, " + JSON.stringify(propAccess.name.text));
-                        write(", " + ((<Identifier>(<PropertyAccessExpression>expression).expression).text) + ", ");
-                    } else {
-                        emitCTSRT("protectAssignment");
-                        write("(");
-                        emitCTSType((<ConcreteType>declaration.resolvedType).baseType);
-                        write(", " + JSON.stringify(propAccess.name.text) + ", ");
-                        write(((<Identifier>expression).text || "this") + ", ");
-
-                    }
-                    emit(node.right);
-                    write(");")
-                    return true;
-                }*/
-                return false;
-            }
-
-            // [ConcreteTypeScript]
             function emitDeclaredAsExpression(left: Expression, right: Expression) {
                 if (right.kind === SyntaxKind.Identifier) {
                     write("$$cts$$runtime.brandTypes.");
@@ -2831,7 +2784,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         let brandProto = brandTypeDecl.prototypeBrandDeclaration;
                         if (brandProto) {
                             writeLine();
-                            emitCTSRT("cast(");
+                            emitCtsRt("cast(");
                             write("$$cts$$runtime.brandTypes.");
                             write(brandTypeDecl.name.text);
                             write(".prototype, Object.getPrototypeOf(this));");
@@ -2844,7 +2797,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         let brandProto = brandTypeDecl.prototypeBrandDeclaration;
                         if (brandProto) {
                             writeLine();
-                            emitCTSRT("cast(");
+                            emitCtsRt("cast(");
                             write("$$cts$$runtime.brandTypes.");
                             write(brandTypeDecl.name.text);
                             write(".prototype, Object.getPrototypeOf(this));");
@@ -3816,7 +3769,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     // Use AddNamedProperty instead
                     write("%AddNamedProperty");
                 } else {
-                    emitCTSRT("cement");
+                    emitCtsRt("cement");
                 }
                 write("(");
                 emitDeclarationName(node);
@@ -3846,7 +3799,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 if (scope && scope.kind === SyntaxKind.SourceFile) {
                     if (!isBrand) {
                         writeLine();
-                        emitCTSRT("cementGlobal");
+                        emitCtsRt("cementGlobal");
                         write("(" + JSON.stringify(name) + ",");
                         emit(node.name);
                         write(");");
@@ -3857,7 +3810,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         // Use AddNamedProperty instead
                         write("%AddNamedProperty");
                     } else
-                    emitCTSRT("cement");
+                    emitCtsRt("cement");
                     write("(");
                     emitModuleContainerName(node);
                     write("," + JSON.stringify(name) + ",");
@@ -4127,7 +4080,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     // Non-static method, must check 'this'
                     let symbol = classNode.symbol;
                     writeLine();
-                    emitCTSRT("cast");
+                    emitCtsRt("cast");
                     write("(");
                     write(symbol.name);
                     write(",this);");
@@ -4139,9 +4092,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     if (param.type && (<TypeNode>param.type).isConcrete) {
                         writeLine();
                         emitStart(param);
-                        emitCTSRT("cast");
+                        emitCtsRt("cast");
                         write("(");
-                        emitCTSTypeNode(<TypeNode>param.type);
+                        emitCtsTypeNode(<TypeNode>param.type);
                         write(",");
                         emitNodeWithoutSourceMap(param.name);
                         write(");");
@@ -4601,7 +4554,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     // TODO probably obsolete
                     // // [ConcreteTypeScript]
                     // if (isFunctionLikeDeclarationWithThisBrand(node)) {
-                    //     emitCTSRT("cast($$cts$$runtime.brandTypes.");
+                    //     emitCtsRt("cast($$cts$$runtime.brandTypes.");
                     //     write(node.parameters.thisType.brandTypeDeclaration.name.text)
                     //     write(".prototype, Object.getPrototypeOf(this))")
                     //     
@@ -4659,7 +4612,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                             if (compilerOptions.emitV8Intrinsics) {
                                 write("%AddNamedProperty");
                             } else
-                            emitCTSRT("addUnenum");
+                            emitCtsRt("addUnenum");
                             write("(this," + JSON.stringify("$$cts$$value$" + (<Identifier>param.name).text) + ",");
                         } else {
                         // [/ConcreteTypeScript]
@@ -4732,7 +4685,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     if (compilerOptions.emitV8Intrinsics) {
                         write("%AddNamedProperty");
                     } else
-                    emitCTSRT("addUnenum");
+                    emitCtsRt("addUnenum");
                     write("(");
                 }
                 // [/ConcreteTypeScript]
@@ -4800,7 +4753,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         if (compilerOptions.emitV8Intrinsics) {
                             write("%AddNamedProperty");
                         } else
-                        emitCTSRT("cement");
+                        emitCtsRt("cement");
                         write("(");
                         // [/ConcreteTypeScript]
  
@@ -4825,7 +4778,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                             if (compilerOptions.emitV8Intrinsics) {
                                 write("%AddNamedProperty");
                             } else
-                            emitCTSRT("cement");
+                            emitCtsRt("cement");
                             write("(");
                             emitNodeWithoutSourceMap(node.name);
                             if (!(member.flags & NodeFlags.Static)) {
@@ -5080,9 +5033,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         writeLine();
                         emitStart(param);
                         emitStart(param.name);
-                        emitCTSRT("protect");
+                        emitCtsRt("protect");
                         write("(");
-                        emitCTSTypeNode(<TypeNode>param.type);
+                        emitCtsTypeNode(<TypeNode>param.type);
                         write("," + JSON.stringify((<Identifier>param.name).text) + ",");
                         emitNodeWithoutSourceMap(klass.name);
                         write(".prototype,true);");
@@ -5096,9 +5049,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     if (member.kind === SyntaxKind.PropertyDeclaration && (<PropertyDeclaration>member).type && (<PropertyDeclaration>member).type.isConcrete) {
                         writeLine();
                         emitStart(member);
-                        emitCTSRT("protect");
+                        emitCtsRt("protect");
                         write("(");
-                        emitCTSTypeNode((<PropertyDeclaration>member).type);
+                        emitCtsTypeNode((<PropertyDeclaration>member).type);
                         write("," + JSON.stringify((<Identifier>(<PropertyDeclaration>member).name).text) + ",");
                         emitNodeWithoutSourceMap(node.name);
                         if (!(member.flags & NodeFlags.Static))
@@ -7557,23 +7510,54 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 }
                 writeLine();
             }
-            function emitProtectionTempVarForBlock(member:string, {tempVarName}) {
-                write(`var ${tempVarName} = false;`);
-                writeLine();
-            }
-emitProtectionTempVarsAtBlockStart
-            function emitProtectionForField(member:string, {tempVarName, expr, type}) {
-                if (isPropertyAssignment(node)) {
-                    let propAccess:PropertyAccessExpression = <PropertyAccessExpression>node.left;
-                    // console.log("Here with ", propAccess.name.text);
-                    if ((propAccess).ctsFinalFlowData) {
-                        if (emitConcreteAssignment(node, propAccess.expression, propAccess)) {
-                            return;
-                        }
-                    }                    
+            function emitProtectionTempVarsAtBlockStart(node: Node) {
+                if (!node.tempVarsToEmit) {
+                    return;
+                }
+                for (let member of Object.keys(node.tempVarsToEmit)) {
+                    let tempVarName = node.tempVarsToEmit[member];
+                    write(`var ${tempVarName} = 0;`);
+                    writeLine();
                 }
             }
-                // [/ConcreteTypeScript]
+            function emitProtectionAssignmentInstead(node: Node): boolean {
+                if (DISABLE_PROTECTED_MEMBERS || !node.ctsEmitData || !node.ctsEmitData.inline) {
+                    return false;
+                }
+                return emitProtectionAssignment(node.ctsEmitData.inline);
+            }
+            function emitProtectionAssignmentsAfterStatement(node: Node) {
+                if (DISABLE_PROTECTED_MEMBERS || !node.ctsEmitData || !node.ctsEmitData.after) {
+                    return false;
+                }
+                node.ctsEmitData.after.forEach(emitProtectionAssignment);
+                return true;
+            }
+            function emitProtectionAssignment({left, member, right, targetDeclareType, type, guardVariable} : BindingData) {
+                // If type is null will result in a cement instead of protection
+                if (isPrototypeAccess(left)) {
+                    // This is a type representing a a Declare type .prototype object.
+                    emitCtsRt("protectProtoAssignment("); 
+                    write(guardVariable + "++, "); 
+                    emitCtsType(type); write(", "); 
+                    let extendedDeclareOrClass = getClassOrDeclareBaseType(left.checker, <InterfaceType> targetDeclareType);
+                    emitCtsType(extendedDeclareOrClass); write(", ");
+                } else {
+                    emitCtsRt("protectAssignment("); 
+                    write(guardVariable + "++, "); 
+                    emitCtsType(type); write(", "); 
+                }
+                write("'"); write(member); write("', "); emit(left); write(", "); 
+                if (right) {
+                    emit(right); 
+                } else {
+                    // This is after an object initializer, use existing value
+                    emit(left); write("."); write(member);
+                }
+                write(")");
+            }
+            // [/ConcreteTypeScript]
+
             function emitNodeWithoutSourceMap(node: Node): void {
                 emitStart(node, false); // [ConcreteTypeScript]
                 if (node) {
@@ -7600,7 +7584,10 @@ emitProtectionTempVarsAtBlockStart
                         emitFalseyCoercionPre(node.forceFalseyCoercion);
                     }
             
-                    emitJavaScriptWorker(node);
+                    if (!emitProtectionAssignmentInstead(node)) {
+                        emitJavaScriptWorker(node);
+                    }
+                    emitProtectionAssignmentsAfterStatement(node);
 
                     if (node.forceFalseyCoercion) {
                         emitFalseyCoercionPost(node.forceFalseyCoercion);

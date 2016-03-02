@@ -651,6 +651,11 @@ namespace ts {
         function bindAnonymousDeclaration(node: Declaration, symbolFlags: SymbolFlags, name: string) {
             let symbol = createSymbol(symbolFlags, name);
             addDeclarationToSymbol(symbol, node, symbolFlags);
+            // [ConcreteTypeScript]
+            if (symbol.flags & SymbolFlags.Function) {
+                bindPrototypeSymbol(node, symbol);
+            }
+            // [/ConcreteTypeScript]
         }
 
         function bindBlockScopedDeclaration(node: Declaration, symbolFlags: SymbolFlags, symbolExcludes: SymbolFlags) {
@@ -1020,6 +1025,20 @@ namespace ts {
             }
         }
 
+        // [ConcreteTypeScript] Extracted from bindClassLikeDeclaration
+        function bindPrototypeSymbol(node: Declaration, symbol: Symbol) {
+            let prototypeSymbol = createSymbol(SymbolFlags.Property | SymbolFlags.Prototype, "prototype");
+            if (hasProperty(symbol.exports, prototypeSymbol.name)) {
+                if (node.name) {
+                    node.name.parent = node;
+                }
+                file.bindDiagnostics.push(createDiagnosticForNode(symbol.exports[prototypeSymbol.name].declarations[0],
+                    Diagnostics.Duplicate_identifier_0, prototypeSymbol.name));
+            }
+            symbol.exports[prototypeSymbol.name] = prototypeSymbol;
+            prototypeSymbol.parent = symbol;
+        }
+
         function bindClassLikeDeclaration(node: ClassLikeDeclaration) {
             if (node.kind === SyntaxKind.ClassDeclaration) {
                 bindBlockScopedDeclaration(node, SymbolFlags.Class, SymbolFlags.ClassExcludes);
@@ -1044,16 +1063,9 @@ namespace ts {
             // Note: we check for this here because this class may be merging into a module.  The
             // module might have an exported variable called 'prototype'.  We can't allow that as
             // that would clash with the built-in 'prototype' for the class.
-            let prototypeSymbol = createSymbol(SymbolFlags.Property | SymbolFlags.Prototype, "prototype");
-            if (hasProperty(symbol.exports, prototypeSymbol.name)) {
-                if (node.name) {
-                    node.name.parent = node;
-                }
-                file.bindDiagnostics.push(createDiagnosticForNode(symbol.exports[prototypeSymbol.name].declarations[0],
-                    Diagnostics.Duplicate_identifier_0, prototypeSymbol.name));
-            }
-            symbol.exports[prototypeSymbol.name] = prototypeSymbol;
-            prototypeSymbol.parent = symbol;
+            // [ConcreteTypeScript]
+            bindPrototypeSymbol(node, symbol);
+            // [/ConcreteTypeScript]
         }
 
         function bindEnumDeclaration(node: EnumDeclaration) {

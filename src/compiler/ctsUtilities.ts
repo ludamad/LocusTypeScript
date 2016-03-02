@@ -108,6 +108,17 @@ namespace ts {
         return declarations;
     }
 
+    export function getSymbolDeclareTypeDecl(symbol:Symbol): DeclareTypeDeclaration {
+        return <DeclareTypeDeclaration > (getSymbolDecl(symbol, SyntaxKind.DeclareType) || getSymbolDecl(symbol, SyntaxKind.DeclareTypeDeclaration));
+    }
+    export function getClassOrDeclareBaseType(checker: TypeChecker, type: InterfaceType): Type {
+        for (let baseType of checker.getBaseTypes(type)) {
+            if (baseType.flags & (TypeFlags.Declare | TypeFlags.Class)) {
+                return baseType;
+            }
+        }
+        return null;
+    }
     export function getSymbolDecl(symbol:Symbol, kind:SyntaxKind): Declaration {
         if (symbol.declarations) {
             for (var i = 0; i < symbol.declarations.length; i++) {

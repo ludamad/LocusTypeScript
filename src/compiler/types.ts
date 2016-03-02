@@ -519,25 +519,26 @@ namespace ts {
         [member:string]: FlowMember;
     }
 
+    // Bindings inline with the expression
+    export interface BindingData {
+        left: Node;
+        member: string;
+        right: Node;
+        targetDeclareType: Type;
+        // If no type is provided, this is a cement operation. Otherwise, a protect.
+        type?: Type;
+        guardVariable: string; // Automatically generated
+    }
+
+    export interface EmitData {
+        inline?: BindingData;
+        after?: BindingData[];
+    }
+
     export interface FlowData {
         memberSet:FlowMemberSet;
         flowTypes:FlowType[];
-        // Set after a pass to indicate areas where emit work must be done:
-        fieldToProtectInline?: string;
-        guardVarName?: string; // Automatically generated
-        prototypeType?: string;
-        fieldsToProtectAfter?: string[];
     }
-
-    export interface EmitterFunctions {
-        write;
-        writeLine;
-        emitCTSRT;
-        emit;
-        emitCTSType;
-    }
-    export type EmitCallback = (funcs:EmitterFunctions) => void;
-        
     /* [/ConcreteTypeScript] */
 
     export interface Node extends TextRange {
@@ -578,7 +579,8 @@ namespace ts {
         // If 'getter' and 'setter' are not present, the field protection is emitted using 'cement', otherwise it is emitted using 'protectAssignment'
         brandProtectionsToEmit?: {getter?: string, setter?: string, expr: Node, field: string}[];
         nextTempVar? : number; // Used to create the temporary variable names above.
-        tempVarsToEmit?: {[tempVarName: string]: boolean};
+        tempVarsToEmit?: {[member: string]: string};
+        ctsEmitData?:       EmitData;
         ctsFlowData?:       FlowData; // What flow-members have been calculated for this specific node instance?
         ctsFinalFlowData?:  FlowData; // What are the final flow members for this node, after all assignments?
         // [/ConcreteTypeScript]
@@ -2037,6 +2039,7 @@ namespace ts {
         symbol?: Symbol;                 // Symbol associated with type (if any)
         pattern?: DestructuringPattern;  // Destructuring pattern represented by type (if any)
         concreteType?: ConcreteType;
+        prototypeDeclareType?: Type; // [ConcreteTypeScript] Convenience field for .prototype declare types
     }
 
     /* @internal */
