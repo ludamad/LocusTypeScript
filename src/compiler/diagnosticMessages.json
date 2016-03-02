@@ -19,6 +19,11 @@
         "category": "Error",
         "code": 2004
     },
+   "[ConcreteTypeScript] Failed to become type '{0}'. Missing fields '{1}'.": {
+        "category": "Error",
+        "code": 2005
+    },
+
 
     "Unterminated string literal.": {
         "category": "Error",

@@ -2526,7 +2526,7 @@ namespace ts {
                 let declareTypeNode = <DeclareTypeNode> createSynthesizedNode(SyntaxKind.DeclareType);
                 let identifier = <Identifier> createSynthesizedNode(SyntaxKind.Identifier);
                 let classType = <InterfaceType>getDeclaredTypeOfSymbol(prototype.parent);
-                declareType.prototypeDeclareType = links.type;
+                classType.prototypeDeclareType = links.type;
                 identifier.text = classType.symbol.name + '.prototype';
                 identifier.pos = prototype.parent.declarations[0].pos; // Wrong but needs to be nonzero range
                 identifier.end = prototype.parent.declarations[0].end; 
@@ -4641,10 +4641,13 @@ namespace ts {
         }
 
         // [ConcreteTypeScript]
-        function createFlowTypeIntermediate(firstBindingSite:Node, startingType: Type, targetType?: Type, declareTypeNode?:DeclareTypeNode) {
+        function createIntermediateFlowType(firstBindingSite:Node, startingType: Type, targetType?: Type, declareTypeNode?:DeclareTypeNode) {
             let type = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
             let flowTypes:FlowType[] = [{type: startingType, firstBindingSite}];
             let memberSet:FlowMemberSet = {};
+            if (stripConcreteType(targetType).prototypeDeclareType) {
+                flowTypes.push({type: stripConcreteType(targetType).prototypeDeclareType, firstBindingSite});
+            }
             type.flowData = {flowTypes, memberSet};
             type.targetType = targetType;
             // Clearly marks this as a node computing members captured in some type:
@@ -4686,7 +4689,7 @@ namespace ts {
                         }
                     }
                 }
-                links.resolvedType = createFlowTypeIntermediate(node, startingType, targetType);
+                links.resolvedType = createIntermediateFlowType(node, startingType, targetType);
             }
             return links.resolvedType;
         }
@@ -4711,7 +4714,7 @@ namespace ts {
                 let targetType = getDeclaredTypeOfSymbol(node.symbol);
                 Debug.assert(!isTypeAny(startingType));
                 Debug.assert(!isTypeAny(targetType));
-                links.resolvedType = createFlowTypeIntermediate(node, startingType, createConcreteType(targetType), node);
+                links.resolvedType = createIntermediateFlowType(node, startingType, createConcreteType(targetType), node);
             }
             return links.resolvedType;
         }
