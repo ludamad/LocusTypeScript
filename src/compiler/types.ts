@@ -527,7 +527,9 @@ namespace ts {
         targetDeclareType: Type;
         // If no type is provided, this is a cement operation. Otherwise, a protect.
         type?: Type;
+        isTypeComplete: () => boolean;
         guardVariable: string; // Automatically generated
+        brandGuardVariable: string; // Automatically generated
     }
 
     export interface EmitData {

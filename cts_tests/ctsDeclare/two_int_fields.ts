@@ -4,9 +4,10 @@ import {assert, assertNotBranded, assertBranded, assertType, assertFails} from "
 var test : declare Test = {};
 
 test.x = 0;
-assert(test.x === 1);
-(<any>test).x = 1;
+assert(test.x === 0);
 test.y = 0;
+assert(test.y === 0);
+(<any>test).x = 1;
 (<any>test).y = 2;
 
 assert(test.x === 1);

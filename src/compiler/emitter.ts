@@ -7539,7 +7539,14 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 node.ctsEmitData.after.forEach(emitProtectionAssignment);
                 return true;
             }
-            function emitProtectionAssignment({left, member, right, targetDeclareType, type, guardVariable} : BindingData) {
+            function emitProtectionAssignment({left, member, right, targetDeclareType, type, isTypeComplete, guardVariable, brandGuardVariable} : BindingData) {
+                let shouldEmitBranding = isTypeComplete();
+                if (shouldEmitBranding) { 
+                    emitCtsRt("brandAndForward("); 
+                    write(`${brandGuardVariable}++, `);
+                    emitCtsType(targetDeclareType); write(", "); 
+                    emit(left); write(", ");
+                }
                 // If type is null will result in a cement instead of protection
                 if (isPrototypeAccess(left)) {
                     // This is a type representing a a Declare type .prototype object.
@@ -7561,6 +7568,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     emit(left); write("."); write(member);
                 }
                 write(")");
+                if (shouldEmitBranding) { 
+                    write(")");
+                }
             }
             // [/ConcreteTypeScript]
 

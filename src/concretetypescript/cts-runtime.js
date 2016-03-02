@@ -219,7 +219,8 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             if (disabled) {
                 return value;
             }
-            if (!type) {
+            if (type === null) {
+                // Allowing undefined is a bit dangerous. We will use 'null' as our special 'cement instead' sentinel.
                 cement(obj, name, value);
                 return value;
             }
@@ -238,15 +239,11 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             protect(type, name, obj, true);
             return value;
         });
-        cement(this, "protectAssignmentThenBrand", function(protectDisabled, type, name, obj, value, 
-                    brandDisabled, brandType) {
-            if (protectDisabled) {
-                this.protectAssignment(false, type, name, obj, value);
-            }
+        cement(this, "brandAndForward", function(disabled, brandType, obj, retValue) {
             if (!brandDisabled) {
                 this.brand(brandType, obj);
             }
-            return value;
+            return retValue;
         });
 
         cement(this, "protectProtoAssignment", function(disabled, type, protoCheckType, name, obj, value) {
@@ -264,6 +261,8 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             this.protectAssignment(false, type, name, obj.prototype, value);
         });
 
+        cement(this, "protectProtoAssignmentThenBrand", function(disabled, type, protoCheckType, name, obj, value) {
+        });
         function Brand(brandName) {
             this.brandName = brandName;
         }

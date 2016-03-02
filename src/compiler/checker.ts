@@ -15595,7 +15595,7 @@ namespace ts {
             return !getBrandInterface(target) && getDeclareTypeNode(target);
         }
         // [ConcreteTypeScript]
-        function isIntermediateFlowTypeSubsetOfTarget(type:IntermediateFlowType): boolean {
+        function isIntermediateFlowTypeSubtypeOfTarget(type:IntermediateFlowType): boolean {
             if (!type.targetType) {
                 return false;
             }
@@ -15690,7 +15690,7 @@ namespace ts {
         // Determines if the target type has been achieved.
         // The formal type with degrading is used for binding.
         function getFormalTypeFromIntermediateFlowType(type: IntermediateFlowType, degrade:boolean): Type {
-            if (isIntermediateFlowTypeSubsetOfTarget(type)) {
+            if (isIntermediateFlowTypeSubtypeOfTarget(type)) {
                 // Collect the base types and the target type:
                 let types = type.flowData.flowTypes.map(ft => ft.type);
                 types.push(type.targetType)
@@ -17713,7 +17713,7 @@ namespace ts {
             Debug.assert(reference.kind === SyntaxKind.Identifier || reference.kind === SyntaxKind.ThisKeyword);
             // If it is null, we simply ignore. The null value implies recursive evaluation was hit.
             if (reference.ctsFinalFlowData === undefined) {
-                let targetDeclareType:Type = null;
+                let targetDeclareType:Type = null, targetDeclareTypeNode = null;
                 // Get the type, be careful not to trigger a loop:
                 if (type.flags & TypeFlags.IntermediateFlow) {
                     flowDependentTypeStack.push(type);
@@ -17721,6 +17721,7 @@ namespace ts {
                     let targetType = stripConcreteType((<IntermediateFlowType>type).targetType);
                     if (targetType.flags & TypeFlags.Declare) {
                         targetDeclareType = targetType;
+                        targetDeclareTypeNode = (<IntermediateFlowType>type).declareTypeNode;
                     }
                 } else {
                     var flowData:FlowData = {flowTypes: [{type, firstBindingSite: reference}], memberSet: {}};
@@ -17760,7 +17761,7 @@ namespace ts {
                 }
                 return;
                 // Note: 'right' can be null, signifying that we are protecting the existing value.
-                function emitProtection(node:Node, left: Node, member: string, right?: Node) {
+                function emitProtection(flowDataAfterAssignment: FlowData, node:Node, left: Node, member: string, right?: Node) {
                     protectionQueue.push(({memberSet}) => {
                         let type = flowTypeGet(<any>getProperty(memberSet, member));
                         if (!isConcreteType(type)) {
@@ -17768,8 +17769,20 @@ namespace ts {
                         }
                         type = stripConcreteType(type);
                         let guardVariable = getTempVarForScope(containerScope, targetDeclareType, member);
+                        let brandGuardVariable = getTempVarForScope(containerScope, targetDeclareType, '$$BRAND$$GUARD');
+                        // Creating closures is not ideal for performance but we cannot reason about the targetDeclareType
+                        // until this function ends so it's convenient.
+                        function isTypeComplete(): boolean {
+                            let type = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
+                            type.flowData = flowDataAfterAssignment;
+                            type.targetType = targetDeclareType;
+                            // Clearly marks this as a node computing members captured in some type:
+                            type.declareTypeNode = targetDeclareTypeNode;
+                            return isIntermediateFlowTypeSubtypeOfTarget(type);
+                        }
                         let bindingData = {
-                            left, member, right, type: (isWeakConcreteType(type) ? null : type), targetDeclareType, guardVariable
+                            left, member, right, type: (isWeakConcreteType(type) ? null : type), 
+                            targetDeclareType, isTypeComplete, guardVariable, brandGuardVariable
                         };
 
                         if (node.kind === SyntaxKind.ObjectLiteralExpression) {
@@ -17802,7 +17815,7 @@ namespace ts {
                                          getTargetTypeForMember: (member:string)=>Type, 
                                          nodePostLinks,
                                          containerScope:Node, 
-                                         emitProtection: (node:Node, left: Node, member: string, right: Node) => void,
+                                         emitProtection: (flowDataAfter: FlowData, node:Node, left: Node, member: string, right: Node) => void,
                                          // Current node in recursive scan:
                                          node:Node, prev:FlowData, orig:FlowData):FlowData {
             /** Function skeleton: **/
@@ -17928,7 +17941,7 @@ namespace ts {
                     } else if (isMemberAccess(left)) {
                         let type = getTypeOfNode(right);
                         scanMemberBinding(left.name.text, {firstBindingSite: node, type});
-                        emitProtection(node, left.expression, left.name.text, right);
+                        emitProtection(prev, node, left.expression, left.name.text, right);
                         // Ensure that nodes being assigned to are aware of their incoming types
                         left.expression.ctsFlowData = prev;
                     }
@@ -17955,7 +17968,7 @@ namespace ts {
                     var type = getTypeOfSymbol(property);
                     scanMemberBinding(property.name, {firstBindingSite: elementNode, type});
                     // Emit protection after:
-                    emitProtection(node, varName, property.name, null);
+                    emitProtection(prev, node, varName, property.name, null);
                 }
 
             }
