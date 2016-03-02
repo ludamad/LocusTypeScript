@@ -4467,6 +4467,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             function emitDownLevelExpressionFunctionBody(node: FunctionLikeDeclaration, body: Expression, doEmitProtectors: boolean = true, realBodyIfProtectors?: string /* [ConcreteTypeScript] */):boolean /* [ConcreteTypeScript] */{
                 write(" {");
                 scopeEmitStart(node);
+                emitProtectionTempVarsAtBlockStart(node);
+                emitProtectionTempVarsAtBlockStart(body);
                 emitBrandTypesAtBlockStart(node); // [ConcreteTypeScript]
                 emitBrandTypesAtBlockStart(body); // [ConcreteTypeScript]
                 increaseIndent();
@@ -4518,6 +4520,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             function emitBlockFunctionBody(node: FunctionLikeDeclaration, body: Block, doEmitProtectors: boolean = true, realBodyIfProtectors?: string /* [ConcreteTypeScript] */):boolean {
                 write(" {");
                 scopeEmitStart(node);
+                emitProtectionTempVarsAtBlockStart(node);
+                emitProtectionTempVarsAtBlockStart(body);
+
                 emitBrandTypesAtBlockStart(node); // [ConcreteTypeScript]
                 emitBrandTypesAtBlockStart(body); // [ConcreteTypeScript]
 
@@ -7407,7 +7412,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 decreaseIndent();
                 write("}");
                 // [/ConcreteTypeScript]
-
+                emitProtectionTempVarsAtBlockStart(node);
                 emitBrandTypesAtBlockStart(node);
 
                 // emit prologue directives prior to __extends
@@ -7524,7 +7529,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 if (DISABLE_PROTECTED_MEMBERS || !node.ctsEmitData || !node.ctsEmitData.inline) {
                     return false;
                 }
-                return emitProtectionAssignment(node.ctsEmitData.inline);
+                emitProtectionAssignment(node.ctsEmitData.inline);
+                return true;
             }
             function emitProtectionAssignmentsAfterStatement(node: Node) {
                 if (DISABLE_PROTECTED_MEMBERS || !node.ctsEmitData || !node.ctsEmitData.after) {

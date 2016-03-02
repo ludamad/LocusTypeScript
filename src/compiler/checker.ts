@@ -17704,8 +17704,9 @@ namespace ts {
         // If 'null' is returned, 
         function getTempVarForScope(scope: Node, type: Type, member: string) {
             scope.nextTempVar = scope.nextTempVar || 0;
-            let {name} = type.symbol.declarations[0];
-            return scope.tempVarsToEmit[`${name}.${member}`] || (scope.tempVarsToEmit[`${name}.${member}`] = `cts$$temp$$${name + '_' + member}$$${scope.nextTempVar++}`);
+            let name = <Identifier> type.symbol.declarations[0].name;
+            scope.tempVarsToEmit = scope.tempVarsToEmit || {};
+            return scope.tempVarsToEmit[`${name.text}.${member}`] || (scope.tempVarsToEmit[`${name.text}.${member}`] = `cts$$temp$$${name.text + '_' + member}$$${scope.nextTempVar++}`);
         }
 
         function ensureFlowDataIsSet(reference: Node, type: Type) {
@@ -17717,8 +17718,9 @@ namespace ts {
                 if (type.flags & TypeFlags.IntermediateFlow) {
                     flowDependentTypeStack.push(type);
                     var flowData:FlowData = (<IntermediateFlowType>type).flowData;
-                    if ((<IntermediateFlowType>type).targetType.flags & TypeFlags.Declare) {
-                        targetDeclareType = (<IntermediateFlowType>type).targetType;
+                    let targetType = stripConcreteType((<IntermediateFlowType>type).targetType);
+                    if (targetType.flags & TypeFlags.Declare) {
+                        targetDeclareType = targetType;
                     }
                 } else {
                     var flowData:FlowData = {flowTypes: [{type, firstBindingSite: reference}], memberSet: {}};
@@ -17764,6 +17766,7 @@ namespace ts {
                         if (!isConcreteType(type)) {
                             return;
                         }
+                        type = stripConcreteType(type);
                         let guardVariable = getTempVarForScope(containerScope, targetDeclareType, member);
                         let bindingData = {
                             left, member, right, type: (isWeakConcreteType(type) ? null : type), targetDeclareType, guardVariable
@@ -17925,6 +17928,7 @@ namespace ts {
                     } else if (isMemberAccess(left)) {
                         let type = getTypeOfNode(right);
                         scanMemberBinding(left.name.text, {firstBindingSite: node, type});
+                        emitProtection(node, left.expression, left.name.text, right);
                         // Ensure that nodes being assigned to are aware of their incoming types
                         left.expression.ctsFlowData = prev;
                     }
