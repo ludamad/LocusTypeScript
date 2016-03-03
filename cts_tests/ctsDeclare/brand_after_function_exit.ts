@@ -4,7 +4,7 @@ import {assert, assertNotBranded, assertBranded, assertType, assertFails} from "
 var tester;
 (function() {
     var a : declare Foo = {};
-    /* @assertType("{}") */ a;
+    /* @assertType("{} becomes !Foo") */ a;
     tester = () => assertBranded(a);
     assertNotBranded(a);
     a.b = 0;

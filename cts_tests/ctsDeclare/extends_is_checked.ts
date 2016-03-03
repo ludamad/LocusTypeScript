@@ -1,3 +1,4 @@
+// @KnownDefect
 // @TestExpectedToHaveCompileErrors
 
 // @assertError[isStatement](/assignable/)

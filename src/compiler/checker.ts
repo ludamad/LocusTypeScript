@@ -7833,12 +7833,12 @@ namespace ts {
             let type = isObjectLiteralMethod(node)
                 ? getContextualTypeForObjectLiteralMethod(<MethodDeclaration>node)
                 : getContextualType(<FunctionExpression>node);
-            // [ConcreteType] Concreteness does not play into signature
-            type = stripConcreteType(type); 
-            // [/ConcreteType]
             if (!type) {
                 return undefined;
             }
+            // [ConcreteType] Concreteness does not play into signature
+            type = stripConcreteType(type); 
+            // [/ConcreteType]
             if (!(type.flags & TypeFlags.Union)) {
                 return getNonGenericSignature(type);
             }
@@ -17728,18 +17728,20 @@ namespace ts {
             return scope.tempVarsToEmit[(text + "." + member)] || (scope.tempVarsToEmit[(text + "." + member)] = "cts$$temp$$" + (text + '_' + member) + "$$" + scope.nextTempVar++);
         }
 
+        // Temporal logic for becomes-types.
         function ensureFlowDataIsSet(reference: Node, type: Type) {
             Debug.assert(reference.kind === SyntaxKind.Identifier || reference.kind === SyntaxKind.ThisKeyword);
             // If it is null, we simply ignore. The null value implies recursive evaluation was hit.
             if (reference.ctsFinalFlowData === undefined) {
                 let targetDeclareType:Type = null, targetDeclareTypeNode = null;
+                let targetType:Type = null;
                 // Get the type, be careful not to trigger a loop:
                 if (type.flags & TypeFlags.IntermediateFlow) {
                     flowDependentTypeStack.push(type);
                     var flowData:FlowData = (<IntermediateFlowType>type).flowData;
-                    let targetType = stripConcreteType((<IntermediateFlowType>type).targetType);
-                    if (targetType.flags & TypeFlags.Declare) {
-                        targetDeclareType = targetType;
+                    targetType = (<IntermediateFlowType>type).targetType;
+                    if (stripConcreteType(targetType).flags & TypeFlags.Declare) {
+                        targetDeclareType = stripConcreteType(targetType);
                         targetDeclareTypeNode = (<IntermediateFlowType>type).declareTypeNode;
                     }
                 } else {
@@ -17758,6 +17760,7 @@ namespace ts {
                 // Analysis was not yet run for this scope
                 let finalFlowData = computeAndSetFlowDataForReferencesInScope(
                     /*Reference decider: */ (node) => areSameValue(node, reference),
+                    /*Type we wish to become in the end: */ targetType,
                     /*Non-inferred member types (besides base types): */ getTargetTypeForMember,
                     /*Node-links: */ {},
                     /*Container scope: */ containerScope,
@@ -17832,9 +17835,14 @@ namespace ts {
         }
 
         // Carefully avoid problems we may run into.
-        function getNonContextualType(node: Node): Type {
+        function getNonContextualType(thisType: Type, node: Node): Type {
             if (isFunctionLike(node)) {
-                let callSignatures = getSignaturesOfType(getTypeOfSymbol(node.symbol), SignatureKind.Call);
+                let callSignatures = getSignaturesOfType(getTypeOfSymbol(node.symbol), SignatureKind.Call).map(cloneSignature);
+                for (let signature of callSignatures) {
+                    if (!signature.resolvedThisType) {
+                        signature.resolvedThisType = thisType;
+                    }
+                }
                 return createAnonymousType(undefined, emptySymbols, callSignatures, emptyArray, undefined, undefined);
             } else {
                 return getTypeOfNode(node);
@@ -17843,6 +17851,7 @@ namespace ts {
         // Recursively find all references to our node object descending from the node 'node'
         function computeAndSetFlowDataForReferencesInScope(// Refer to the same object throughout a recursion instance:
                                          isReference: ReferenceDecider, 
+                                         targetType: Type,
                                          getTargetTypeForMember: (member:string)=>Type, 
                                          nodePostLinks,
                                          containerScope:Node, 
@@ -17933,26 +17942,25 @@ namespace ts {
             }
 
             function scanMemberBinding(member:string, flowType: FlowType) {
-                let targetType = getTargetTypeForMember(member);
-                if (targetType) {
-                    if (targetType === undefinedType) {
+                let memberTarget = getTargetTypeForMember(member);
+                if (memberTarget) {
+                    if (memberTarget === undefinedType) {
                         // The type that we wish to become either does not have this member.
                         // We will allow the normal check* functions to error in this case.
                         return false;
-                    } else if (!isTypeAssignableTo(flowType.type, targetType)) {
+                    } else if (!isTypeAssignableTo(flowType.type, memberTarget)) {
                         // The type that we wish to become has an incompatible type for this member.
                         // We will pretend that the types are correct here and let the check* methods error about the mismatch.
-                        flowType = { type: targetType, firstBindingSite: flowType.firstBindingSite };
-                    } else if (isTypeSubtypeOf(flowType.type, targetType)) {
+                        flowType = { type: memberTarget, firstBindingSite: flowType.firstBindingSite };
+                    } else if (isTypeSubtypeOf(flowType.type, memberTarget)) {
                         // If the type is a supertype of our target type, use the target type.
                         // This prevents inconsistency with a type suddenly losing information
                         // when the become has been fulfilled, as it becomes the target type then anyway.
-                        flowType = { type: targetType, firstBindingSite: flowType.firstBindingSite };
+                        flowType = { type: memberTarget, firstBindingSite: flowType.firstBindingSite };
                     }
                 }
                 // Incorporate into our type:
                 prev = flowDataAssignment(prev, member, flowType);
-                console.log(prev);
                 return true;
             }
 
@@ -17978,15 +17986,15 @@ namespace ts {
                         prev = orig;
                     } else if (isMemberAccess(left)) {
                         let member = left.name.text;
-                        let targetType = getTargetTypeForMember(member);
-                        if (targetType !== undefinedType) {
-                            let assumeFinalType = flowDataAssignment(prev, member, {firstBindingSite: node, type: targetType});
+                        let memberTarget = getTargetTypeForMember(member);
+                        if (memberTarget !== undefinedType) {
+                            let assumeFinalType = flowDataAssignment(prev, member, {firstBindingSite: node, type: memberTarget});
                             // Make sure the contextual type resolves to the type we want it to be:
                             left.expression.ctsFlowData = assumeFinalType;
                             left.expression.ctsFinalFlowData = assumeFinalType;
                             var type = getTypeOfNode(right);
                         } else {
-                            var type = getNonContextualType(right);
+                            var type = getNonContextualType(targetType, right);
                         }
                         if (scanMemberBinding(left.name.text, {firstBindingSite: node, type})) {
                             emitProtection(prev, node, left.expression, member, right);
@@ -18123,7 +18131,7 @@ namespace ts {
             }
 
             function recurse(node:Node, prev:FlowData) {
-                return computeAndSetFlowDataForReferencesInScope(isReference, getTargetTypeForMember, nodePostLinks, containerScope, emitProtection, node, prev, orig);
+                return computeAndSetFlowDataForReferencesInScope(isReference, targetType, getTargetTypeForMember, nodePostLinks, containerScope, emitProtection, node, prev, orig);
             }
             function descend() {
                 forEachChild(node, (subchild) => {
