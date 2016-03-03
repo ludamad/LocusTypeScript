@@ -271,6 +271,7 @@ namespace ts {
         }
 
         function error(location: Node, message: DiagnosticMessage, arg0?: any, arg1?: any, arg2?: any): void {
+            console.log((<any>new Error()).stack)
             let diagnostic = location
                 ? createDiagnosticForNode(location, message, arg0, arg1, arg2)
                 : createCompilerDiagnostic(message, arg0, arg1, arg2);
@@ -7832,6 +7833,9 @@ namespace ts {
             let type = isObjectLiteralMethod(node)
                 ? getContextualTypeForObjectLiteralMethod(<MethodDeclaration>node)
                 : getContextualType(<FunctionExpression>node);
+            // [ConcreteType] Concreteness does not play into signature
+            type = stripConcreteType(type); 
+            // [/ConcreteType]
             if (!type) {
                 return undefined;
             }
@@ -17827,6 +17831,15 @@ namespace ts {
            
         }
 
+        // Carefully avoid problems we may run into.
+        function getNonContextualType(node: Node): Type {
+            if (isFunctionLike(node)) {
+                let callSignatures = getSignaturesOfType(getTypeOfSymbol(node.symbol), SignatureKind.Call);
+                return createAnonymousType(undefined, emptySymbols, callSignatures, emptyArray, undefined, undefined);
+            } else {
+                return getTypeOfNode(node);
+            }
+        }
         // Recursively find all references to our node object descending from the node 'node'
         function computeAndSetFlowDataForReferencesInScope(// Refer to the same object throughout a recursion instance:
                                          isReference: ReferenceDecider, 
@@ -17964,13 +17977,19 @@ namespace ts {
                     if (isReference(left)) {
                         prev = orig;
                     } else if (isMemberAccess(left)) {
-                        if (ts.isFunctionLike(right)) {
-                            var type = getTypeOfSymbol(right.symbol);
-                        } else {
+                        let member = left.name.text;
+                        let targetType = getTargetTypeForMember(member);
+                        if (targetType !== undefinedType) {
+                            let assumeFinalType = flowDataAssignment(prev, member, {firstBindingSite: node, type: targetType});
+                            // Make sure the contextual type resolves to the type we want it to be:
+                            left.expression.ctsFlowData = assumeFinalType;
+                            left.expression.ctsFinalFlowData = assumeFinalType;
                             var type = getTypeOfNode(right);
+                        } else {
+                            var type = getNonContextualType(right);
                         }
                         if (scanMemberBinding(left.name.text, {firstBindingSite: node, type})) {
-                            emitProtection(prev, node, left.expression, left.name.text, right);
+                            emitProtection(prev, node, left.expression, member, right);
                         }
                         // Ensure that nodes being assigned to are aware of their incoming types
                         left.expression.ctsFlowData = prev;
