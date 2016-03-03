@@ -1798,14 +1798,19 @@ namespace ts {
                     }
                     else if (type.flags & TypeFlags.IntermediateFlow) {
                         let flowData = getFlowDataForType(type);
-                        let formalType = flowDataFormalType(flowData);
-                        if (formalType === (<IntermediateFlowType>type).targetType) {
-                            return buildTypeDisplay(formalType, writer, enclosingDeclaration, globalFlags, symbolStack);
+                        if (isIntermediateFlowTypeSubtypeOfTarget(type)) {
+                            return buildTypeDisplay(type.targetType, writer, enclosingDeclaration, globalFlags, symbolStack);
                         }
-                        buildTypeDisplay(formalType, writer, enclosingDeclaration, globalFlags, symbolStack);
+                        let formalType = flowDataFormalType(flowData);
                         let members = Object.keys(flowData.memberSet);
+                        if (members.length === 0 || !isTypeIdenticalTo(formalType, emptyObjectType)) { 
+                            buildTypeDisplay(formalType, writer, enclosingDeclaration, globalFlags, symbolStack);
+                            if (members.length > 0) {
+                                writer.writeOperator(" has ");
+                            }
+                        }
                         if (members.length > 0) {
-                            writer.writeOperator(" has {");
+                            writer.writeOperator("{");
                             for (let i = 0; i < members.length; i++) {
                                 if (i !== 0) {
                                     writer.writeOperator(', ');
@@ -4948,7 +4953,7 @@ namespace ts {
             let type = getTypeFromTypeNodeWorker(node);
             node.resolvedType = type;
             if (node.isConcrete) {
-                if (isRuntimeCheckable(type)) {
+                if (canBeConcrete(type)) {
                     type = createConcreteType(type);
                 } else {
                     if (node.specifiedConcrete) {
@@ -17704,12 +17709,19 @@ namespace ts {
             return reference.ctsFlowData;
         }
 
+        function getDeclareTypeName(type: Type) {
+            return type.symbol.declarations[0].name;
+        }
+
         // If 'null' is returned, 
         function getTempVarForScope(scope: Node, type: Type, member: string) {
             scope.nextTempVar = scope.nextTempVar || 0;
-            let name = <Identifier> type.symbol.declarations[0].name;
+            let text = 'anonymous';
+            if (getDeclareTypeName(type)) {
+                text = getDeclareTypeName.text;
+            }
             scope.tempVarsToEmit = scope.tempVarsToEmit || {};
-            return scope.tempVarsToEmit[`${name.text}.${member}`] || (scope.tempVarsToEmit[`${name.text}.${member}`] = `cts$$temp$$${name.text + '_' + member}$$${scope.nextTempVar++}`);
+            return scope.tempVarsToEmit[(text + "." + member)] || (scope.tempVarsToEmit[(text + "." + member)] = "cts$$temp$$" + (text + '_' + member) + "$$" + scope.nextTempVar++);
         }
 
         function ensureFlowDataIsSet(reference: Node, type: Type) {
@@ -17903,24 +17915,31 @@ namespace ts {
                 // Flow analysis: Merge the result of the left and the right
                 prev = flowDataUnion(whenTrue, whenFalse);
             }
+
             function scanMemberBinding(member:string, flowType: FlowType) {
                 let targetType = getTargetTypeForMember(member);
                 if (targetType) {
-                    if (targetType === undefinedType || !isTypeAssignableTo(flowType.type, targetType)) {
-                        // The type that we wish to become either does not have this member, or has an incompatible type.
+                    if (targetType === undefinedType) {
+                        // The type that we wish to become either does not have this member.
                         // We will allow the normal check* functions to error in this case.
-                        return;
-                    }
-                    // If the type is a supertype of our target type, use the target type.
-                    // This prevents inconsistency with a type suddenly losing information
-                    // when the become has been fulfilled, as it becomes the target type then anyway.
-                    if (isTypeSubtypeOf(flowType.type, targetType)) {
-                        flowType = {type: targetType, firstBindingSite: flowType.firstBindingSite};
+                        return false;
+                    } else if (!isTypeAssignableTo(flowType.type, targetType)) {
+                        // The type that we wish to become has an incompatible type for this member.
+                        // We will pretend that the types are correct here and let the check* methods error about the mismatch.
+                        flowType = { type: targetType, firstBindingSite: flowType.firstBindingSite };
+                    } else if (isTypeSubtypeOf(flowType.type, targetType)) {
+                        // If the type is a supertype of our target type, use the target type.
+                        // This prevents inconsistency with a type suddenly losing information
+                        // when the become has been fulfilled, as it becomes the target type then anyway.
+                        flowType = { type: targetType, firstBindingSite: flowType.firstBindingSite };
                     }
                 }
                 // Incorporate into our type:
                 prev = flowDataAssignment(prev, member, flowType);
+                console.log(prev);
+                return true;
             }
+
             function scanBinaryExpression(node: BinaryExpression) {
                 if (node.operatorToken.kind === SyntaxKind.AmpersandAmpersandToken ||
                     node.operatorToken.kind === SyntaxKind.BarBarToken) {
@@ -17940,11 +17959,16 @@ namespace ts {
                     let {left, right} = node;
                     // If there are any assignments to our LHS, throw away the previous information!
                     if (isReference(left)) {
-                        //prev = orig;
+                        prev = orig;
                     } else if (isMemberAccess(left)) {
-                        let type = getTypeOfNode(right);
-                        scanMemberBinding(left.name.text, {firstBindingSite: node, type});
-                        emitProtection(prev, node, left.expression, left.name.text, right);
+                        if (ts.isFunctionLike(right)) {
+                            var type = getTypeOfSymbol(right.symbol);
+                        } else {
+                            var type = getTypeOfNode(right);
+                        }
+                        if (scanMemberBinding(left.name.text, {firstBindingSite: node, type})) {
+                            emitProtection(prev, node, left.expression, left.name.text, right);
+                        }
                         // Ensure that nodes being assigned to are aware of their incoming types
                         left.expression.ctsFlowData = prev;
                     }

@@ -11,7 +11,7 @@
         "category": "Error",
         "code": 2002
     },
-   "[ConcreteTypeScript] Cannot create check for type '{0}', but required for becomes.": {
+   "[ConcreteTypeScript] Cannot create check for type '{0}', but required to confirm correct type after 'becomes' parameter in function call.": {
         "category": "Error",
         "code": 2003
     },
@@ -23,7 +23,10 @@
         "category": "Error",
         "code": 2005
     },
-
+   "[ConcreteTypeScript] Cannot create check for type '{0}', required by cast to concrete type.": {
+        "category": "Error",
+        "code": 2006
+    },
 
     "Unterminated string literal.": {
         "category": "Error",

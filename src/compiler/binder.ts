@@ -652,7 +652,7 @@ namespace ts {
             let symbol = createSymbol(symbolFlags, name);
             addDeclarationToSymbol(symbol, node, symbolFlags);
             // [ConcreteTypeScript]
-            if (symbol.flags & SymbolFlags.Function) {
+            if (symbol.flags & SymbolFlags.Function && symbol.exports) {
                 bindPrototypeSymbol(node, symbol);
             }
             // [/ConcreteTypeScript]
