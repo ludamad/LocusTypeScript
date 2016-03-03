@@ -1798,8 +1798,8 @@ namespace ts {
                     }
                     else if (type.flags & TypeFlags.IntermediateFlow) {
                         let flowData = getFlowDataForType(type);
-                        if (isIntermediateFlowTypeSubtypeOfTarget(type)) {
-                            return buildTypeDisplay(type.targetType, writer, enclosingDeclaration, globalFlags, symbolStack);
+                        if (isIntermediateFlowTypeSubtypeOfTarget(<IntermediateFlowType>type)) {
+                            return buildTypeDisplay((<IntermediateFlowType>type).targetType, writer, enclosingDeclaration, globalFlags, symbolStack);
                         }
                         let formalType = flowDataFormalType(flowData);
                         let members = Object.keys(flowData.memberSet);
@@ -4954,7 +4954,7 @@ namespace ts {
             node.resolvedType = type;
             if (node.isConcrete) {
                 if (canBeConcrete(type)) {
-                    type = createConcreteType(type);
+                    type = createConcreteType(type, false);
                 } else {
                     if (node.specifiedConcrete) {
                         console.log(`WARNING: Could not create concrete type from ${getTextOfNode(node)}.`);
@@ -17709,8 +17709,8 @@ namespace ts {
             return reference.ctsFlowData;
         }
 
-        function getDeclareTypeName(type: Type) {
-            return type.symbol.declarations[0].name;
+        function getDeclareTypeName(type: Type): Identifier {
+            return <Identifier> type.symbol.declarations[0].name;
         }
 
         // If 'null' is returned, 
@@ -17718,7 +17718,7 @@ namespace ts {
             scope.nextTempVar = scope.nextTempVar || 0;
             let text = 'anonymous';
             if (getDeclareTypeName(type)) {
-                text = getDeclareTypeName.text;
+                text = getDeclareTypeName(type).text;
             }
             scope.tempVarsToEmit = scope.tempVarsToEmit || {};
             return scope.tempVarsToEmit[(text + "." + member)] || (scope.tempVarsToEmit[(text + "." + member)] = "cts$$temp$$" + (text + '_' + member) + "$$" + scope.nextTempVar++);
@@ -17788,6 +17788,9 @@ namespace ts {
                         // Creating closures is not ideal for performance but we cannot reason about the targetDeclareType
                         // until this function ends so it's convenient.
                         function isTypeComplete(): boolean {
+                            if (!getDeclareTypeName(targetDeclareTypeNode)) {
+                                return false;
+                            }
                             let type = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
                             type.flowData = flowDataAfterAssignment;
                             type.targetType = targetDeclareType;
