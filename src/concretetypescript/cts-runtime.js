@@ -240,7 +240,7 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             return value;
         });
         cement(this, "brandAndForward", function(disabled, brandType, obj, retValue) {
-            if (!brandDisabled) {
+            if (!disabled) {
                 this.brand(brandType, obj);
             }
             return retValue;

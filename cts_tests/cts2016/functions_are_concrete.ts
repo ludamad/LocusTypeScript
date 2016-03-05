@@ -8,7 +8,9 @@ function foo() {
 /* @assertType("!() => void") */ (() => {
 });
 
-// Object methods should not be concrete:
-/* @assertType("{ method(): void; }") */ ({
+var a = {
     method(){}
-});
+};
+
+// Object methods should not be concrete:
+/* @assertType('() => void') */ (a.method);

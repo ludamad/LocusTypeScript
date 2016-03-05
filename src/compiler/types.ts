@@ -585,6 +585,8 @@ namespace ts {
         ctsEmitData?:       EmitData;
         ctsFlowData?:       FlowData; // What flow-members have been calculated for this specific node instance?
         ctsFinalFlowData?:  FlowData; // What are the final flow members for this node, after all assignments?
+        // Set by binder
+        prototypeSymbol?: Symbol; // HACK: If we define a prototype symbol, stick it here so we can find it easily.
         // [/ConcreteTypeScript]
     }
 
@@ -1592,7 +1594,6 @@ namespace ts {
         // [ConcreteTypeScript]
         objectType?:Type;
         getFlowDataAtLocation(reference: Node, type: Type): FlowData;
-        getFinalFlowData(reference: Node, type: Type): FlowData;
         getFlowDataForType(type: Type): FlowData;
         getTypeOfSymbol(symbol: Symbol): Type;
         createType(flags: TypeFlags): Type;
@@ -1807,7 +1808,7 @@ namespace ts {
         Function                = 0x00000010,  // Function
         Class                   = 0x00000020,  // Class
         // [ConcreteTypeScript]
-        Declare                  = 0x80000000,  // Brand
+        Declare                  = 0x80000000,  // Declare
         // [/ConcreteTypeScript]
         Interface               = 0x00000040,  // Interface
         ConstEnum               = 0x00000080,  // Const enum
@@ -1872,8 +1873,8 @@ namespace ts {
 
         ExportHasLocal = Function | Class | Declare | Enum | ValueModule,
 
-        HasExports = Class | Declare | Enum | Module,
-        HasMembers = Class | Declare |  Interface | TypeLiteral | ObjectLiteral,
+        HasExports = Class | Declare | Enum | Module | Function,
+        HasMembers = Class | Declare | Interface | TypeLiteral | ObjectLiteral,
 
         BlockScoped = BlockScopedVariable | Class | Declare |  Enum,
 
@@ -1902,7 +1903,7 @@ namespace ts {
         /* @internal */ exportSymbol?: Symbol;  // Exported symbol associated with this symbol
         /* @internal */ constEnumOnlyModule?: boolean; // True if module contains only const enums or other modules with only const enums
         brandType?: DeclareTypeNode; // [ConcreteTypeScript] set for .prototype properties
-        protectionFlags?: ProtectionFlags; // [ConcreteTypeScript] For 
+        classType?: InterfaceType; // [ConcreteTypeScript] set for .prototype properties
     }
 
     /* @internal */

@@ -418,7 +418,7 @@ namespace ts {
             prototypeDeclaration.enclosingDeclareSymbol = symbol;
             prototypeDeclaration.end = node.end;
 
-            declareSymbol(symbol.exports, undefined, prototypeDeclaration, symbolKind, symbolExcludes);
+            declareSymbol(symbol.exports, undefined, prototypeDeclaration, symbolKind | SymbolFlags.Prototype, symbolExcludes);
         }
 
         function addToContainerChain(next: Node) {
@@ -431,7 +431,12 @@ namespace ts {
 
         function declareSymbolAndAddToSymbolTable(node: Declaration, symbolFlags: SymbolFlags, symbolExcludes: SymbolFlags): void {
             // Just call this directly so that the return type of this function stays "void".
-            declareSymbolAndAddToSymbolTableWorker(node, symbolFlags, symbolExcludes);
+            let symbol = declareSymbolAndAddToSymbolTableWorker(node, symbolFlags, symbolExcludes);
+            // [ConcreteTypeScript]
+            if (node.kind === ts.SyntaxKind.FunctionDeclaration) {
+                bindPrototypeSymbol(node, symbol);
+            }
+            // [/ConcreteTypeScript]
         }
       
         // [ConcreteTypeScript] Find variable declaration associated with identifier, or 'null' if not a VariableDeclaration
@@ -651,11 +656,6 @@ namespace ts {
         function bindAnonymousDeclaration(node: Declaration, symbolFlags: SymbolFlags, name: string) {
             let symbol = createSymbol(symbolFlags, name);
             addDeclarationToSymbol(symbol, node, symbolFlags);
-            // [ConcreteTypeScript]
-            if (symbol.flags & SymbolFlags.Function && symbol.exports) {
-                bindPrototypeSymbol(node, symbol);
-            }
-            // [/ConcreteTypeScript]
         }
 
         function bindBlockScopedDeclaration(node: Declaration, symbolFlags: SymbolFlags, symbolExcludes: SymbolFlags) {
@@ -1026,15 +1026,23 @@ namespace ts {
         }
 
         // [ConcreteTypeScript] Extracted from bindClassLikeDeclaration
+        // and modified to support definining prototype symbols on function declarations
         function bindPrototypeSymbol(node: Declaration, symbol: Symbol) {
             let prototypeSymbol = createSymbol(SymbolFlags.Property | SymbolFlags.Prototype, "prototype");
+            if (!symbol.exports) {
+                symbol.exports = {};
+            }
             if (hasProperty(symbol.exports, prototypeSymbol.name)) {
                 if (node.name) {
                     node.name.parent = node;
                 }
-                file.bindDiagnostics.push(createDiagnosticForNode(symbol.exports[prototypeSymbol.name].declarations[0],
-                    Diagnostics.Duplicate_identifier_0, prototypeSymbol.name));
+                if (symbol.exports[prototypeSymbol.name].declarations) {
+                    file.bindDiagnostics.push(createDiagnosticForNode(symbol.exports[prototypeSymbol.name].declarations[0],
+                        Diagnostics.Duplicate_identifier_0, prototypeSymbol.name));
+                }
             }
+            // HACK: Place this such that its easy to detect later. TODO do this properly 
+            node.prototypeSymbol = prototypeSymbol;
             symbol.exports[prototypeSymbol.name] = prototypeSymbol;
             prototypeSymbol.parent = symbol;
         }

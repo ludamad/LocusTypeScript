@@ -207,7 +207,7 @@ namespace ts {
     }
 
     export function getSourceTextOfNodeFromSourceFile(sourceFile: SourceFile, node: Node, includeTrivia = false): string {
-        if (nodeIsMissing(node)) {
+        if (nodeIsMissing(node) /* [ConcreteTypeScript]: */ || !sourceFile) {
             return "";
         }
 

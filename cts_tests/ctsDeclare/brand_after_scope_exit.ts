@@ -5,7 +5,7 @@ var tester;
 {
     let a : declare Foo = {};
     tester = () => assertBranded(a);
-    /* @assertType("{}") */ a;
+    /* @assertType("{} becomes !Foo") */ a;
     assertNotBranded(a);
     a.b = 0;
     /* @assertType("!number") */ (a.b);
