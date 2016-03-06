@@ -236,7 +236,9 @@ namespace ts {
                 }
             }
             else {
-                symbol = createSymbol(SymbolFlags.None, "__missing");
+                // [ConcreteTypeScript]
+                symbol = createSymbol(SymbolFlags.None, "<anonymous>");
+                // [/ConcreteTypeScript]
             }
 
             addDeclarationToSymbol(symbol, node, includes);
@@ -410,15 +412,15 @@ namespace ts {
             } else {
                 var symbol = declareSymbol(scope.locals, undefined, node, symbolKind, symbolExcludes);
             }
-             var prototypeDeclaration = <DeclareTypeDeclaration>createNode(SyntaxKind.DeclareType);
+/*            var prototypeDeclaration = <DeclareTypeDeclaration>createNode(SyntaxKind.DeclareType);
             prototypeDeclaration.pos = node.pos;
             let prototypeName = <Identifier>createSynthesizedNode(SyntaxKind.Identifier);
             prototypeName.text = "prototype";
             prototypeDeclaration.name = prototypeName;
             prototypeDeclaration.enclosingDeclareSymbol = symbol;
             prototypeDeclaration.end = node.end;
-
-            declareSymbol(symbol.exports, undefined, prototypeDeclaration, symbolKind | SymbolFlags.Prototype, symbolExcludes);
+            declareSymbol(symbol.exports, undefined, prototypeDeclaration, symbolKind, symbolExcludes); 
+*/
         }
 
         function addToContainerChain(next: Node) {
@@ -1045,6 +1047,7 @@ namespace ts {
             node.prototypeSymbol = prototypeSymbol;
             symbol.exports[prototypeSymbol.name] = prototypeSymbol;
             prototypeSymbol.parent = symbol;
+            (symbol as any).mark = 'WHAATT';
         }
 
         function bindClassLikeDeclaration(node: ClassLikeDeclaration) {

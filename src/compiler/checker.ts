@@ -270,7 +270,7 @@ namespace ts {
         }
 
         function showStack() {
-            console.log((<any>new Error()).stack);
+//            console.log((<any>new Error()).stack);
         }
         function error(location: Node, message: DiagnosticMessage, arg0?: any, arg1?: any, arg2?: any): void {
             showStack();
@@ -314,7 +314,7 @@ namespace ts {
 
         function cloneSymbol(symbol: Symbol): Symbol {
             let result = createSymbol(symbol.flags | SymbolFlags.Merged, symbol.name);
-            result.declarations = symbol.declarations.slice(0);
+            result.declarations = symbol.declarations && symbol.declarations.slice(0);
             result.parent = symbol.parent;
             if (symbol.valueDeclaration) result.valueDeclaration = symbol.valueDeclaration;
             if (symbol.constEnumOnlyModule) result.constEnumOnlyModule = true;
@@ -2558,8 +2558,8 @@ namespace ts {
                 }
                 prototype.classType = <InterfaceType> classType;
                 identifier.text = (classType ? classType.symbol.name : prototype.parent.name)+ '.prototype';
-                identifier.pos = prototype.parent.declarations[0].pos; // Wrong but needs to be nonzero range
-                identifier.end = prototype.parent.declarations[0].end; 
+                identifier.pos = 0; // Wrong but needs to be nonzero range
+                identifier.end = 1; 
                 declareTypeNode.name = identifier;
                 // Hack, push the declaration on for during type inspection
                 prototype.declarations = [declareTypeNode];
@@ -2998,15 +2998,22 @@ namespace ts {
         }
 
         function hasBaseType(type: InterfaceType, checkBase: InterfaceType) {
+            // [ConcreteTypeScript]
+            if (isPrototypeType(checkBase) && type.symbol.parent === type.symbol) {
+                return true;
+            }
             return check(type);
             function check(type: InterfaceType): boolean {
                 let target = <InterfaceType>getTargetType(type);
+                target = stripConcreteType(target);
                 // [ConcreteTypeScript]
                 if (target === checkBase) {
                     return true;
                 }
-                if (type.flags & ts.TypeFlags.ObjectType) {
-                    return ts.forEach(getBaseTypes(target), check);
+                for (let baseType of getBaseTypes(target)) {
+                    if (check(<InterfaceType> baseType)) {
+                        return true;
+                    }
                 }
                 return false;
                 // [ConcreteTypeScript]
@@ -3140,10 +3147,16 @@ namespace ts {
         function getBaseTypes(type: InterfaceType): ObjectType[] {
             // [ConcreteTypeScript]
             type = <InterfaceType> stripConcreteType(type);
+                if (type.flags & TypeFlags.Declare) {
+            console.log("WAT")}
             // [/ConcreteTypeScript]
             if (!type.resolvedBaseTypes) {
+                // [ConcreteTypeScript]
                 if (type.flags & TypeFlags.Declare) {
                     resolveBaseTypesOfDeclare(type);
+                } else if (!type.symbol) {
+                    type.resolvedBaseTypes = [];
+                    // [/ConcreteTypeScript]
                 } else if (type.symbol.flags & SymbolFlags.Class) {
                     resolveBaseTypesOfClass(type);
                 }
@@ -3158,10 +3171,11 @@ namespace ts {
 
         // [ConcreteTypeScript]
         function resolveBaseTypesOfDeclare(type: InterfaceType) {
+            console.log("Watt")
             type.resolvedBaseTypes = [];
             let brandInterfaceDeclaration = <DeclareTypeDeclaration> getSymbolDecl(type.symbol, SyntaxKind.DeclareTypeDeclaration);
             let declareTypeDeclaration = <DeclareTypeNode> getSymbolDecl(type.symbol, SyntaxKind.DeclareType)
-                let declaration = brandInterfaceDeclaration || declareTypeDeclaration;
+            let declaration = brandInterfaceDeclaration || declareTypeDeclaration;
             if (declareTypeDeclaration && declareTypeDeclaration.startingType) {
                 var baseTypes:TypeNode[] = [declareTypeDeclaration.startingType];
             } else {
@@ -3189,10 +3203,12 @@ namespace ts {
             }
 
             let flowData = getFlowDataForType(type);
+            console.log(flowData)
             if (flowData) {
                 let {flowTypes} = flowData;
                 let minimalFlowTypes = getMinimalTypeList(flowTypes.map(ft => ft.type));
                 type.resolvedBaseTypes = type.resolvedBaseTypes.concat(minimalFlowTypes);
+                type.resolvedBaseTypes.map(<any>smartPrint)
             }
         }
         // [/ConcreteTypeScript]
@@ -3424,6 +3440,46 @@ namespace ts {
             }
             return <InterfaceTypeWithDeclaredMembers>type;
         }
+ 
+        // [ConcreteTypeScript] 
+        function flagPrint(v, o, d) {
+            console.log('start', d)
+            Object.keys(o).forEach(function(s) {
+                if (v.flags & o[s]) {
+                    console.log(s);
+                }
+            });
+            console.log('end', d)
+        }
+
+        // [ConcreteTypeScript] 
+        // We want the prototype object, not the prototype type.
+        function getPrototypeSymbolOfType(type: InterfaceType) {
+            type = stripConcreteType(type);
+            if (!type.symbol) {
+                return null;
+            }
+
+            let funcDecl = getFunctionDeclarationForDeclareType(type);
+            if (funcDecl && funcDecl.symbol && funcDecl.symbol.exports) {
+                let symbol = getExportsOfSymbol(funcDecl.symbol)["prototype"];
+                if (!symbol && funcDecl.symbol.valueDeclaration) {
+                    let {localSymbol} = funcDecl.symbol.valueDeclaration;
+                    symbol = getExportsOfSymbol(localSymbol)["prototype"];
+                }
+                Debug.assert(isFunctionLike(funcDecl));
+                Debug.assert(!!symbol.parent);
+                return symbol
+            }
+            return null;
+        }
+        function getPrototypeSymbolTypeOfType(type: InterfaceType) {
+            var stripped = stripConcreteType(type);
+            if (stripped.symbol && stripped.symbol.exports) {
+                return stripped.symbol.exports["prototype"];
+            }
+            return null;
+        }
 
         // [ConcreteTypeScript] 
         function getFlowDataForType(type: Type): FlowData {
@@ -3439,9 +3495,6 @@ namespace ts {
                     return undefined;
                 }
                 let declNode = <DeclareTypeNode> getSymbolDecl(type.symbol, SyntaxKind.DeclareType);
-                if (type.symbol.flags & SymbolFlags.Prototype) {
-                    return undefined;
-                }
                 return getFlowDataForDeclareType(<InterfaceType>type);
             }
             return undefined;
@@ -4207,7 +4260,7 @@ namespace ts {
                 leftType = (<IntermediateFlowType>leftType).targetType;
             }
             if (isPrototypeType(stripConcreteType(leftType))) {
-                let symbol = stripConcreteType(leftType);
+                let symbol = stripConcreteType(leftType).symbol;
                 return createConcreteType(getParentTypeOfPrototypeProperty(symbol));
             } else if (stripConcreteType(leftType).flags & TypeFlags.Declare) {
                 return leftType;
@@ -4672,8 +4725,12 @@ namespace ts {
             let type = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
             let flowTypes:FlowType[] = [{type: startingType, firstBindingSite}];
             let memberSet:FlowMemberSet = {};
-            if (stripConcreteType(targetType).prototypeDeclareType) {
-                flowTypes.push({type: stripConcreteType(targetType).prototypeDeclareType, firstBindingSite});
+            var prototypeSymbol = targetType && stripConcreteType(targetType).flags & TypeFlags.Declare ? 
+                getPrototypeSymbolOfType(<InterfaceType>targetType)
+                : null;
+            if (prototypeSymbol && firstBindingSite.parent.kind === ts.SyntaxKind.ThisParameter) {
+                console.log((targetType as any).baseType.name);
+                flowTypes.push({ type: getTypeOfPrototypeProperty(prototypeSymbol), firstBindingSite});
             }
             type.flowData = {flowTypes, memberSet};
             type.targetType = targetType;
@@ -4732,13 +4789,13 @@ namespace ts {
             }
         }
 
-        function getTypeFromDeclareTypeNode(node: DeclareTypeNode): Type {
+        function getTypeFromDeclareTypeNode(node: DeclareTypeNode, declareType?: Type): Type {
             let links = getNodeLinks(node);
 
             if (!links.resolvedType) {
                 // Resolve like we resolve becomes-types:
                 let startingType = node.startingType ? getTypeFromTypeNode(node.startingType) : emptyObjectType;
-                let targetType = getDeclaredTypeOfSymbol(node.symbol);
+                let targetType = declareType || getDeclaredTypeOfSymbol(node.symbol);
                 Debug.assert(!isTypeAny(startingType));
                 Debug.assert(!isTypeAny(targetType));
                 links.resolvedType = createIntermediateFlowType(node, startingType, createConcreteType(targetType), node);
@@ -5514,7 +5571,7 @@ namespace ts {
                     // In a check of the form X = A & B, we will have previously checked if A relates to X or B relates
                     // to X. Failing both of those we want to check if the aggregation of A and B's members structurally
                     // relates to X. Thus, we include intersection types on the source side here.
-                    if (apparentType.flags & (TypeFlags.ObjectType | TypeFlags.Intersection) && target.flags & TypeFlags.ObjectType) {
+                    if (stripConcreteType(apparentType).flags & (TypeFlags.ObjectType | TypeFlags.Intersection) && stripConcreteType(target).flags & TypeFlags.ObjectType) {
                         // Report structural errors only if we haven't reported any errors yet
                         let reportStructuralErrors = reportErrors && errorInfo === saveErrorInfo;
                         if (result = objectTypeRelatedTo(apparentType, <ObjectType>target, reportStructuralErrors)) {
@@ -6006,7 +6063,7 @@ namespace ts {
                 // [ConcreteTypeScript]
                 // Do we both have 'this' types, but they aren't related?
                 if (source.resolvedThisType && target.resolvedThisType && !isRelatedTo(source.resolvedThisType, target.resolvedThisType, reportErrors)) {
-                    return Ternary.False;
+//                    return Ternary.False;
                 }
                 // [/ConcreteTypeScript]
 
@@ -17691,6 +17748,12 @@ namespace ts {
         }
         function smartPrint(object, name) {
             console.log("<V" + name + "V>");
+            // Detect 'Symbol' objects:
+            if (object.exports || object.members || object.declarations) {
+                flagPrint(object, (ts as any).SymbolFlags, 'flags')
+                console.log(object);
+            }
+            // Detect 'Node' by presence of 'kind'
             if (object != null && object.kind) {
                 ts.printNodeDeep(object);
             } else if (object != null && object.flags) {
@@ -17744,7 +17807,7 @@ namespace ts {
         }
 
         function getFunctionDeclarationForDeclareType(type: InterfaceType) {
-            let node:Node = type.symbol.declarations[0];
+            let node:Node = getDeclareTypeNode(type);
             while (node && !isFunctionLike(node)) {
                 node = node.parent;
             }
@@ -17760,8 +17823,8 @@ namespace ts {
 
         function getScopeContainerAndIdentifierForDeclareType(type: InterfaceType): [Node, Node] {
             if (isPrototypeType(type)) {
-                let funcDecl = getFunctionDeclarationForDeclareType(<InterfaceType>getTypeOfSymbol(type.symbol.parent));
-                if (funcDecl) {
+                let funcDecl = getFunctionDeclarationForDeclareType(type.symbol.classType);//getTypeOfSymbol(type.symbol.parent));
+                if (!funcDecl) {
                     return [null, null];
                 }
                 return [funcDecl.parent, funcDecl.name];
@@ -17779,7 +17842,8 @@ namespace ts {
                 if (containerScope) {
                     // Remove any previously cached value?
                     (<ResolvedType><ObjectType>type).members = null; 
-                    let flowType = getTypeFromDeclareTypeNode(type.symbol.declarations[0], type);
+
+                    let flowType = getTypeFromDeclareTypeNode(<DeclareTypeNode>type.symbol.declarations[0], type);
                     ensureFlowDataIsSet(containerScope, isReference, flowType);
                 }
             }
