@@ -401,26 +401,44 @@ namespace ts {
         }
 
         // [ConcreteTypeScript]
+        function getFunctionDeclarationParent(node: Node) {
+            while (node && !isFunctionLike(node)) {
+                node = node.parent;
+            }
+            return <FunctionLikeDeclaration> node;
+        }
+
+        // [ConcreteTypeScript]
         function bindDeclareTypeDeclaration(node: DeclareTypeDeclaration) {
             let scope = getModuleOrSourceFile(container);
             // The parent of the declaration is expected to be the containing scope:
-            let symbolKind = SymbolFlags.Declare | SymbolFlags.ExportType;
             let symbolExcludes = SymbolFlags.DeclareTypeExcludes;
 
             if (scope.symbol && scope.symbol.flags & SymbolFlags.HasExports) {
-                var symbol = declareSymbol(scope.symbol.exports, undefined, node, symbolKind, symbolExcludes);
+                var symbol = declareSymbol(scope.symbol.exports, undefined, node, SymbolFlags.Declare | SymbolFlags.ExportType, symbolExcludes);
             } else {
-                var symbol = declareSymbol(scope.locals, undefined, node, symbolKind, symbolExcludes);
+                var symbol = declareSymbol(scope.locals, undefined, node, SymbolFlags.Declare | SymbolFlags.ExportType, symbolExcludes);
             }
-/*            var prototypeDeclaration = <DeclareTypeDeclaration>createNode(SyntaxKind.DeclareType);
-            prototypeDeclaration.pos = node.pos;
-            let prototypeName = <Identifier>createSynthesizedNode(SyntaxKind.Identifier);
-            prototypeName.text = "prototype";
-            prototypeDeclaration.name = prototypeName;
-            prototypeDeclaration.enclosingDeclareSymbol = symbol;
-            prototypeDeclaration.end = node.end;
-            declareSymbol(symbol.exports, undefined, prototypeDeclaration, symbolKind, symbolExcludes); 
-*/
+            // If we have a 'this' type, create a prototype parameter.
+            if (node.parent.kind === SyntaxKind.ThisParameter) { 
+                bindPrototypeAsDeclareType(getFunctionDeclarationParent(node), symbol);
+            }
+        }
+
+        function bindPrototypeAsDeclareType(node: Node, symbol: Symbol) {
+            // Create identifier:
+            let identifier = <Identifier>createSynthesizedNode(SyntaxKind.Identifier);
+            identifier.text = "prototype";
+            identifier.pos = 0; // Very wrong but needs to be nonzero range
+            identifier.end = 1; 
+            // Create decl:
+            var decl = <DeclareTypeDeclaration>createNode(SyntaxKind.DeclareType);
+            decl.pos = node.pos;
+            decl.name = prototypeName;
+            decl.enclosingDeclareSymbol = symbol;
+            decl.end = node.end;
+            let prototypeSymbol = declareSymbol(symbol.exports, undefined, decl, SymbolFlags.Declare | SymbolFlags.Prototype | SymbolFlags.Property | SymbolFlags.ExportType, symbolExcludes); 
+            bindPrototypeSymbol(node, symbol);
         }
 
         function addToContainerChain(next: Node) {
@@ -434,11 +452,6 @@ namespace ts {
         function declareSymbolAndAddToSymbolTable(node: Declaration, symbolFlags: SymbolFlags, symbolExcludes: SymbolFlags): void {
             // Just call this directly so that the return type of this function stays "void".
             let symbol = declareSymbolAndAddToSymbolTableWorker(node, symbolFlags, symbolExcludes);
-            // [ConcreteTypeScript]
-            if (node.kind === ts.SyntaxKind.FunctionDeclaration) {
-                bindPrototypeSymbol(node, symbol);
-            }
-            // [/ConcreteTypeScript]
         }
       
         // [ConcreteTypeScript] Find variable declaration associated with identifier, or 'null' if not a VariableDeclaration
@@ -1029,8 +1042,7 @@ namespace ts {
 
         // [ConcreteTypeScript] Extracted from bindClassLikeDeclaration
         // and modified to support definining prototype symbols on function declarations
-        function bindPrototypeSymbol(node: Declaration, symbol: Symbol) {
-            let prototypeSymbol = createSymbol(SymbolFlags.Property | SymbolFlags.Prototype, "prototype");
+        function bindPrototypeSymbol(node: Declaration, symbol: Symbol, prototypeSymbol: Symbol) {
             if (!symbol.exports) {
                 symbol.exports = {};
             }
@@ -1047,7 +1059,6 @@ namespace ts {
             node.prototypeSymbol = prototypeSymbol;
             symbol.exports[prototypeSymbol.name] = prototypeSymbol;
             prototypeSymbol.parent = symbol;
-            (symbol as any).mark = 'WHAATT';
         }
 
         function bindClassLikeDeclaration(node: ClassLikeDeclaration) {
@@ -1075,7 +1086,8 @@ namespace ts {
             // module might have an exported variable called 'prototype'.  We can't allow that as
             // that would clash with the built-in 'prototype' for the class.
             // [ConcreteTypeScript]
-            bindPrototypeSymbol(node, symbol);
+            // All prototype symbols have declare types.
+            bindPrototypeAsDeclareType(node, symbol);
             // [/ConcreteTypeScript]
         }
 

@@ -2558,7 +2558,7 @@ namespace ts {
                 }
                 prototype.classType = <InterfaceType> classType;
                 identifier.text = (classType ? classType.symbol.name : prototype.parent.name)+ '.prototype';
-                identifier.pos = 0; // Wrong but needs to be nonzero range
+                identifier.pos = 0; // Very wrong but needs to be nonzero range
                 identifier.end = 1; 
                 declareTypeNode.name = identifier;
                 // Hack, push the declaration on for during type inspection
@@ -3515,6 +3515,7 @@ namespace ts {
                     // [ConcreteTypeScript]
                     baseType = <ObjectType> stripConcreteType(baseType);
                     // [/ConcreteTypeScript]
+                    smartPrint(baseType, 'baseType');
                     addInheritedMembers(members, getPropertiesOfObjectType(baseType));
                     callSignatures = concatenate(callSignatures, getSignaturesOfType(baseType, SignatureKind.Call));
                     constructSignatures = concatenate(constructSignatures, getSignaturesOfType(baseType, SignatureKind.Construct));
@@ -7271,6 +7272,7 @@ namespace ts {
         }
 
         function checkIdentifier(node: Identifier): Type {
+            node.checker = checker;
             let symbol = getResolvedSymbol(node);
 
             // As noted in ECMAScript 6 language spec, arrow functions never have an arguments objects.
@@ -8910,11 +8912,13 @@ namespace ts {
             let symbol = type.symbol;
             if (symbol && symbol.flags & (SymbolFlags.Class | SymbolFlags.Enum | SymbolFlags.Function | SymbolFlags.ValueModule)) {
                 let propSymbol = getPropertyOfType(type, member)
-                if (isStronglyConcreteSymbol(propSymbol)) {
+                if (propSymbol.flags & SymbolFlags.Prototype) {
+                    return ProtectionFlags.Cemented | ProtectionFlags.Stable;
+                } else if (isStronglyConcreteSymbol(propSymbol)) {
                     return ProtectionFlags.Protected;
                 } else if (isConcreteSymbol(propSymbol)) {
                     return ProtectionFlags.Cemented;
-                }            
+                }
             }
             return ProtectionFlags.None;
         }
@@ -8971,6 +8975,7 @@ namespace ts {
         }
 
         function checkPropertyAccessExpressionOrQualifiedName(node: PropertyAccessExpression | QualifiedName, left: Expression | QualifiedName, right: Identifier) {
+            node.checker = checker;
             let type:Type = checkExpression(left);
             if (isTypeAny(type)) {
                 return type;
@@ -15852,6 +15857,7 @@ namespace ts {
         }
         // [ConcreteTypeScript]
         function getTypeOfNode(node: Node): Type {
+            node.checker = checker;
             let type = getTypeOfNodeWorker(node);
             // Handle become-types:
             if (type.flags & TypeFlags.IntermediateFlow) {

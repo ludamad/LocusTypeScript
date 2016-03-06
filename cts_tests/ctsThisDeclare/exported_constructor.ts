@@ -6,11 +6,15 @@ export function Foo(this: declare Foo) {
 
 var f = Foo.prototype;
 f = <Foo> <any> 1;
+f.foo();
 
 /* @assertType("!typeof Foo") */ Foo;
 
+/* @assertType("!Foo.prototype") */ (Foo.prototype);
 Foo.prototype.foo = function() {
     /*@assertType("!Foo")*/ this;
     /*assertType("!number")*/ (this.x);
-}
-var myvar = Foo.prototype.foo;
+};
+/* @assertType("!Foo.prototype") */ (Foo.prototype);
+Foo.prototype.foo();
+Foo.prototype.jigger = 1;

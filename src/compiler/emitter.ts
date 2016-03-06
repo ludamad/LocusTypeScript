@@ -2346,7 +2346,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
 
             // Emitter for a type, as part of casting/protection/etc
             function emitCtsType(type: Type) {
-                if (type === undefined) {
+                if (type == null) {
                     write("void 0");
                 } else if (type.flags & TypeFlags.String ||
                     type.flags & TypeFlags.StringLiteral) {
