@@ -1779,6 +1779,10 @@ namespace ts {
                 return writeType(type, globalFlags);
 
                 function writeType(type: Type, flags: TypeFormatFlags) {
+                    if (type.symbol && type.symbol.flags & SymbolFlags.Prototype) {
+                        writeType(getDeclaredTypeOfSymbol(type.symbol.parent), globalFlags);
+                        writer.writeOperator('.');
+                    }
                     // Write undefined/null type as any
                     if (type.flags & TypeFlags.Intrinsic) {
                         // Special handling for unknown / resolving types, they should show up as any and not unknown or __resolving
@@ -2548,25 +2552,12 @@ namespace ts {
             // [ConcreteTypeScript] We make the prototype property its own Declare type
             let links = getSymbolLinks(prototype);
             if (!links.type) {
-                prototype.members = {};
-                let declareTypeNode = <DeclareTypeNode> createSynthesizedNode(SyntaxKind.DeclareType);
-                declareTypeNode.symbol = prototype;
-                let identifier = <Identifier> createSynthesizedNode(SyntaxKind.Identifier);
                 let classType = parentType || <InterfaceType>getParentTypeOfPrototypeProperty(prototype);
                 if (classType) {
                     classType.prototypeDeclareType = links.type;
                 }
                 prototype.classType = <InterfaceType> classType;
-                identifier.text = (classType ? classType.symbol.name : prototype.parent.name)+ '.prototype';
-                identifier.pos = 0; // Very wrong but needs to be nonzero range
-                identifier.end = 1; 
-                declareTypeNode.name = identifier;
-                // Hack, push the declaration on for during type inspection
-                prototype.declarations = [declareTypeNode];
-                prototype.valueDeclaration = declareTypeNode;
-                let declareType = <InterfaceType>createObjectType(TypeFlags.Declare, prototype);
-                links.declaredType = declareType;
-                links.type = createConcreteType(declareType);
+                return createConcreteType(getDeclaredTypeOfSymbol(prototype));
             }
             return links.type;
             // [/ConcreteTypeScript]
@@ -4731,7 +4722,8 @@ namespace ts {
                 : null;
             if (prototypeSymbol && firstBindingSite.parent.kind === ts.SyntaxKind.ThisParameter) {
                 console.log((targetType as any).baseType.name);
-                flowTypes.push({ type: getTypeOfPrototypeProperty(prototypeSymbol), firstBindingSite});
+                smartPrint(getTypeOfSymbol(prototypeSymbol), 'tarrrr');
+                flowTypes.push({ type: getTypeOfSymbol(prototypeSymbol), firstBindingSite});
             }
             type.flowData = {flowTypes, memberSet};
             type.targetType = targetType;
@@ -8999,8 +8991,13 @@ namespace ts {
                 checkClassPropertyAccess(node, left, type, prop);
             }
 
-            // [ConcreteTypeScript] From here on, emit-relevant logic:
             let propType = getTypeOfSymbol(prop);
+            if (prop.flags & SymbolFlags.Prototype) {
+                // TODO starting type
+                propType = createIntermediateFlowType(node, emptyObjectType, propType, <DeclareTypeNode> prop.valueDeclaration);
+            } 
+
+            // [ConcreteTypeScript] From here on, emit-relevant logic:
             let flags = getPropertyProtection(type, propType, right.text);
             if (flags & ProtectionFlags.MustCheck) {
                 // If we are not a concrete member that stemmed from a Class or Declare declaration site, we must check.

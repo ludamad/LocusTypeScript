@@ -412,12 +412,10 @@ namespace ts {
         function bindDeclareTypeDeclaration(node: DeclareTypeDeclaration) {
             let scope = getModuleOrSourceFile(container);
             // The parent of the declaration is expected to be the containing scope:
-            let symbolExcludes = SymbolFlags.DeclareTypeExcludes;
-
             if (scope.symbol && scope.symbol.flags & SymbolFlags.HasExports) {
-                var symbol = declareSymbol(scope.symbol.exports, undefined, node, SymbolFlags.Declare | SymbolFlags.ExportType, symbolExcludes);
+                var symbol = declareSymbol(scope.symbol.exports, undefined, node, SymbolFlags.Declare | SymbolFlags.ExportType, SymbolFlags.DeclareTypeExcludes);
             } else {
-                var symbol = declareSymbol(scope.locals, undefined, node, SymbolFlags.Declare | SymbolFlags.ExportType, symbolExcludes);
+                var symbol = declareSymbol(scope.locals, undefined, node, SymbolFlags.Declare | SymbolFlags.ExportType, SymbolFlags.DeclareTypeExcludes);
             }
             // If we have a 'this' type, create a prototype parameter.
             if (node.parent.kind === SyntaxKind.ThisParameter) { 
@@ -425,7 +423,7 @@ namespace ts {
             }
         }
 
-        function bindPrototypeAsDeclareType(node: Node, symbol: Symbol) {
+        function bindPrototypeAsDeclareType(node: Declaration, symbol: Symbol) {
             // Create identifier:
             let identifier = <Identifier>createSynthesizedNode(SyntaxKind.Identifier);
             identifier.text = "prototype";
@@ -434,11 +432,11 @@ namespace ts {
             // Create decl:
             var decl = <DeclareTypeDeclaration>createNode(SyntaxKind.DeclareType);
             decl.pos = node.pos;
-            decl.name = prototypeName;
+            decl.name = identifier;
             decl.enclosingDeclareSymbol = symbol;
             decl.end = node.end;
-            let prototypeSymbol = declareSymbol(symbol.exports, undefined, decl, SymbolFlags.Declare | SymbolFlags.Prototype | SymbolFlags.Property | SymbolFlags.ExportType, symbolExcludes); 
-            bindPrototypeSymbol(node, symbol);
+            let prototypeSymbol = declareSymbol(symbol.exports, undefined, decl, SymbolFlags.Declare | SymbolFlags.Prototype | SymbolFlags.Property | SymbolFlags.ExportType, SymbolFlags.DeclareTypeExcludes); 
+            bindPrototypeSymbol(node, symbol, prototypeSymbol);
         }
 
         function addToContainerChain(next: Node) {
@@ -1050,10 +1048,10 @@ namespace ts {
                 if (node.name) {
                     node.name.parent = node;
                 }
-                if (symbol.exports[prototypeSymbol.name].declarations) {
-                    file.bindDiagnostics.push(createDiagnosticForNode(symbol.exports[prototypeSymbol.name].declarations[0],
-                        Diagnostics.Duplicate_identifier_0, prototypeSymbol.name));
-                }
+//                if (symbol.exports[prototypeSymbol.name].declarations) {
+//                    file.bindDiagnostics.push(createDiagnosticForNode(symbol.exports[prototypeSymbol.name].declarations[0],
+//                        Diagnostics.Duplicate_identifier_0, prototypeSymbol.name));
+//                }
             }
             // HACK: Place this such that its easy to detect later. TODO do this properly 
             node.prototypeSymbol = prototypeSymbol;
