@@ -2354,7 +2354,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 } else if (type.flags & TypeFlags.Number) {
                     write("Number");
                 } else if (type.symbol && type.symbol.flags & SymbolFlags.Declare) {
-                    write("$$cts$$brand$$" + type.symbol.name);
+                    if (type.symbol.parent.flags & SymbolFlags.Declare) {
+                        write("$$cts$$brand$$" + type.symbol.parent.name + ".prototype");
+                    } else {
+                        write("$$cts$$brand$$" + type.symbol.name);
+                    }
                 } else if (type.flags & TypeFlags.Null) {
                     emitCtsRt("Null");
                 } else if (type.flags & TypeFlags.Undefined) {
@@ -7545,6 +7549,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 if (DISABLE_PROTECTED_MEMBERS || !node.ctsEmitData || !node.ctsEmitData.after) {
                     return false;
                 }
+                writeLine();
                 node.ctsEmitData.after.forEach(emitProtectionAssignment);
                 return true;
             }
@@ -7564,12 +7569,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     emitCtsType(type); write(", "); 
                     let extendedDeclareOrClass = getClassOrDeclareBaseType(left.checker, <InterfaceType> targetDeclareType);
                     emitCtsType(extendedDeclareOrClass); write(", ");
+                    write("'"); write(member); write("', "); emit((left as any).expression); write(", "); 
                 } else {
                     emitCtsRt("protectAssignment("); 
                     write(guardVariable + "++, "); 
                     emitCtsType(type); write(", "); 
+                    write("'"); write(member); write("', "); emit(left); write(", "); 
                 }
-                write("'"); write(member); write("', "); emit(left); write(", "); 
                 if (right) {
                     emit(right); 
                 } else {

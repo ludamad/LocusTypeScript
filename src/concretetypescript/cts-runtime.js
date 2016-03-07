@@ -271,7 +271,7 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             if (!hasProperty(obj, "$$cts$$prototypeFrozen")) {
                 addUnenum(obj,"$$cts$$prototypeFrozen", true);
                 var prototype = obj.prototype;
-                if (typeof protoCheckType !== "undefined") {
+                if (protoCheckType !== null) {
                     cast(protoCheckType, prototype);
                 }
                 cement(obj, "prototype", prototype);

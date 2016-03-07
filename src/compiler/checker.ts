@@ -3199,6 +3199,7 @@ namespace ts {
                 let {flowTypes} = flowData;
                 let minimalFlowTypes = getMinimalTypeList(flowTypes.map(ft => ft.type));
                 type.resolvedBaseTypes = type.resolvedBaseTypes.concat(minimalFlowTypes);
+                type.resolvedBaseTypes = type.resolvedBaseTypes.filter(s => !isTypeIdenticalTo(unconcrete(s), type));
             }
         }
         // [/ConcreteTypeScript]
