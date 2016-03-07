@@ -563,6 +563,7 @@ namespace ts {
         // [ConcreteTypeScript]
         // Set during checker.ts.
         mustCheck?: Type;             // If this node must be type-checked at runtime, the type to check
+        checkVar?: string; // Variable for emit used to store union and intersection runtime types.
         mustCheckBecomes?: {expr: Node, type: Type}[];    // For call expressions with become types on nonconcrete functions.
         mustFloat?: boolean;          // If set, this value must be explicitly coerced to float instead of generic number
         mustInt?: boolean;            // If set, this value must be explicitly coerced to int instead of generic number
@@ -1600,7 +1601,7 @@ namespace ts {
         getTypeFromTypeNode:any,
         checkSourceFile:any,
         createConcreteType:any,
-        stripConcreteType:any,
+        unconcrete:any,
         isTypeIdenticalTo(source: Type, target: Type): boolean;
         resolveName(location: Node, name: string, meaning: SymbolFlags, nameNotFoundMessage: DiagnosticMessage, nameArg: string | Identifier): Symbol;
         compareTypes(source: Type, target: Type): Ternary;

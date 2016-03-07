@@ -90,6 +90,24 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
 
         // A union of concrete types, eg !a | !b.
         // We consider the concreteness of !(a | b) to be and reinterpret it as !a | !b.
+        function IntersectionType() {
+            // Copy arguments object as an array:
+            this.types = [].slice.call(arguments).sort();
+        }
+        cement(this, "IntersectionType", IntersectionType);
+        cement(this.IntersectionType, "prototype", this.IntersectionType.prototype); 
+        cement(this.IntersectionType.prototype, "$$cts$$check", function(val) { 
+            for (var i = 0; i < this.types.length; i++) {
+                var type = this.types[i];
+                if (!type.$$cts$$check(val)) {
+                    return false;
+                }
+            }
+            return true;
+        });
+
+        // A union of concrete types, eg !a | !b.
+        // We consider the concreteness of !(a | b) to be and reinterpret it as !a | !b.
         function UnionType() {
             // Copy arguments object as an array:
             this.types = [].slice.call(arguments).sort();

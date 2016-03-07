@@ -2359,6 +2359,15 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     emitCtsRt("Null");
                 } else if (type.flags & TypeFlags.Undefined) {
                     emitCtsRt("Undefined");
+                } else if (type.flags & TypeFlags.Intersection) {
+                    write("(new "); emitCtsRt("IntersectionType");
+                    write("("); 
+                    let types:ConcreteType[] = <ConcreteType[]>(<IntersectionType>type).types;
+                    for (let i = 0; i < types.length; i++) {
+                        emitCtsType(types[i].baseType || types[i]);
+                        if (i !== types.length - 1) write(", ");
+                    }
+                    write("))");
                 } else if (type.flags & TypeFlags.Union) {
                     write("(new "); emitCtsRt("UnionType");
                     write("("); 

@@ -824,6 +824,7 @@ namespace ts {
         }
 
         function parseErrorAtPosition(start: number, length: number, message: DiagnosticMessage, arg0?: any): void {
+            //console.log((new Error() as any).stack);
             // Don't report another error if it would just be at the same position as the last error.
             let lastError = lastOrUndefined(parseDiagnostics);
             // throw new Error(JSON.stringify([start, length, createFileDiagnostic(sourceFile, start, length, message, arg0).messageText]));
@@ -1322,7 +1323,11 @@ namespace ts {
                 case ParsingContext.SwitchClauseStatements:
                     return token === SyntaxKind.CloseBraceToken || token === SyntaxKind.CaseKeyword || token === SyntaxKind.DefaultKeyword;
                 case ParsingContext.HeritageClauseElement:
-                    return token === SyntaxKind.OpenBraceToken || token === SyntaxKind.ExtendsKeyword || token === SyntaxKind.ImplementsKeyword;
+                    return token === SyntaxKind.OpenBraceToken || token === SyntaxKind.ExtendsKeyword || token === SyntaxKind.ImplementsKeyword ||
+                    // [ConcreteTypeScript]
+                    token === SyntaxKind.EqualsToken;
+                    // [/ConcreteTypeScript]
+
                 case ParsingContext.VariableDeclarations:
                     return isVariableDeclaratorListTerminator();
                 case ParsingContext.TypeParameters:
@@ -1992,7 +1997,13 @@ namespace ts {
             if (token === SyntaxKind.Identifier) {
                 node.name = parseIdentifier();
             }
-            node.heritageClauses = parseHeritageClauses(/*isClassHeritageClause*/ false);
+            node.heritageClauses = <NodeArray<HeritageClause>> [];
+            node.heritageClauses.pos = getNodePos(); 
+            let clause = parseHeritageClause();
+            if (clause) {
+                node.heritageClauses.push(clause);
+            }
+            node.heritageClauses.end = getNodeEnd(); 
             node.startingType = startingType;
             node.members = null;
             node.end = getNodeEnd();
