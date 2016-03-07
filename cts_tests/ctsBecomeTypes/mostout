@@ -1,0 +1,17 @@
+import javascript(commonjs(default = main), es6) as js
+
+# Understands typescript declarations?
+# Duplicate annotation will kill the system immediately.
+# Clang plugin / typescript service user / bytecode analyzer / etc.
+
+# argument receiving is object-defined. Here we define a forwarder using the 'command' module.
+
+Command(stdin: JSON[], stdout: PlayerData[]) 
+parsePlayerData = command("bin/jsonMangler")
+
+annotate js.parsePlayerData: PlayerData.string -> PlayerData
+annotate js.newGame: PlayerData[] -> GameState
+annotate js.playGame: GameState -> do PlayGame
+
+# Construct automatically a value of this type
+main = ${JSON[] -> do PlayGame}
