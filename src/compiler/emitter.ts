@@ -2347,7 +2347,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             // Emitter for a type, as part of casting/protection/etc
             function emitCtsType(type: Type) {
                 if (type == null) {
-                    write("void 0");
+                    write("null");
                 } else if (type.flags & TypeFlags.String ||
                     type.flags & TypeFlags.StringLiteral) {
                     write("String");
@@ -2818,7 +2818,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             function emitBrandObject(brand:DeclareTypeDeclaration) {
                 let brandName:Identifier = brand.name;
                 writeLine();
-                write("$$cts$$brand$$");
+                write("var $$cts$$brand$$");
                 writeTextOfNode(currentSourceFile, brandName);
                 write(" = new $$cts$$runtime.Brand('"+ brandName.text + "');");
                 // Prototype brand object:
