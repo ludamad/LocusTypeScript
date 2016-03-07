@@ -2354,7 +2354,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 } else if (type.flags & TypeFlags.Number) {
                     write("Number");
                 } else if (type.symbol && type.symbol.flags & SymbolFlags.Declare) {
-                    if (type.symbol.parent.flags & SymbolFlags.Declare) {
+                    if (type.symbol.parent && type.symbol.parent.flags & SymbolFlags.Declare) {
                         write("$$cts$$brand$$" + type.symbol.parent.name + ".prototype");
                     } else {
                         write("$$cts$$brand$$" + type.symbol.name);
