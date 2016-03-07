@@ -105,8 +105,8 @@ function BigInteger(this: declare BigInteger;
     else this.fromString(a,b);
 }
 
-BigInteger.ZERO = null;
-BigInteger.ONE = null;
+var ZERO = null;
+var ONE = null;
 
 // Basic JavaScript BN library - subset useful for RSA encryption.
 // am: Compute w_j += (x*this_i), propagate carries,
@@ -184,6 +184,8 @@ BigInteger.prototype.am4 = function(i,x,w,j,c,n) {
 
 BigInteger.setup = 3;
 
+BigInteger.prototype.t = 0;
+BigInteger.prototype.s = 0;
 BigInteger.prototype.am = function(i,x,w,j,c,n) {
     switch (BigInteger.setup) {
         case 1: return this.am1(i,x,w,j,c,n);
@@ -252,7 +254,7 @@ BigInteger.prototype.fromString = function(s,b) {
         if(sh > 0) this_array[this.t-1] |= ((1<<(BI_DB-sh))-1)<<sh;
     }
     this.clamp();
-    if(mi) BigInteger.ZERO.subTo(this,this);
+    if(mi) ZERO.subTo(this,this);
 }
 
 // (protected) clamp off excess high words
@@ -294,7 +296,7 @@ BigInteger.prototype.toString = function(b) {
 }
 
 // (public) -this
-BigInteger.prototype.negate = function() { var r = nbi(); BigInteger.ZERO.subTo(this,r); return r; }
+BigInteger.prototype.negate = function() { var r = nbi(); ZERO.subTo(this,r); return r; }
 
 // (public) |this|
 BigInteger.prototype.abs = function() { return (this.s<0)?this.negate():this; }
@@ -429,7 +431,7 @@ BigInteger.prototype.multiplyTo = function(a,r) {
     for(i = 0; i < y.t; ++i) r_array[i+x.t] = x.am(0,y_array[i],r,i,0,x.t);
     r.s = 0;
     r.clamp();
-    if(this.s != a.s) BigInteger.ZERO.subTo(r,r);
+    if(this.s != a.s) ZERO.subTo(r,r);
 }
 
 // (protected) r = this^2, r != this (HAC 14.16)
@@ -484,7 +486,7 @@ BigInteger.prototype.divRemTo = function(m,q,r) { //NS: needs to be public
         r_array[r.t++] = 1;
         r.subTo(t,r);
     }
-    BigInteger.ONE.dlShiftTo(ys,t);
+    ONE.dlShiftTo(ys,t);
     t.subTo(y,y);	// "negative" y so we can replace sub with am later
     while(y.t < ys) y_array[y.t++] = 0;
     while(--j >= 0) {
@@ -498,19 +500,19 @@ BigInteger.prototype.divRemTo = function(m,q,r) { //NS: needs to be public
     }
     if(q != null) {
         r.drShiftTo(ys,q);
-        if(ts != ms) BigInteger.ZERO.subTo(q,q);
+        if(ts != ms) ZERO.subTo(q,q);
     }
     r.t = ys;
     r.clamp();
     if(nsh > 0) r.rShiftTo(nsh,r);	// Denormalize remainder
-    if(ts < 0) BigInteger.ZERO.subTo(r,r);
+    if(ts < 0) ZERO.subTo(r,r);
 }
 
 // (public) this mod a
 BigInteger.prototype.mod = function(a) {
     var r = nbi();
     this.abs().divRemTo(a,null,r);
-    if(this.s < 0 && r.compareTo(BigInteger.ZERO) > 0) a.subTo(r,r);
+    if(this.s < 0 && r.compareTo(ZERO) > 0) a.subTo(r,r);
     return r;
 }
 
@@ -548,7 +550,7 @@ BigInteger.prototype.isEven = function() {
 
 // (protected) this^e, e < 2^32, doing sqr and mul with "r" (HAC 14.79)
 BigInteger.prototype.exp = function(e:!intNumber,z) {
-    if(e > 0xffffffff || e < 1) return BigInteger.ONE;
+    if(e > 0xffffffff || e < 1) return ONE;
     var r = nbi(), r2 = nbi(), g = z.convert(this), i = nbits(e)-1;
     g.copyTo(r);
     while(--i >= 0) {
@@ -650,7 +652,7 @@ BigInteger.prototype.fromRadix = function(s,b:!intNumber) {
         this.dMultiply(<!intNumber> Math.pow(b,j));
         this.dAddOffset(w,0);
     }
-    if(mi) BigInteger.ZERO.subTo(this,this);
+    if(mi) ZERO.subTo(this,this);
 }
 
 // (protected) alternate constructor
@@ -661,11 +663,11 @@ BigInteger.prototype.fromNumber = function(a:!intNumber,b,c?:any) {
         else {
             this.fromNumber(a,c);
             if(!this.testBit(a-1))	// force MSB set
-                this.bitwiseTo(BigInteger.ONE.shiftLeft(a-1),op_or,this);
+                this.bitwiseTo(ONE.shiftLeft(a-1),op_or,this);
             if(this.isEven()) this.dAddOffset(1,0); // force odd
             while(!this.isProbablePrime(b)) {
                 this.dAddOffset(2,0);
-                if(this.bitLength() > a) this.subTo(BigInteger.ONE.shiftLeft(a-1),this);
+                if(this.bitLength() > a) this.subTo(ONE.shiftLeft(a-1),this);
             }
         }
     }
@@ -789,7 +791,7 @@ BigInteger.prototype.testBit = function(n:!intNumber) {
 
 // (protected) this op (1<<n)
 BigInteger.prototype.changeBit = function(n:!intNumber,op:any) {
-    var r = BigInteger.ONE.shiftLeft(n);
+    var r = ONE.shiftLeft(n);
     this.bitwiseTo(r,op,r);
     return r;
 }
@@ -1017,7 +1019,7 @@ BigInteger.prototype.modInt = function(n : !intNumber) {
 // (public) 1/this % m (HAC 14.61)
 BigInteger.prototype.modInverse = function(m : !BigInteger) {
     var ac = m.isEven();
-    if((this.isEven() && ac) || m.signum() == 0) return BigInteger.ZERO;
+    if((this.isEven() && ac) || m.signum() == 0) return ZERO;
     var u = m.clone(), v = this.clone();
     var a = nbv(1), b = nbv(0), c = nbv(0), d = nbv(1);
     while(u.signum() != 0) {
@@ -1050,7 +1052,7 @@ BigInteger.prototype.modInverse = function(m : !BigInteger) {
             d.subTo(b,d);
         }
     }
-    if(v.compareTo(BigInteger.ONE) != 0) return BigInteger.ZERO;
+    if(v.compareTo(ONE) != 0) return ZERO;
     if(d.compareTo(m) >= 0) return d.subtract(m);
     if(d.signum() < 0) d.addTo(m,d); else return d;
     if(d.signum() < 0) return d.add(m); else return d;
@@ -1078,7 +1080,7 @@ BigInteger.prototype.isProbablePrime = function(t:!intNumber) {
 
 // (protected) true if probably prime (HAC 4.24, Miller-Rabin)
 BigInteger.prototype.millerRabin = function(t:!intNumber) {
-    var n1 = this.subtract(BigInteger.ONE);
+    var n1 = this.subtract(ONE);
     var k = n1.getLowestSetBit();
     if(k <= 0) return false;
     var r = n1.shiftRight(k);
@@ -1088,11 +1090,11 @@ BigInteger.prototype.millerRabin = function(t:!intNumber) {
     for(var i:!intNumber = 0; i < t; ++i) {
         a.fromInt(lowprimes[i]);
         var y = a.modPow(r,this);
-        if(y.compareTo(BigInteger.ONE) != 0 && y.compareTo(n1) != 0) {
+        if(y.compareTo(ONE) != 0 && y.compareTo(n1) != 0) {
             var j:!intNumber = 1;
             while(j++ < k && y.compareTo(n1) != 0) {
                 y = y.modPowInt(2,this);
-                if(y.compareTo(BigInteger.ONE) == 0) return false;
+                if(y.compareTo(ONE) == 0) return false;
             }
             if(y.compareTo(n1) != 0) return false;
         }
@@ -1106,9 +1108,9 @@ BigInteger.prototype.millerRabin = function(t:!intNumber) {
 // Firefox (SM) gets 10% faster with am3/28 than with am4/26.
 
 var setupEngine = function(setup, bits) {
-    BigInteger.setup = setup;
-    BigInteger.ZERO = nbv(0);
-    BigInteger.ONE = nbv(1);
+    setup = setup;
+    ZERO = nbv(0);
+    ONE = nbv(1);
     // BigInteger.prototype.am = fn;
     dbits = bits;
 
@@ -1188,7 +1190,7 @@ Montgomery.prototype.convert = function(x) {
     var r = nbi();
     x.abs().dlShiftTo(this.m.t,r);
     r.divRemTo(this.m,null,r);
-    if(x.s < 0 && r.compareTo(BigInteger.ZERO) > 0) this.m.subTo(r,r);
+    if(x.s < 0 && r.compareTo(ZERO) > 0) this.m.subTo(r,r);
     return r;
 }
 
@@ -1238,7 +1240,7 @@ function Barrett(this: declare Barrett) {
     // setup Barrett
     this.r2 = nbi();
     this.q3 = nbi();
-    BigInteger.ONE.dlShiftTo(2*m.t,this.r2);
+    ONE.dlShiftTo(2*m.t,this.r2);
     this.mu = this.r2.divide(m);
 }
 
@@ -1509,21 +1511,21 @@ RSAKey.prototype.generate = function(B,E) {
     for(;;) {
         for(;;) {
             this.p = new BigInteger(B-qs,1,rng);
-            if(this.p.subtract(BigInteger.ONE).gcd(ee).compareTo(BigInteger.ONE) == 0 && this.p.isProbablePrime(10)) break;
+            if(this.p.subtract(ONE).gcd(ee).compareTo(ONE) == 0 && this.p.isProbablePrime(10)) break;
         }
         for(;;) {
             this.q = new BigInteger(qs,1,rng);
-            if(this.q.subtract(BigInteger.ONE).gcd(ee).compareTo(BigInteger.ONE) == 0 && this.q.isProbablePrime(10)) break;
+            if(this.q.subtract(ONE).gcd(ee).compareTo(ONE) == 0 && this.q.isProbablePrime(10)) break;
         }
         if(this.p.compareTo(this.q) <= 0) {
             var t = this.p;
             this.p = this.q;
             this.q = t;
         }
-        var p1 = this.p.subtract(BigInteger.ONE);
-        var q1 = this.q.subtract(BigInteger.ONE);
+        var p1 = this.p.subtract(ONE);
+        var q1 = this.q.subtract(ONE);
         var phi = p1.multiply(q1);
-        if(phi.gcd(ee).compareTo(BigInteger.ONE) == 0) {
+        if(phi.gcd(ee).compareTo(ONE) == 0) {
             this.n = this.p.multiply(this.q);
             this.d = ee.modInverse(phi);
             this.dmp1 = this.d.mod(p1);

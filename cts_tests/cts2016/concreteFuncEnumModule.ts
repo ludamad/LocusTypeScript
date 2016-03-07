@@ -8,4 +8,5 @@ function F() {}
 /* @assertType("!typeof C") */ C;
 /* @assertType("!typeof M") */ M;
 /* @assertType("!() => void") */ F;
+/* @assertType("!() => void") */ (function(){});
 

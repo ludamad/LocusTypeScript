@@ -429,12 +429,14 @@ namespace ts {
             identifier.text = "prototype";
             identifier.pos = 0; // Very wrong but needs to be nonzero range
             identifier.end = 1; 
+            identifier.parent = node;
             // Create decl:
             var decl = <DeclareTypeDeclaration>createNode(SyntaxKind.DeclareType);
             decl.pos = node.pos;
             decl.name = identifier;
             decl.enclosingDeclareSymbol = symbol;
             decl.end = node.end;
+            decl.parent = node;
             let prototypeSymbol = declareSymbol(symbol.exports, undefined, decl, SymbolFlags.Declare | SymbolFlags.Prototype | SymbolFlags.Property | SymbolFlags.ExportType, SymbolFlags.DeclareTypeExcludes); 
             bindPrototypeSymbol(node, symbol, prototypeSymbol);
         }

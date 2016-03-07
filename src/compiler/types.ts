@@ -574,7 +574,6 @@ namespace ts {
         assertInt?: boolean;          // If set, can assert that this value is always an int instead of generic number
         // Set in checker.ts
         resolvedType?:            Type;
-        ctsDowngradeToBaseClass?: boolean
         brandsToEmitAfterwards?:  DeclareTypeDeclaration[];
         brandsToEmitAtBeginning?: DeclareTypeDeclaration[]; // Special case for parameter-this
 //        protectionTempVars?: {[member:string]: {tempVarName: string, type: Type}};

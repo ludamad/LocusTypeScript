@@ -87,9 +87,10 @@ namespace ts {
         var symbols:SymbolTable =  (useExports? scope.symbol.exports : scope.locals) || {};
         var declarations:DeclareTypeDeclaration[] = [];
         for (var symbolName of Object.keys(symbols)) {
-            var brandType = <DeclareTypeDeclaration> getSymbolDecl(symbols[symbolName], SyntaxKind.BrandTypeDeclaration);
-            brandType = brandType || <DeclareTypeDeclaration> getSymbolDecl(symbols[symbolName], SyntaxKind.BrandTypeDeclaration);
+            var brandType = <DeclareTypeDeclaration> getSymbolDecl(symbols[symbolName], SyntaxKind.DeclareType);
+            brandType = brandType || <DeclareTypeDeclaration> getSymbolDecl(symbols[symbolName], SyntaxKind.DeclareTypeDeclaration);
             if (brandType) {
+                console.log("FOOOO");
                 declarations.push(brandType);
             }
         }

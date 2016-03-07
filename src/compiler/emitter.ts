@@ -2354,7 +2354,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 } else if (type.flags & TypeFlags.Number) {
                     write("Number");
                 } else if (type.symbol && type.symbol.flags & SymbolFlags.Declare) {
-                    write("$$cts$$runtime.brandTypes." + type.symbol.name);
+                    write("$$cts$$brand$$" + type.symbol.name);
                 } else if (type.flags & TypeFlags.Null) {
                     emitCtsRt("Null");
                 } else if (type.flags & TypeFlags.Undefined) {
@@ -2415,7 +2415,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         return write("Boolean");
                     case SyntaxKind.TypeReference:
                         if (type.resolvedType && type.resolvedType.flags & TypeFlags.Declare) {
-                            write("$$cts$$runtime.brandTypes.");
+                            write("$$cts$$brand$$");
                         }
                         return emitEntityName((<TypeReferenceNode>type).typeName);
                     default:
@@ -2716,7 +2716,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             // [ConcreteTypeScript]
             function emitDeclaredAsExpression(left: Expression, right: Expression) {
                 if (right.kind === SyntaxKind.Identifier) {
-                    write("$$cts$$runtime.brandTypes.");
+                    write("$$cts$$brand$$");
                     write((<Identifier>right).text);
                     write(".$$cts$$check(");
                     emit(left);
@@ -2794,7 +2794,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         if (brandProto) {
                             writeLine();
                             emitCtsRt("cast(");
-                            write("$$cts$$runtime.brandTypes.");
+                            write("$$cts$$brand$$");
                             write(brandTypeDecl.name.text);
                             write(".prototype, Object.getPrototypeOf(this));");
                         }
@@ -2807,7 +2807,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         if (brandProto) {
                             writeLine();
                             emitCtsRt("cast(");
-                            write("$$cts$$runtime.brandTypes.");
+                            write("$$cts$$brand$$");
                             write(brandTypeDecl.name.text);
                             write(".prototype, Object.getPrototypeOf(this));");
                         }
@@ -2818,12 +2818,12 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             function emitBrandObject(brand:DeclareTypeDeclaration) {
                 let brandName:Identifier = brand.name;
                 writeLine();
-                write("$$cts$$runtime.brandTypes.");
+                write("$$cts$$brand$$");
                 writeTextOfNode(currentSourceFile, brandName);
                 write(" = new $$cts$$runtime.Brand('"+ brandName.text + "');");
                 // Prototype brand object:
                 writeLine();
-                write("$$cts$$runtime.brandTypes.");
+                write("$$cts$$brand$$");
                 writeTextOfNode(currentSourceFile, brandName);
                 write(".prototype");
                 write(" = new $$cts$$runtime.Brand();")
@@ -2849,7 +2849,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 if (!block.locals) return;
                 for (let {type, name} of getBrandTypeDeclarations(block)) {
                     let brandName:Identifier = type.brandTypeDeclaration.name;
-                    write("$$cts$$runtime.brand($$cts$$runtime.brandTypes.");
+                    write("$$cts$$runtime.brand($$cts$$brand$$");
                     writeTextOfNode(currentSourceFile, brandName);
                     write(", ");
                     writeTextOfNode(currentSourceFile, name);
@@ -2862,7 +2862,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     if (brandProto) {
                         emitBranding(brandProto)
                         // let brandName:Identifier = brandProto.name;
-                        // write("$$cts$$runtime.brand($$cts$$runtime.brandTypes.");
+                        // write("$$cts$$runtime.brand($$cts$$brand$$");
                         // writeTextOfNode(currentSourceFile, brandName);
                         // write(", ");
                         // writeTextOfNode(currentSourceFile, name);
@@ -4568,7 +4568,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     // TODO probably obsolete
                     // // [ConcreteTypeScript]
                     // if (isFunctionLikeDeclarationWithThisBrand(node)) {
-                    //     emitCtsRt("cast($$cts$$runtime.brandTypes.");
+                    //     emitCtsRt("cast($$cts$$brand$$");
                     //     write(node.parameters.thisType.brandTypeDeclaration.name.text)
                     //     write(".prototype, Object.getPrototypeOf(this))")
                     //     
@@ -7498,24 +7498,24 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 let isBrandOfPrototypeObject:boolean = (brand.parent.kind === SyntaxKind.BrandTypeDeclaration);
                 if (isBrandOfPrototypeObject) {
                     writeLine();
-                    write("$$cts$$runtime.brand($$cts$$runtime.brandTypes.");
+                    write("$$cts$$runtime.brand($$cts$$brand$$");
                     writeTextOfNode(currentSourceFile, (<DeclareTypeDeclaration>brand.parent).name);
                     write(".prototype")
                     write(", ");
-                    throw new Error();
+//                    throw new Error();
                     //writeTextOfNode(currentSourceFile, (<DeclareTypeDeclaration>brand.parent).functionDeclaration.name);
                     write(".prototype);");
                 } else {
                     writeLine();
-                    write("$$cts$$runtime.brand($$cts$$runtime.brandTypes.");
+                    write("$$cts$$runtime.brand($$cts$$brand$$");
                     writeTextOfNode(currentSourceFile, brand.name);
                     write(", ");
-                    throw new Error();
+//                    throw new Error();
                     // writeTextOfNode(currentSourceFile, brand.varOrParamDeclaration.name);
                     write(");");
                     /*if (brand.varOrParamDeclaration.kind === SyntaxKind.ThisParameter) {
                         writeLine();
-                        write("$$cts$$runtime.brand($$cts$$runtime.brandTypes.");
+                        write("$$cts$$runtime.brand($$cts$$brand$$");
                         writeTextOfNode(currentSourceFile, brand.name);
                         write(".prototype, ");
                         writeTextOfNode(currentSourceFile, brand.varOrParamDeclaration.name);

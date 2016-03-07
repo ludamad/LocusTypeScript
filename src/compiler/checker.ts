@@ -4150,6 +4150,7 @@ namespace ts {
 
         // [ConcreteTypeScript]
         function isCurrentFlowAnalysisUntrustable(type: Type) {
+            return false;
             if (type.flowRecursivePairs) {
                 for (let pair of type.flowRecursivePairs) {
                     if (pair === type) {
@@ -4165,15 +4166,10 @@ namespace ts {
 
         // [ConcreteTypeScript]
         function markAsRecursiveFlowAnalysis(type: Type) {
-                return false;
             if (!(type.flags & TypeFlags.Declare)) {
                 return false;
             }
-
-            let prototypeSymbol = getPrototypeSymbolOfType(<InterfaceType>type);
-            let prototypeType = prototypeSymbol ? getTypeOfSymbol(prototypeSymbol) : null;;
-            if (flowDependentTypeStack.indexOf(type) >= 0 || flowDependentTypeStack.indexOf(prototypeType) >= 0) {
-                smartPrint(type, 'weee')
+            if (flowDependentTypeStack.indexOf(type) >= 0) {
                 // May be marked on self. Thats OK, but we dont do anything special.
                 markRecursiveTypeDependency(type, flowDependentTypeStack[0]);
                 markRecursiveTypeDependency(flowDependentTypeStack[0], type);
@@ -4874,7 +4870,6 @@ namespace ts {
 
         function getTypeFromDeclareTypeNode(node: DeclareTypeNode, declareType?: Type): Type {
             let links = getNodeLinks(node);
-
             if (!links.resolvedType) {
                 // Resolve like we resolve becomes-types:
                 let startingType = node.startingType ? getTypeFromTypeNode(node.startingType) : emptyObjectType;
@@ -7072,23 +7067,7 @@ namespace ts {
         }
         // Get the narrowed type of a given symbol at a given location
         function getNarrowedTypeOfSymbolWorker(symbol: Symbol, node: Node) {
-            // [/ConcreteTypeScript]
             let type = getTypeOfSymbol(symbol);
-            // [ConcreteTypeScript] Brand variable declarations evaluate to their subtype
-            // until the end of scope, or inside a return statement.
-            if (node.kind == SyntaxKind.Identifier && (node).ctsDowngradeToBaseClass) {
-                if (isConcreteType(type)) {
-                    type = (<InterfaceType>unconcrete(type)).resolvedBaseTypes[0];
-                    if (type) {
-                        type = createConcreteTypeIfCheckable(type);
-                    } else {
-                        type = emptyObjectType;
-                    }
-                } else {
-                    // Should never really happen:
-                    type = (<InterfaceType>type).resolvedBaseTypes[0];
-                }
-            }
             // Only narrow when symbol is variable of type any or an object, union, or type parameter type
             if (node && symbol.flags & SymbolFlags.Variable) {
                 if (isTypeAny(type) || type.flags & (TypeFlags.ObjectType | TypeFlags.Union | TypeFlags.TypeParameter)) {
@@ -15905,25 +15884,6 @@ namespace ts {
             return stripWeakConcreteType(type);
         }
 
-   //     // [ConcreteTypeScript]
-   //     // TODO Piggyback this system on contextual type instead ?
-   //     function getTypeOfFlowDependentNode(node:Node, intermediateFlowType: IntermediateFlowType): Type {
-   //         let {targetType} = intermediateFlowType;
-   //         let currentFlowData = getFlowDataAtLocation(node);
-   //         if (currentFlowData && flowDependentTypeHasPropertySuperset(startingType, currentFlowData, targetType)) {
-   //             return targetType;
-   //         } else if (currentFlowData) {
-   //             let becomeType = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
-   //             becomeType.targetType = targetType;
-   //             becomeType.flowData = currentFlowData;
-   //             return becomeType;
-   //         } else {
-   //             // If this node cannot take flow adjustments, strip:
-   //             // TODO reconsider this 
-   //             return startingType;
-   //         }
-   //     }
-       
         // [ConcreteTypeScript] 
         // Taking into account data-flow analysis, return the type and any augments.
         function getFlowTypeAtLocation(node: Node, type: Type) {
@@ -18035,7 +17995,6 @@ namespace ts {
                     }
                 });
             } else {
-                console.log((new Error() as any).stack);
                 (<ResolvedType><ObjectType>targetDeclareType).members = void 0; 
                 (<ResolvedType><ObjectType>targetDeclareType).properties = void 0;
                 (<ResolvedType><ObjectType>targetDeclareType).callSignatures = void 0;
@@ -18064,8 +18023,11 @@ namespace ts {
                 protectionQueue.push(({memberSet}) => {
                     let type = flowTypeGet(<any>getProperty(memberSet, member));
                     if (!isConcreteType(type)) {
+                        smartPrint(type, 'no biiind: Nonconcrete')
+                        smartPrint(member, 'no biiind: Nonconcrete')
                         return;
                     }
+                    let weaklyConcrete = isWeakConcreteType(type);
                     type = unconcrete(type);
                     let guardVariable = getTempProtectVar(containerScope, targetDeclareType, member);
                     let brandGuardVariable = getTempProtectVar(containerScope, targetDeclareType, '$$BRAND$$GUARD');
@@ -18083,9 +18045,10 @@ namespace ts {
                         return isIntermediateFlowTypeSubtypeOfTarget(type);
                     }
                     let bindingData = {
-                        left, member, right, type: (isWeakConcreteType(type) ? null : type), 
+                        left, member, right, type: (weaklyConcrete ? null : type), 
                         targetDeclareType, isTypeComplete, guardVariable, brandGuardVariable
                     };
+                    smartPrint(bindingData.member, 'biiind')
 
                     if (node.kind === SyntaxKind.ObjectLiteralExpression) {
                         node.ctsEmitData = node.ctsEmitData || {after: []};
@@ -18123,7 +18086,9 @@ namespace ts {
                         signature.resolvedThisType = thisType;
                     }
                 }
-                return createAnonymousType(undefined, emptySymbols, callSignatures, emptyArray, undefined, undefined);
+                // Function-like nodes are concrete:
+                let type = createAnonymousType(undefined, emptySymbols, callSignatures, emptyArray, undefined, undefined);
+                return createConcreteType(type, /*Weakly concrete*/ false);
             } else {
                 return getTypeOfNode(node);
             }
@@ -18235,6 +18200,7 @@ namespace ts {
                 let memberTarget = getTargetTypeForMember(member);
                 if (memberTarget) {
                     if (memberTarget === undefinedType) {
+                        smartPrint(member, 'scaaan')
                         // The type that we wish to become either does not have this member.
                         // We will allow the normal check* functions to error in this case.
                         return false;
