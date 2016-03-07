@@ -4165,6 +4165,7 @@ namespace ts {
 
         // [ConcreteTypeScript]
         function markAsRecursiveFlowAnalysis(type: Type) {
+                return false;
             if (!(type.flags & TypeFlags.Declare)) {
                 return false;
             }
@@ -17994,6 +17995,11 @@ namespace ts {
                 targetType = (<IntermediateFlowType>type).targetType;
                 if (unconcrete(targetType).flags & TypeFlags.Declare) {
                     targetDeclareType = <InterfaceType>unconcrete(targetType);
+                    let prototypeType = getPrototypeSymbolTypeOfType(targetDeclareType);
+                    if (prototypeType) {
+                        // Bug fix: Ensure we always resolve the prototype object first.
+                        getFlowDataForType(prototypeType);
+                    }
                     targetDeclareTypeNode = (<IntermediateFlowType>type).declareTypeNode;
                     produceDiagnostics = false;
                     flowDependentTypeStack.push(targetDeclareType);
@@ -18005,8 +18011,8 @@ namespace ts {
             forEachChildRecursive(containerScope, node => {
                 if (isReference(node)) {
                     // 'null is used as a sentinel to avoid recursion, as opposed to 'undefined' permitting analysis.
-                //    node.ctsFlowData = null;
-                //    node.ctsFinalFlowData = null;
+                    node.ctsFlowData = null;
+                    node.ctsFinalFlowData = null;
                 }
             });
             let protectionQueue = [];
@@ -18028,6 +18034,16 @@ namespace ts {
                         node.ctsFinalFlowData = finalFlowData;
                     }
                 });
+            } else {
+                console.log((new Error() as any).stack);
+                (<ResolvedType><ObjectType>targetDeclareType).members = void 0; 
+                (<ResolvedType><ObjectType>targetDeclareType).properties = void 0;
+                (<ResolvedType><ObjectType>targetDeclareType).callSignatures = void 0;
+                (<ResolvedType><ObjectType>targetDeclareType).constructSignatures = void 0;
+                (<ResolvedType><ObjectType>targetDeclareType).stringIndexType = void 0;
+                (<ResolvedType><ObjectType>targetDeclareType).numberIndexType = void 0;
+                targetDeclareType.resolvedBaseConstructorType = void 0;
+                targetDeclareType.resolvedBaseTypes = void 0;
             }
             // Remove ourselves from the list of resolving types:
             if (targetDeclareType) {

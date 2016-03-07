@@ -2076,8 +2076,6 @@ namespace ts {
         // Declare types are essentially an InterfaceType with TypeFlags.Declare
         // and potentially a computed flowData member (after resolution for implicit declare types)
         flowData?: FlowData;
-        // What other types constructed with a flow type do we rely on?
-        flowDependentTypes?: InterfaceType[];
 
         // [/ConcreteTypeScript]
     }
