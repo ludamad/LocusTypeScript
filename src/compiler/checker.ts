@@ -850,7 +850,6 @@ namespace ts {
          * requiring checks or float/int coercion, and mark the given node as
          * requiring those checks */
         function checkCtsCoercion(node: Node, fromType: Type, toType: Type) {
-            console.log(toType)
             /* If the target type is concrete and value type isn't, must check,
              * unless it's known null or undefined */
             if (isConcreteType(toType) && !isConcreteType(fromType) &&
@@ -4151,7 +4150,6 @@ namespace ts {
 
         // [ConcreteTypeScript]
         function isCurrentFlowAnalysisUntrustable(type: Type) {
-            return (flowDependentTypeStack.length >= 2);
             if (type.flowRecursivePairs) {
                 for (let pair of type.flowRecursivePairs) {
                     if (pair === type) {
@@ -4167,7 +4165,14 @@ namespace ts {
 
         // [ConcreteTypeScript]
         function markAsRecursiveFlowAnalysis(type: Type) {
-            if (flowDependentTypeStack.indexOf(type) >= 0) {
+            if (!(type.flags & TypeFlags.Declare)) {
+                return false;
+            }
+
+            let prototypeSymbol = getPrototypeSymbolOfType(<InterfaceType>type);
+            let prototypeType = prototypeSymbol ? getTypeOfSymbol(prototypeSymbol) : null;;
+            if (flowDependentTypeStack.indexOf(type) >= 0 || flowDependentTypeStack.indexOf(prototypeType) >= 0) {
+                smartPrint(type, 'weee')
                 // May be marked on self. Thats OK, but we dont do anything special.
                 markRecursiveTypeDependency(type, flowDependentTypeStack[0]);
                 markRecursiveTypeDependency(flowDependentTypeStack[0], type);
@@ -15922,9 +15927,14 @@ namespace ts {
         // Taking into account data-flow analysis, return the type and any augments.
         function getFlowTypeAtLocation(node: Node, type: Type) {
             // If we resolved as an intermediate type node, update with location information:
-            let currentFlowData:FlowData = getFlowDataAtLocation(node, type);
-
-            if (currentFlowData && type.flags & TypeFlags.IntermediateFlow) {
+//            let currentFlowData:FlowData = getFlowDataAtLocation(node, type);
+//          if (currentFlowData && type.flags & TypeFlags.IntermediateFlow) {
+           // TODO: For now, don't support becomes on arbitrary values for perf. reasons
+           if (type.flags & TypeFlags.IntermediateFlow) {
+                let currentFlowData:FlowData = getFlowDataAtLocation(node, type);
+                if (!currentFlowData) {
+                    return type;
+                }
                 let intermediateFlowType = <IntermediateFlowType> createObjectType(TypeFlags.IntermediateFlow);
                 intermediateFlowType.targetType = (<IntermediateFlowType> type).targetType;
                 intermediateFlowType.declareTypeNode = (<IntermediateFlowType> type).declareTypeNode;
@@ -15932,9 +15942,9 @@ namespace ts {
                 intermediateFlowType.flowData = currentFlowData;
                 intermediateFlowType.declareTypeNode = (<IntermediateFlowType> type).declareTypeNode;
                 return intermediateFlowType;
-            } else if (currentFlowData) {
+//            } else if (currentFlowData) {
                 // We are just here to collect 'becomes' declarations.
-                return flowDataFormalType(currentFlowData);
+//                return flowDataFormalType(currentFlowData);
             } else {
                 return type;
             }
@@ -18021,7 +18031,8 @@ namespace ts {
             }
             // Remove ourselves from the list of resolving types:
             if (targetDeclareType) {
-                if (!flowDependentTypeStack.pop()) {
+                flowDependentTypeStack.pop();
+                if (flowDependentTypeStack.length === 0) {
                     produceDiagnostics = true; 
                 }
             }
@@ -18140,17 +18151,20 @@ namespace ts {
             function scanCallExpression(node: CallExpression) {
                 // Make sure to visit the constituent nodes, they will need flow data as well:
                 prev = recurse(node.expression, prev);
+                let couldBeBecomes = false;
                 for (let argument of node.arguments) {
-                    prev = recurse(argument, prev);
+                    if (isReference(argument)) {
+                        couldBeBecomes = true;
+                    } else {
+                        prev = recurse(argument, prev);
+                    }
                 }
-                switch (node.expression.kind) {
-                    case SyntaxKind.TypeAssertionExpression:
-                    case SyntaxKind.AsExpression:
-                        var exprType = getTypeOfNode(((node.expression as Node) as AssertionExpression).type);
-                        break;
-                    default:
-                        var exprType = getTypeOfNode(node.expression);
+                // TODO proper fix to recursive call problem
+                if (!couldBeBecomes) {
+                    return; // Avoid further analysis
                 }
+
+                let exprType = getTypeOfNode(node.expression);
                 let callSignatures = getSignaturesOfType(getApparentType(exprType), SignatureKind.Call);
                 // TODO Work-around for circular logic with getResolvedSignature
                 if (callSignatures.length !== 1) {
