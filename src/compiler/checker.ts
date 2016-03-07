@@ -3140,6 +3140,9 @@ namespace ts {
         function getBaseTypes(type: InterfaceType): ObjectType[] {
             // [ConcreteTypeScript]
             type = <InterfaceType> unconcrete(type);
+            if (markAsRecursiveFlowAnalysis(type)) {
+                return emptyArray;
+            }
             // [/ConcreteTypeScript]
             if (!type.resolvedBaseTypes) {
                 // [ConcreteTypeScript]
@@ -3162,7 +3165,6 @@ namespace ts {
 
         // [ConcreteTypeScript]
         function resolveBaseTypesOfDeclare(type: InterfaceType) {
-            console.log("Watt")
             type.resolvedBaseTypes = [];
             let brandInterfaceDeclaration = <DeclareTypeDeclaration> getSymbolDecl(type.symbol, SyntaxKind.DeclareTypeDeclaration);
             let declareTypeDeclaration = <DeclareTypeNode> getSymbolDecl(type.symbol, SyntaxKind.DeclareType)
@@ -3194,7 +3196,6 @@ namespace ts {
             }
 
             let flowData = getFlowDataForType(type);
-            console.log(flowData)
             if (flowData) {
                 let {flowTypes} = flowData;
                 let minimalFlowTypes = getMinimalTypeList(flowTypes.map(ft => ft.type));
@@ -3475,6 +3476,9 @@ namespace ts {
         // [ConcreteTypeScript] 
         function getFlowDataForType(type: Type): FlowData {
             type = unconcrete(type);
+            if (markAsRecursiveFlowAnalysis(type)) {
+                return undefined;
+            }
             if (type.flags & TypeFlags.IntermediateFlow) {
                 return (<IntermediateFlowType> type).flowData;
             }
@@ -3493,6 +3497,10 @@ namespace ts {
 
         // [ConcreteTypeScript] Handles TypeFlags.Declare too
         function resolveClassOrInterfaceMembers(type: InterfaceType): void {
+            if (markAsRecursiveFlowAnalysis(type)) {
+                return undefined;
+            }
+ 
             let target = resolveDeclaredMembers(type);
             let members = target.symbol.members;
             let callSignatures = target.declaredCallSignatures;
@@ -3534,7 +3542,7 @@ namespace ts {
                 for (let key of Object.keys(flowData.memberSet)) {
                     let flowTypes = getProperty(flowData.memberSet, key).flowTypes;
                     let symbol = createSymbol(SymbolFlags.Property, key);
-                    symbol.declarations = [<Declaration>createSynthesizedNode(SyntaxKind.BrandTypeDeclaration)];
+                    symbol.declarations = [<Declaration>createSynthesizedNode(SyntaxKind.BrandPropertyDeclaration)];
                     let typesToUnion = flowTypes.map(({type}) => type);
                     getSymbolLinks(symbol).type = getUnionType(typesToUnion);
                     if (getProperty(members,key)) {
@@ -3843,13 +3851,16 @@ namespace ts {
             // concrete types are the properties of their non-concrete
             // equivalent
             type = unconcrete(type);
+
+            if (markAsRecursiveFlowAnalysis(type)) {
+                return emptyArray;
+            }
             // [/ConcreteTypeScript]
             if (type.flags & TypeFlags.ObjectType) {
                 return resolveStructuredTypeMembers(<ObjectType>type).properties;
             }
             return emptyArray;
         }
-
         // If the given type is an object type and that type has a property by the given name,
         // return the symbol for that property.Otherwise return undefined.
         function getPropertyOfObjectType(type: Type, name: string): Symbol {
@@ -4034,10 +4045,20 @@ namespace ts {
         // necessary, maps primitive types and type parameters are to their apparent types, and augments with properties from
         // Object and Function as appropriate.
         function getPropertyOfType(type: Type, name: string): Symbol {
-            // [ConcreteTypeScript] In terms of member access, properties of
+
+            // [ConcreteTypeScript] 
+            // In terms of member access, properties of
             // concrete types are the properties of their non-concrete
             // equivalent
             type = getApparentType(unconcrete(type));
+
+            // [ConcreteTypeScript] 
+            // If we are a type currently being resolved, don't attempt to get a property
+            if (markAsRecursiveFlowAnalysis(type)) {
+                return undefined;
+            }
+            // [/ConcreteTypeScript]
+
             if (type.flags & TypeFlags.IntermediateFlow) {
                 return getPropertyOfIntermediateFlowType(<IntermediateFlowType>type, name);
             }
@@ -4085,6 +4106,11 @@ namespace ts {
             // Signatures of a concrete type are that of the base type.
             // This applies most importantly to weakly concrete function declarations.
             type = unconcrete(type);
+
+            // [ConcreteTypeScript] Handle recursive type resolution by having type appear to be empty during recursive inspection.
+            if (markAsRecursiveFlowAnalysis(type)) {
+                return emptyArray;
+            }
             // [/ConcreteTypeScript]
             return getSignaturesOfStructuredType(getApparentType(type), kind);
         }
@@ -4114,9 +4140,50 @@ namespace ts {
             }
         }
 
+        // [ConcreteTypeScript]
+        function markRecursiveTypeDependency(type1: Type, type2: Type) {
+            if (!type1.flowRecursivePairs) {
+                type1.flowRecursivePairs = [type2];
+            } else if (type1.flowRecursivePairs.indexOf(type2) === -1) {
+                type1.flowRecursivePairs.push(type2);
+            }
+        }
+
+        // [ConcreteTypeScript]
+        function isCurrentFlowAnalysisUntrustable(type: Type) {
+            return (flowDependentTypeStack.length >= 2);
+            if (type.flowRecursivePairs) {
+                for (let pair of type.flowRecursivePairs) {
+                    if (pair === type) {
+                        continue;
+                    }
+                    if (flowDependentTypeStack.indexOf(pair) >= 0) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        // [ConcreteTypeScript]
+        function markAsRecursiveFlowAnalysis(type: Type) {
+            if (flowDependentTypeStack.indexOf(type) >= 0) {
+                // May be marked on self. Thats OK, but we dont do anything special.
+                markRecursiveTypeDependency(type, flowDependentTypeStack[0]);
+                markRecursiveTypeDependency(flowDependentTypeStack[0], type);
+                return true;
+            }
+            return false;
+        }
+
         // Return the index type of the given kind in the given type. Creates synthetic union index types when necessary and
         // maps primitive types and type parameters are to their apparent types.
         function getIndexTypeOfType(type: Type, kind: IndexKind): Type {
+            // [ConcreteTypeScript] Handle recursive type resolution by having type appear to be empty during recursive inspection.
+            if (markAsRecursiveFlowAnalysis(type)) {
+                return undefinedType;
+            }
+            // [/ConcreteTypeScript]
             return getIndexTypeOfStructuredType(getApparentType(type), kind);
         }
 
@@ -10813,8 +10880,6 @@ namespace ts {
 
         function checkArithmeticOperandType(operand: Node, type: Type, diagnostic: DiagnosticMessage): boolean {
             if (!isTypeAnyOrAllConstituentTypesHaveKind(type, TypeFlags.NumberLike)) {
-                console.log(typeToString(type));
-
                 error(operand, diagnostic);
                 return false;
             }
@@ -15729,6 +15794,10 @@ namespace ts {
                 let {flowData} = type;
                 let target = unconcrete(type.targetType);
                 let finalFlowData = getFlowDataForType(target);
+                if (!finalFlowData) {
+                    // Recursive case; assume true.
+                    return true;
+                }
                 for (let i = 0; i < finalFlowData.flowTypes.length; i++) {
                     let hasOne = false;
                     for (let j = 0; j < flowData.flowTypes.length; j++) {
@@ -17867,7 +17936,7 @@ namespace ts {
             if (!type.flowData) {
                 var [containerScope, identifier] = getScopeContainerAndIdentifierForDeclareType(type);
                 // Placeholder:
-                type.flowData = {memberSet: {}, flowTypes: []};
+//                type.flowData = {memberSet: {}, flowTypes: []};
                 if (containerScope) {
                     // Remove any previously cached value?
                     (<ResolvedType><ObjectType>type).members = null; 
@@ -17911,12 +17980,13 @@ namespace ts {
             let targetType:Type = null;
             // Get the type, be careful not to trigger a loop:
             if (type.flags & TypeFlags.IntermediateFlow) {
-                flowDependentTypeStack.push(type);
                 var flowData:FlowData = (<IntermediateFlowType>type).flowData;
                 targetType = (<IntermediateFlowType>type).targetType;
                 if (unconcrete(targetType).flags & TypeFlags.Declare) {
                     targetDeclareType = <InterfaceType>unconcrete(targetType);
                     targetDeclareTypeNode = (<IntermediateFlowType>type).declareTypeNode;
+                    produceDiagnostics = false;
+                    flowDependentTypeStack.push(targetDeclareType);
                 }
             } else {
                 var flowData:FlowData = {flowTypes: [{type, firstBindingSite: containerScope}], memberSet: {}};
@@ -17925,8 +17995,8 @@ namespace ts {
             forEachChildRecursive(containerScope, node => {
                 if (isReference(node)) {
                     // 'null is used as a sentinel to avoid recursion, as opposed to 'undefined' permitting analysis.
-                    node.ctsFlowData = null;
-                    node.ctsFinalFlowData = null;
+                //    node.ctsFlowData = null;
+                //    node.ctsFinalFlowData = null;
                 }
             });
             let protectionQueue = [];
@@ -17941,20 +18011,24 @@ namespace ts {
                 /*Current node in recursive scan: */ containerScope,
                 /*Current flow-data: */ flowData, 
                 /*Original flow-data: */ flowData
-            );
-            forEachChildRecursive(containerScope, node => {
-                if (isReference(node)) {
-                    node.ctsFinalFlowData = finalFlowData;
-                }
-            });
+            ); 
+            if (!targetDeclareType || !isCurrentFlowAnalysisUntrustable(targetDeclareType)) {
+                forEachChildRecursive(containerScope, node => {
+                    if (isReference(node)) {
+                        node.ctsFinalFlowData = finalFlowData;
+                    }
+                });
+            }
             // Remove ourselves from the list of resolving types:
-            if (type.flags & TypeFlags.IntermediateFlow) {
-                flowDependentTypeStack.pop();
-            }
-            for (let protect of protectionQueue) {
-                protect(finalFlowData);
-            }
             if (targetDeclareType) {
+                if (!flowDependentTypeStack.pop()) {
+                    produceDiagnostics = true; 
+                }
+            }
+            if (targetDeclareType && !isCurrentFlowAnalysisUntrustable(targetDeclareType)) {
+                for (let protect of protectionQueue) {
+                    protect(finalFlowData);
+                }
                 targetDeclareType.flowData = finalFlowData;
             }
             return;
@@ -18069,7 +18143,14 @@ namespace ts {
                 for (let argument of node.arguments) {
                     prev = recurse(argument, prev);
                 }
-                let exprType = getTypeOfNode(node.expression);
+                switch (node.expression.kind) {
+                    case SyntaxKind.TypeAssertionExpression:
+                    case SyntaxKind.AsExpression:
+                        var exprType = getTypeOfNode(((node.expression as Node) as AssertionExpression).type);
+                        break;
+                    default:
+                        var exprType = getTypeOfNode(node.expression);
+                }
                 let callSignatures = getSignaturesOfType(getApparentType(exprType), SignatureKind.Call);
                 // TODO Work-around for circular logic with getResolvedSignature
                 if (callSignatures.length !== 1) {

@@ -2044,6 +2044,7 @@ namespace ts {
         pattern?: DestructuringPattern;  // Destructuring pattern represented by type (if any)
         concreteType?: ConcreteType;
         prototypeDeclareType?: Type; // [ConcreteTypeScript] Convenience field for .prototype declare types
+        flowRecursivePairs?: Type[];   // [ConcreteTypeScript] Recursively defined Declare types
     }
 
     /* @internal */
