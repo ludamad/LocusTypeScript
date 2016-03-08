@@ -17886,7 +17886,7 @@ namespace ts {
             return scope.tempVarsToEmit[(prefix + "." + name)] || (scope.tempVarsToEmit[(prefix + "." + name)] = "cts$$temp$$" + (prefix + '_' + name) + "$$" + scope.nextTempVar++);
         }
 
-        function getTempTypeVar(scope: Node, type: Type, member: string) {
+        function getTempTypeVar(scope: Node, type: Type) {
             let {id} = type;
             return getTempVar(scope, 'types', `${id}`);
         }
@@ -18060,10 +18060,9 @@ namespace ts {
                     }
                     let bindingData = {
                         left, member, right, type: (isWeakConcreteType(type) ? null : type), 
-                        targetDeclareType, isTypeComplete, guardVariable, brandGuardVariable
+                        targetDeclareType, isTypeComplete, guardVariable, brandGuardVariable,
+                        typeVar: getTempTypeVar(containerScope, type)
                     }
-                    smartPrint(type, 'biiind')
-                    smartPrint(bindingData.member, 'biiind')
 
                     if (node.kind === SyntaxKind.ObjectLiteralExpression) {
                         node.ctsEmitData = node.ctsEmitData || {after: []};
@@ -18215,8 +18214,6 @@ namespace ts {
                 let memberTarget = getTargetTypeForMember(member);
                 if (memberTarget) {
                     if (memberTarget === undefinedType) {
-                        smartPrint(member, 'scaaan')
-                        smartPrint(flowType.type, 'type')
                         // The type that we wish to become either does not have this member.
                         // We will allow the normal check* functions to error in this case.
                         return false;

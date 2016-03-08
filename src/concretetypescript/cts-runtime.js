@@ -280,8 +280,6 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             this.protectAssignment(false, type, name, prototype, value);
         });
 
-        cement(this, "protectProtoAssignmentThenBrand", function(disabled, type, protoCheckType, name, obj, value) {
-        });
         function Brand(brandName) {
             this.brandName = brandName;
         }
@@ -289,6 +287,7 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         cement(Brand, "prototype", Brand.prototype);
         cement(Brand, "toString", function() {return this.brandName;});
         cement(Brand.prototype, "$$cts$$check", function(obj) {
+            return true;
             if (typeof obj !== "object" || typeof obj.$$cts$$brands === "undefined") {
                 return false;
             }

@@ -7529,7 +7529,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 }
                 for (let member of Object.keys(node.tempVarsToEmit)) {
                     let tempVarName = node.tempVarsToEmit[member];
-                    write(`var ${tempVarName} = 0;`);
+                    if (tempVarName.indexOf("cts$$temp$$") === 0) {
+                        write(`var ${tempVarName};`);
+                    } else {
+                        write(`var ${tempVarName} = 0;`);
+                    }
                     writeLine();
                 }
             }
@@ -7548,12 +7552,12 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 node.ctsEmitData.after.forEach(emitProtectionAssignment);
                 return true;
             }
-            function emitProtectionAssignment({left, member, right, targetDeclareType, type, isTypeComplete, guardVariable, brandGuardVariable} : BindingData) {
+            function emitProtectionAssignment({left, member, right, targetDeclareType, type, isTypeComplete, guardVariable, brandGuardVariable, typeVar} : BindingData) {
                 let shouldEmitBranding = isTypeComplete();
                 if (shouldEmitBranding) { 
                     emitCtsRt("brandAndForward("); 
                     write(`${brandGuardVariable}++, `);
-                    emitCtsType(targetDeclareType); write(", "); 
+                    emitProtectionType(targetDeclareType); write(", "); 
                     emit(left); write(", ");
                 }
                 // If type is null will result in a cement instead of protection
@@ -7561,14 +7565,14 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     // This is a type representing a a Declare type .prototype object.
                     emitCtsRt("protectProtoAssignment("); 
                     write(guardVariable + "++, "); 
-                    emitCtsType(type); write(", "); 
+                    emitProtectionType(type); write(", "); 
                     let extendedDeclareOrClass = getClassOrDeclareBaseType(left.checker, <InterfaceType> targetDeclareType);
-                    emitCtsType(extendedDeclareOrClass); write(", ");
+                    emitProtectionType(extendedDeclareOrClass); write(", ");
                     write("'"); write(member); write("', "); emit((left as any).expression); write(", "); 
                 } else {
                     emitCtsRt("protectAssignment("); 
                     write(guardVariable + "++, "); 
-                    emitCtsType(type); write(", "); 
+                    emitProtectionType(type); write(", "); 
                     write("'"); write(member); write("', "); emit(left); write(", "); 
                 }
                 if (right) {
@@ -7580,6 +7584,17 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 write(")");
                 if (shouldEmitBranding) { 
                     write(")");
+                }
+                return;
+                // Where:
+                function emitProtectionType(type: Type) {
+                    if (type && type.flags & (TypeFlags.Union | TypeFlags.Intersection)) {
+                        write(`${typeVar} === void 0 ? ${typeVar} = `);
+                        emitCtsType(type);
+                        write(`: ${typeVar}`);
+                    } else {
+                        emitCtsType(type);
+                    }
                 }
             }
             // [/ConcreteTypeScript]

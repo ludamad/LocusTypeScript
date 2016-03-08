@@ -530,6 +530,7 @@ namespace ts {
         isTypeComplete: () => boolean;
         guardVariable: string; // Automatically generated
         brandGuardVariable: string; // Automatically generated
+        typeVar: string;
     }
 
     export interface EmitData {
@@ -576,8 +577,6 @@ namespace ts {
         resolvedType?:            Type;
         brandsToEmitAfterwards?:  DeclareTypeDeclaration[];
         brandsToEmitAtBeginning?: DeclareTypeDeclaration[]; // Special case for parameter-this
-//        protectionTempVars?: {[member:string]: {tempVarName: string, type: Type}};
-//        protectionFields?: {[member:string]: {tempVarName: string, expr: Node, type: Type}};
         // If 'getter' and 'setter' are not present, the field protection is emitted using 'cement', otherwise it is emitted using 'protectAssignment'
         brandProtectionsToEmit?: {getter?: string, setter?: string, expr: Node, field: string}[];
         nextTempVar? : number; // Used to create the temporary variable names above.
