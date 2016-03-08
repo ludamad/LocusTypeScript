@@ -30,8 +30,10 @@
  */
 
 function main() {
-    encrypt(); 
-    decrypt(); 
+    for (var i = 0; i< 1000; i++) {
+        encrypt(); 
+        decrypt(); 
+    }
 }
 
 // Bits per digit
@@ -1382,7 +1384,7 @@ function rng_get_bytes(ba) {
 
 function SecureRandom(this: declare SecureRandom) {
 }
-SecureRandom.nextBytes = function (ba) { 
+SecureRandom.prototype.nextBytes = function (ba) { 
     return rng_get_bytes(ba); 
 }
 

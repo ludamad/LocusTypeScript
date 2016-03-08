@@ -2346,6 +2346,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
 
             // Emitter for a type, as part of casting/protection/etc
             function emitCtsType(type: Type) {
+                console.log(type);
                 if (type == null) {
                     write("null");
                 } else if (type.flags & TypeFlags.String ||
@@ -2381,6 +2382,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         if (i !== types.length - 1) write(", ");
                     }
                     write("))");
+                } else if (type.flags & TypeFlags.Concrete) {
+                    emitCtsType((type as ConcreteType).baseType);
                 } else if (type.flags & TypeFlags.Boolean) {
                     write("Boolean");
                 } else if (type.symbol) {
@@ -2822,29 +2825,21 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             function emitBrandObject(brand:DeclareTypeDeclaration) {
                 let brandName:Identifier = brand.name;
                 writeLine();
-                write("var $$cts$$brand$$");
-                writeTextOfNode(currentSourceFile, brandName);
-                write(" = new $$cts$$runtime.Brand('"+ brandName.text + "');");
+                write(`var $$cts$$brand$$${brandName.text} = new $$cts$$runtime.Brand("${brandName.text}");`);
                 // Prototype brand object:
                 writeLine();
-                write("$$cts$$brand$$");
-                writeTextOfNode(currentSourceFile, brandName);
-                write(".prototype");
-                write(" = new $$cts$$runtime.Brand();")
+                write(`$$cts$$brand$$${brandName.text}.prototype = new $$cts$$runtime.Brand("${brandName.text}.prototype");`);
                 writeLine();
                 emitDeclarationCement(brand);
             }
             // [ConcreteTypeScript]
             function emitBrandTypesAtBlockStart(block:Node) {
-                let brandTypes = getBrandTypesInScope(block);
-                if (brandTypes.length > 0) {
-                    write("var $$cts$$brandTypes = {};"); writeLine();
+                if (isFunctionLike(block)) {
+                    return; // We don't emit brand objects inside functions.
                 }
+                let brandTypes = getBrandTypesInScope(block);
                 for (let brand of brandTypes) {
                     emitBrandObject(brand);
-                }
-                for (let brand of block.brandsToEmitAtBeginning || []) {
-                    emitBranding(brand);
                 }
             }
 

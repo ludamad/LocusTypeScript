@@ -4917,7 +4917,22 @@ namespace ts {
             return false;
         }
 
+        // [ConcreteTypeScript] 
+        function getConcreteTypeOfKind(types: Type[], flags: TypeFlags): Type {
+            for (let type of types) {
+                if (isConcreteType(type) && unconcrete(type).flags & flags) {
+                    return type;
+                }
+            }
+            return null;
+        }
         function removeSubtypes(types: Type[]) {
+            // [ConcreteTypeScript] 
+            // We never remove concrete undefined / null types as subtypes. 
+            // They would not be a useful concept if we did.
+            let concreteUndefinedType = getConcreteTypeOfKind(types, TypeFlags.Undefined);
+            let concreteNullType = getConcreteTypeOfKind(types, TypeFlags.Null);
+            // [/ConcreteTypeScript]
             let i = types.length;
             while (i > 0) {
                 i--;
@@ -4925,6 +4940,14 @@ namespace ts {
                     types.splice(i, 1);
                 }
             }
+            // [ConcreteTypeScript] 
+            if (concreteUndefinedType) {
+                addTypeToSet(types, concreteUndefinedType, TypeFlags.Union);
+            }
+            if (concreteNullType) {
+                addTypeToSet(types, concreteNullType, TypeFlags.Union);
+            }
+            // [/ConcreteTypeScript]
         }
 
         function containsTypeAny(types: Type[]): boolean {
@@ -4970,7 +4993,7 @@ namespace ts {
         // literals and the || and ?: operators). Named types can circularly reference themselves and therefore
         // cannot be deduplicated during their declaration. For example, "type Item = string | (() => Item" is
         // a named type that circularly references itself.
-        function getUnionType(types: Type[], noSubtypeReduction?: boolean, noNullOrUndefinedReduction?: boolean): Type {
+        function getUnionType(types: Type[], noSubtypeReduction?: boolean): Type {
             if (types.length === 0) {
                 return emptyObjectType;
             }
@@ -4982,15 +5005,7 @@ namespace ts {
             if (containsTypeAny(typeSet)) {
                 return anyType;
             }
-            if (noSubtypeReduction) {
-                if (!noNullOrUndefinedReduction) {
-                    removeAllButLast(typeSet, undefinedType);
-                    removeAllButLast(typeSet, nullType);
-                }
-            }
-            else {
-                Debug.assert(!noNullOrUndefinedReduction);
-
+            if (!noSubtypeReduction) {
                 removeSubtypes(typeSet);
             }
             if (typeSet.length === 1) {
@@ -5009,7 +5024,7 @@ namespace ts {
                     // Make sure we have our baseType set
                     // so that we can access it in emit code:
                     let strippedTypes = map(type.types, (concreteType) => unconcrete(concreteType));
-                    let baseType = (<any>type).baseType = getUnionType(strippedTypes, true, /*Don't collapse !null|!string: */ true);
+                    let baseType = (<any>type).baseType = getUnionType(strippedTypes, true);
 
                     // We cast our UnionType into a concrete type,
                     // since we have set 'baseType' on it above.
@@ -17860,7 +17875,7 @@ namespace ts {
         function getTempProtectVar(scope: Node, type: Type, member: string) {
             let text = 'anonymous';
             if (getDeclareTypeName(type)) {
-                text = getDeclareTypeName(type).text;
+                text = `${getDeclareTypeName(type).text}_${type.id}`;
             }
             return getTempVar(scope, text, member);
         }
@@ -18028,8 +18043,6 @@ namespace ts {
                         smartPrint(member, 'no biiind: Nonconcrete')
                         return;
                     }
-                    let weaklyConcrete = isWeakConcreteType(type);
-                    type = unconcrete(type);
                     let guardVariable = getTempProtectVar(containerScope, targetDeclareType, member);
                     let brandGuardVariable = getTempProtectVar(containerScope, targetDeclareType, '$$BRAND$$GUARD');
                     // Creating closures is not ideal for performance but we cannot reason about the targetDeclareType
@@ -18046,9 +18059,10 @@ namespace ts {
                         return isIntermediateFlowTypeSubtypeOfTarget(type);
                     }
                     let bindingData = {
-                        left, member, right, type: (weaklyConcrete ? null : type), 
+                        left, member, right, type: (isWeakConcreteType(type) ? null : type), 
                         targetDeclareType, isTypeComplete, guardVariable, brandGuardVariable
-                    };
+                    }
+                    smartPrint(type, 'biiind')
                     smartPrint(bindingData.member, 'biiind')
 
                     if (node.kind === SyntaxKind.ObjectLiteralExpression) {
@@ -18202,6 +18216,7 @@ namespace ts {
                 if (memberTarget) {
                     if (memberTarget === undefinedType) {
                         smartPrint(member, 'scaaan')
+                        smartPrint(flowType.type, 'type')
                         // The type that we wish to become either does not have this member.
                         // We will allow the normal check* functions to error in this case.
                         return false;

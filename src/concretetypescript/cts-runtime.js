@@ -239,7 +239,7 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             }
             if (type === null) {
                 // Allowing undefined is a bit dangerous. We will use 'null' as our special 'cement instead' sentinel.
-                cement(obj, name, value);
+                cement(obj, name, value, /*Enumerable*/ true);
                 return value;
             }
             var existingSetter = getSetter(obj, name);
@@ -265,18 +265,19 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         });
 
         cement(this, "protectProtoAssignment", function(disabled, type, protoCheckType, name, obj, value) {
+
             if (disabled) {
                 return value;
             }
+            var prototype = obj.prototype;
             if (!hasProperty(obj, "$$cts$$prototypeFrozen")) {
                 addUnenum(obj,"$$cts$$prototypeFrozen", true);
-                var prototype = obj.prototype;
                 if (protoCheckType !== null) {
                     cast(protoCheckType, prototype);
                 }
                 cement(obj, "prototype", prototype);
             }
-            this.protectAssignment(false, type, name, obj.prototype, value);
+            this.protectAssignment(false, type, name, prototype, value);
         });
 
         cement(this, "protectProtoAssignmentThenBrand", function(disabled, type, protoCheckType, name, obj, value) {
