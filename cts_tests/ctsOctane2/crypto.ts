@@ -109,8 +109,8 @@ function BigInteger(this: declare BigInteger;
     else this.fromString(a,b);
 }
 
-var ZERO = null;
-var ONE = null;
+var ZERO:!BigInteger = new BigInteger();
+var ONE:!BigInteger = new BigInteger();
 
 // Basic JavaScript BN library - subset useful for RSA encryption.
 // am: Compute w_j += (x*this_i), propagate carries,
@@ -126,7 +126,7 @@ BigInteger.prototype.am1 = function(i:!number,x:!number,w,j:!number,c:!number,n:
     var w_array    = w.array;
     while(--n >= 0) {
         var v = x*this_array[i++]+w_array[j]+c;
-        c = <!number> Math.floor(v/0x4000000);
+        c = +Math.floor(v/0x4000000);
         w_array[j++] = v&0x3ffffff;
     }
     return c;
@@ -493,7 +493,7 @@ BigInteger.prototype.divRemTo = function(m,q,r) { //NS: needs to be public
     while(y.t < ys) y_array[y.t++] = 0;
     while(--j >= 0) {
         // Estimate quotient digit
-        var qd = <!number> ((r_array[--i]==y0)?BI_DM:Math.floor(r_array[i]*d1+(r_array[i-1]+e)*d2));
+        var qd = +((r_array[--i]==y0)?BI_DM:Math.floor(r_array[i]*d1+(r_array[i-1]+e)*d2));
         if((r_array[i]+=y.am(0,qd,r,j,0,ys)) < qd) {	// Try it out
             y.dlShiftTo(j,t);
             r.subTo(t,r);
@@ -605,7 +605,7 @@ BigInteger.prototype.shortValue = function() {
 }
 
 // (protected) return x s.t. r^x < DV
-BigInteger.prototype.chunkSize = function(r) { return <!number> Math.floor(Math.LN2*BI_DB/Math.log(r)); }
+BigInteger.prototype.chunkSize = function(r) { return +Math.floor(Math.LN2*BI_DB/Math.log(r)); }
 
 // (public) 0 if this == 0, 1 if this > 0
 BigInteger.prototype.signum = function() {
@@ -620,7 +620,7 @@ BigInteger.prototype.toRadix = function(b:!number) {
     if(b == null) b = 10;
     if(this.signum() == 0 || b < 2 || b > 36) return "0";
     var cs = this.chunkSize(b);
-    var a = <!number> Math.pow(b,cs);
+    var a = +Math.pow(b,cs);
     var d = nbv(a), y = nbi(), z = nbi(), r = "";
     this.divRemTo(d,y,z);
     while(y.signum() > 0) {
@@ -635,7 +635,7 @@ BigInteger.prototype.fromRadix = function(s,b:!number) {
     this.fromInt(0);
     if(b == null) b = 10;
     var cs:!number = this.chunkSize(b);
-    var d = <!number> Math.pow(b,cs), mi = false, j:!number = 0, w:!number = 0;
+    var d = +Math.pow(b,cs), mi = false, j:!number = 0, w:!number = 0;
     for(var i:!number = 0; i < s.length; ++i) {
         var x = intAt(s,i);
         if(x < 0) {
@@ -644,14 +644,14 @@ BigInteger.prototype.fromRadix = function(s,b:!number) {
         }
         w = b*w+x;
         if(++j >= cs) {
-            this.dMultiply(<!number> d);
+            this.dMultiply(+d);
             this.dAddOffset(w,0);
             j = 0;
             w = 0;
         }
     }
     if(j > 0) {
-        this.dMultiply(<!number> Math.pow(b,j));
+        this.dMultiply(+Math.pow(b,j));
         this.dAddOffset(w,0);
     }
     if(mi) ZERO.subTo(this,this);
@@ -718,7 +718,7 @@ BigInteger.prototype.bitwiseTo = function(a:!BigInteger, op , r:!BigInteger) {
     var this_array = this.array;
     var a_array    = a.array;
     var r_array    = r.array;
-    var i = <!number>0, f = <!number>0, m = <!number> Math.min(a.t,this.t);
+    var i = <!number>0, f = <!number>0, m = +Math.min(a.t,this.t);
     for(i = 0; i < m; ++i) r_array[i] = op(this_array[i],a_array[i]);
     if(a.t < this.t) {
         f = a.s&BI_DM;
@@ -786,7 +786,7 @@ BigInteger.prototype.bitCount = function() {
 // (public) true iff nth bit is set
 BigInteger.prototype.testBit = function(n:!number) {
     var this_array = this.array;
-    var j = <!number> Math.floor(n/BI_DB);
+    var j = +Math.floor(n/BI_DB);
     if(j >= this.t) return(this.s!=0);
     return((this_array[j]&(1<<(n%BI_DB)))!=0);
 }
@@ -812,7 +812,7 @@ BigInteger.prototype.addTo = function(a,r) {
     var this_array = this.array;
     var a_array = a.array;
     var r_array = r.array;
-    var i:!number = 0, c:!number = 0, m = <!number> Math.min(a.t,this.t);
+    var i:!number = 0, c:!number = 0, m = +Math.min(a.t,this.t);
     while(i < m) {
         c += this_array[i]+a_array[i];
         r_array[i++] = c&BI_DM;
@@ -894,13 +894,13 @@ BigInteger.prototype.pow = function(e:!number) {
 BigInteger.prototype.multiplyLowerTo = function(a,n:!number,r) {
     var r_array = r.array;
     var a_array = a.array;
-    var i = <!number> Math.min(this.t+a.t,n);
+    var i = +Math.min(this.t+a.t,n);
     r.s = 0; // assumes a,this >= 0
     r.t = i;
     while(i > 0) r_array[--i] = 0;
     var j;
     for(j = r.t-this.t; i < j; ++i) r_array[i+this.t] = this.am(0,a_array[i],r,i,0,this.t);
-    for(j = <!number> Math.min(a.t,n); i < j; ++i) this.am(0,a_array[i],r,i,0,n-i);
+    for(j = +Math.min(a.t,n); i < j; ++i) this.am(0,a_array[i],r,i,0,n-i);
     r.clamp();
 }
 
@@ -913,7 +913,7 @@ BigInteger.prototype.multiplyUpperTo = function(a,n:!number,r) {
     var i = r.t = this.t+a.t-n;
     r.s = 0; // assumes a,this >= 0
     while(--i >= 0) r_array[i] = 0;
-    for(i = <!number> Math.max(n-this.t,0); i < a.t; ++i)
+    for(i = +Math.max(n-this.t,0); i < a.t; ++i)
         r_array[this.t+i-n] = this.am(n-i,a_array[i],r,0,0,this.t+i-n);
     r.clamp();
     r.drShiftTo(1,r);
@@ -1087,7 +1087,7 @@ BigInteger.prototype.millerRabin = function(t:!number) {
     if(k <= 0) return false;
     var r = n1.shiftRight(k);
     t = (t+1)>>1;
-    if(t > lowprimes.length) t = <!number> lowprimes.length;
+    if(t > lowprimes.length) t = +lowprimes.length;
     var a = nbi();
     for(var i:!number = 0; i < t; ++i) {
         a.fromInt(lowprimes[i]);
@@ -1121,7 +1121,7 @@ var setupEngine = function(setup, bits) {
     BI_DV = (1<<dbits);
 
     BI_FP = 52;
-    BI_FV = <!number> Math.pow(2,BI_FP);
+    BI_FV = +Math.pow(2,BI_FP);
     BI_F1 = BI_FP-dbits;
     BI_F2 = 2*dbits-BI_FP;
 }
@@ -1144,7 +1144,7 @@ for(vv = 10; vv < 36; ++vv) BI_RC[rr++] = vv;
 function int2char(n) { return BI_RM.charAt(n); }
 function intAt(s,i:!number) {
     var c = BI_RC[s.charCodeAt(i)];
-    return <!number> ((c==null)?-1:c);
+    return +((c==null)?-1:c);
 }
 
 // return bigint initialized to value
@@ -1437,14 +1437,14 @@ function pkcs1pad2(s,n:!number) {
 
 // "empty" RSA key constructor
 function RSAKey(this: declare RSAKey) {
-    this.n = null as !BigInteger|!null;
+    this.n = ZERO;
     this.e = 0;
-    this.d = null as !BigInteger|!null;
-    this.p = null as !BigInteger|!null;
-    this.q = null as !BigInteger|!null;
-    this.dmp1 = null as !BigInteger|!null;
-    this.dmq1 = null as !BigInteger|!null;
-    this.coeff = null as !BigInteger|!null;
+    this.d = ZERO; 
+    this.p = ZERO; 
+    this.q = ZERO;
+    this.dmp1 = ZERO;
+    this.dmq1 = ZERO;
+    this.coeff = ZERO;
 }
 
 // Set the RSAKey.prototype.key fields N and e from hex strings = function

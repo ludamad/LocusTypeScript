@@ -2558,6 +2558,7 @@ namespace ts {
                     classType.prototypeDeclareType = links.type;
                 }
                 prototype.classType = <InterfaceType> classType;
+                console.log("Class type: ", prototype.classType);
                 return createConcreteType(getDeclaredTypeOfSymbol(prototype));
             }
             return links.type;
@@ -3461,14 +3462,16 @@ namespace ts {
                     }
                 }
                 Debug.assert(isFunctionLike(funcDecl));
-                return symbol
+                return symbol || funcDecl.prototypeSymbol;
             }
             return null;
         }
         function getPrototypeSymbolTypeOfType(type: InterfaceType) {
             var stripped = unconcrete(type);
             if (stripped.symbol && stripped.symbol.exports) {
-                return stripped.symbol.exports["prototype"];
+                let prototype = <Symbol> getProperty(stripped.symbol.exports, "prototype");
+                Debug.assert(!!(prototype.flags & SymbolFlags.Prototype));
+                return prototype;
             }
             return null;
         }
@@ -3489,7 +3492,6 @@ namespace ts {
                     // This was defined using a 'brand interface' declaration. There should be no associated flow data.
                     return undefined;
                 }
-                let declNode = <DeclareTypeNode> getSymbolDecl(type.symbol, SyntaxKind.DeclareType);
                 return getFlowDataForDeclareType(<InterfaceType>type);
             }
             return undefined;
@@ -9011,12 +9013,21 @@ namespace ts {
         }
         // [ConcreteTypeScript]
         function getPropertyProtectionDeclare(type: InterfaceType, member: string): ProtectionFlags {
-            resolveStructuredTypeMembers(type);
-            let propSymbol = getProperty(type.symbol.members, member);
-            if (isStronglyConcreteSymbol(propSymbol)) {
-                return ProtectionFlags.Protected;
-            } else if (isConcreteSymbol(propSymbol)) {
-                return ProtectionFlags.Cemented;
+            let flowData = getFlowDataForType(type);
+            let propType: Type;
+            if (flowData) {
+                propType = hasProperty(flowData.memberSet, member) ? flowTypeGet(flowData.memberSet[member]) : null;
+            }
+            if (!propType) {
+                resolveStructuredTypeMembers(type);
+                let propSymbol = getProperty(type.symbol.members, member);
+                if (propSymbol) {
+                    propType = getTypeOfSymbol(propSymbol);
+                }
+            }
+            if (propType && isConcreteType(propType)) {
+                console.log("WHAAT")
+                return isWeakConcreteType(propType) ? ProtectionFlags.Cemented : ProtectionFlags.Protected;
             }    
             for (let subtype of getBaseTypes(type)) {
                 let flags = getPropertyProtectionWorker(subtype, member);
@@ -9024,6 +9035,7 @@ namespace ts {
                     return flags;
                 }
             }
+            console.log("-----????", member);
             return ProtectionFlags.None;
         }
         // [ConcreteTypeScript]
@@ -17692,7 +17704,25 @@ namespace ts {
             };
         }
 
+        function haveSameFlowTypes(dataA:FlowData, dataB:FlowData) : boolean {
+            if (dataA.flowTypes.length !== dataB.flowTypes.length) {
+                return false;
+            }
+            for (let i = 0; i < dataA.flowTypes.length; i++) {
+                if (dataA.flowTypes[i].type !== dataB.flowTypes[i].type) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         function flowDataUnion(dataA:FlowData, dataB:FlowData) : FlowData {
+            if (haveSameFlowTypes(dataA, dataB)) {
+                return {
+                    flowTypes: dataA.flowTypes, 
+                    memberSet: flowUnion(dataA.memberSet, dataB.memberSet)
+                };
+            }
             let base = flowUnionTypesDegradeToMembers(dataA.flowTypes, dataB.flowTypes);
             let unionMemberSet = flowUnion(dataA.memberSet, dataB.memberSet)
             return {
@@ -17925,11 +17955,12 @@ namespace ts {
                 // Placeholder:
 //                type.flowData = {memberSet: {}, flowTypes: []};
                 if (containerScope) {
-                    // Remove any previously cached value?
-                    (<ResolvedType><ObjectType>type).members = null; 
+            //        // Remove any previously cached value?
+            //        (<ResolvedType><ObjectType>type).members = null; 
 
                     let flowType = getTypeFromDeclareTypeNode(getDeclareTypeNode(type), type);
                     ensureFlowDataIsSet(containerScope, isReference, flowType);
+                    Debug.assert(!!type.flowData);
                 }
             }
             return type.flowData;
@@ -17971,14 +18002,17 @@ namespace ts {
                 targetType = (<IntermediateFlowType>type).targetType;
                 if (unconcrete(targetType).flags & TypeFlags.Declare) {
                     targetDeclareType = <InterfaceType>unconcrete(targetType);
-                    let prototypeType = getPrototypeSymbolTypeOfType(targetDeclareType);
-                    if (prototypeType) {
-                        // Bug fix: Ensure we always resolve the prototype object first.
-                        getFlowDataForType(prototypeType);
-                    }
                     targetDeclareTypeNode = (<IntermediateFlowType>type).declareTypeNode;
                     produceDiagnostics = false;
                     flowDependentTypeStack.push(targetDeclareType);
+                }
+                if (unconcrete(targetType).flags & TypeFlags.Declare && !isPrototypeType(unconcrete(targetType))) {
+                    let prototypeSymbol = getPrototypeSymbolOfType(targetDeclareType);
+                    if (prototypeSymbol) {
+                        Debug.assert(!!(prototypeSymbol.flags & SymbolFlags.Prototype));
+                        // Bug fix: Ensure we always resolve the prototype object first.
+                        getFlowDataForDeclareType(<InterfaceType> unconcrete(getTypeOfPrototypeProperty(prototypeSymbol)));
+                    }
                 }
             } else {
                 var flowData:FlowData = {flowTypes: [{type, firstBindingSite: containerScope}], memberSet: {}};
@@ -18027,11 +18061,14 @@ namespace ts {
                     produceDiagnostics = true; 
                 }
             }
-            if (targetDeclareType && !isCurrentFlowAnalysisUntrustable(targetDeclareType)) {
+            if (targetDeclareType) {// && !isCurrentFlowAnalysisUntrustable(targetDeclareType)) {
                 for (let protect of protectionQueue) {
                     protect(finalFlowData);
                 }
                 targetDeclareType.flowData = finalFlowData;
+            } else {
+                // For now, don't expect any bare-becomes:
+                Debug.assert(false);
             }
             return;
             // Note: 'right' can be null, signifying that we are protecting the existing value.
@@ -18039,8 +18076,6 @@ namespace ts {
                 protectionQueue.push(({memberSet}) => {
                     let type = flowTypeGet(<any>getProperty(memberSet, member));
                     if (!isConcreteType(type)) {
-                        smartPrint(type, 'no biiind: Nonconcrete')
-                        smartPrint(member, 'no biiind: Nonconcrete')
                         return;
                     }
                     let guardVariable = getTempProtectVar(containerScope, targetDeclareType, member);

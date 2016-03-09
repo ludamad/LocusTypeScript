@@ -2346,7 +2346,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
 
             // Emitter for a type, as part of casting/protection/etc
             function emitCtsType(type: Type) {
-                console.log(type);
                 if (type == null) {
                     write("null");
                 } else if (type.flags & TypeFlags.String ||
@@ -4146,9 +4145,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             }
 
             function emitFunctionDeclaration(node: FunctionLikeDeclaration, name?: string, doEmitProtectors: boolean = true, realBodyIfProtectors?: string /* [ConcreteTypeScript] */) {
-                if (node.parameters.thisParam) {
-                    write("/*this-branded*/");
-                }
  
                 if (nodeIsMissing(node.body)) {
                     // TODO restore these comments
@@ -7793,10 +7789,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         emitStart(node);
                         // Might need to emit twice (with/without checks)
                         // TODO look into cementGlobal, etc 
-                        if (!(<FunctionLikeDeclaration>node).name || (<FunctionLikeDeclaration>node).name.kind !== SyntaxKind.Identifier) {
+                        if ((<FunctionLikeDeclaration>node).name && (<FunctionLikeDeclaration>node).name.kind !== SyntaxKind.Identifier) {
                             emitFunctionDeclaration(<FunctionLikeDeclaration>node);
                         } else {
-                            let second = "$$cts$$value$" + (<Identifier>(<FunctionLikeDeclaration>node).name).text;
+                            let second = null;
+                            if ((<FunctionLikeDeclaration>node).name) { 
+                                second = "$$cts$$value$" + (<Identifier>(<FunctionLikeDeclaration>node).name).text;
+                            }
                             if (!emitFunctionDeclaration(<FunctionLikeDeclaration>node, undefined, true, second)) {
                                 emitFunctionDeclaration(<FunctionLikeDeclaration>node, second, false);
                             }

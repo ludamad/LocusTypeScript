@@ -138,6 +138,7 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
 
         // and a global caster, which checks and returns the value if the check succeeded or an exception otherwise
         function cast(type, val) {
+            return val;
             if (type.$$cts$$check(val)) return val;
             if (!val) {
                 switch (type) {

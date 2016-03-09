@@ -7,6 +7,8 @@ function Foo(this: declare Foo) {
     assertBranded(this)
 }
 Foo.prototype.myMethod = function()  {
+    /*@assertType("!Foo")*/ (this);
+    /*@assertType("!number")*/ (this.x);
     return this.x;
 }
 

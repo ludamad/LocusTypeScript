@@ -90,7 +90,6 @@ namespace ts {
             var brandType = <DeclareTypeDeclaration> getSymbolDecl(symbols[symbolName], SyntaxKind.DeclareType);
             brandType = brandType || <DeclareTypeDeclaration> getSymbolDecl(symbols[symbolName], SyntaxKind.DeclareTypeDeclaration);
             if (brandType) {
-                console.log("FOOOO");
                 declarations.push(brandType);
             }
         }
@@ -209,10 +208,6 @@ namespace ts {
       export function getSymbolScope(location: Node, text: string, flags: SymbolFlags): Node{
           let i =0;
           while (true) {
-              console.log('--------' + (i++))
-              console.log(text)
-              console.log(location.locals)
-              console.log(location.symbol)
               // If not a 'locals'-having context
               if ((!location.locals || !hasProperty(location.locals, text) || !(location.locals[text].flags & flags))
                   && (!location.symbol || !location.symbol.exports || !hasProperty(location.symbol.exports, text) || !(location.symbol.exports[text].flags & flags))) {
