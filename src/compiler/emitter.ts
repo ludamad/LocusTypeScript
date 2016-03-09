@@ -7620,10 +7620,16 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     if (node.forceFalseyCoercion) {
                         emitFalseyCoercionPre(node.forceFalseyCoercion);
                     }
-            
-                    if (!emitProtectionAssignmentInstead(node)) {
-                        emitJavaScriptWorker(node);
+           
+                    var wrapped = false;
+                    if (emitProtectionAssignmentInstead(node)) {
+                        // TODO take this comment out if it causes problems.
+                        writeLine();
+                        write("/*  ^^^");
+                        wrapped = true;
                     }
+                    emitJavaScriptWorker(node);
+                    if (wrapped) write("^^^ */");
                     emitProtectionAssignmentsAfterStatement(node);
 
                     if (node.forceFalseyCoercion) {

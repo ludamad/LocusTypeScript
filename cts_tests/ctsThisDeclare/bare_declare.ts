@@ -1,4 +1,3 @@
-// Syntax not supported yet.
 /* @KnownDefect */
 /* @RequiresExpensiveFlowAnalysis */
 // ^ Just an explanation of the above (not enforced):
