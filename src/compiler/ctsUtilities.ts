@@ -137,22 +137,16 @@ namespace ts {
     export function getBrandTypeDeclarations(block:Node):(VariableDeclaration|ThisParameterDeclaration|ParameterDeclaration)[] {
         let declarations = <(VariableDeclaration|ThisParameterDeclaration|ParameterDeclaration)[]> getDeclarations(block, isBrandDecl);
         if (isFunctionLike(block)) {
-            let hadThis = false;
-            // Stopgap code while both 'var this' and 'this: declare X' are possible.
-            for (let decl of declarations) {
-                if ((<Identifier>decl.name).text === "this") {
-                    hadThis = true;
-                }
-            }
-            if (!hadThis && block.parameters.thisParam && block.parameters.thisParam.type.brandTypeDeclaration) {
+            if (block.parameters.thisParam && block.parameters.thisParam.type && block.parameters.thisParam.type.kind === SyntaxKind.DeclareType) {
                 declarations = declarations.concat([block.parameters.thisParam]);
             }
         }
+        console.log(declarations)
         return declarations;
         function isBrandDecl(node:Declaration) {
             if (node.kind === SyntaxKind.VariableDeclaration || node.kind == SyntaxKind.Parameter) {
                 var typeNode = (<VariableDeclaration|ParameterDeclaration>node).type;
-                return !!(typeNode && typeNode.brandTypeDeclaration);
+                return typeNode && typeNode.kind === SyntaxKind.DeclareType;
             }
             return false;
         };

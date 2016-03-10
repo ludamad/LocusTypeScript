@@ -1424,6 +1424,7 @@ function pkcs1pad2(s,n:!number) {
     while(i >= 0 && n > 0) ba[--n] = s.charCodeAt(i--);
     ba[--n] = 0;
     var rng = new SecureRandom();
+    console.log(rng.$$ct$$brands);
     var x = new Array();
     while(n > 2) { // random non-zero pad
         x[0] = 0;

@@ -854,6 +854,7 @@ namespace ts {
          * requiring checks or float/int coercion, and mark the given node as
          * requiring those checks */
         function checkCtsCoercion(node: Node, fromType: Type, toType: Type) {
+            smartPrint(node, 'cooerce');
             /* If the target type is concrete and value type isn't, must check,
              * unless it's known null or undefined */
             if (isConcreteType(toType) && !isConcreteType(fromType) &&
@@ -18065,7 +18066,7 @@ namespace ts {
                     produceDiagnostics = true; 
                 }
             }
-            if (targetDeclareType) {// && !isCurrentFlowAnalysisUntrustable(targetDeclareType)) {
+            if (targetDeclareType && !isCurrentFlowAnalysisUntrustable(targetDeclareType)) {
                 for (let protect of protectionQueue) {
                     protect(finalFlowData);
                 }
@@ -18101,7 +18102,7 @@ namespace ts {
                         left, member, right, type: (isWeakConcreteType(type) ? null : type), 
                         targetDeclareType, isTypeComplete, guardVariable, brandGuardVariable,
                         typeVar: getTempTypeVar(containerScope, type)
-                    }
+                    };
                     if (right && isFunctionLike(right)) {
                         right.nameForRawFunctionEmit = member;
                     }

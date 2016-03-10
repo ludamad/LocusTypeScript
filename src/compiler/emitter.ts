@@ -2792,25 +2792,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             // [ConcreteTypeScript]
             function emitBrandPrototypeAsserts(block:Node) {
                 for (var decl of getBrandTypeDeclarations(block)) {
-                    // Old syntax:
-                    if (decl.kind === SyntaxKind.VariableDeclaration) {
-                        let varDecl = <VariableDeclaration> decl;
-                        let brandTypeDecl = varDecl.type.brandTypeDeclaration;
-                        let brandProto = brandTypeDecl.prototypeBrandDeclaration;
-                        if (brandProto) {
-                            writeLine();
-                            emitCtsRt("cast(");
-                            write("$$cts$$brand$$");
-                            write(brandTypeDecl.name.text);
-                            write(".prototype, Object.getPrototypeOf(this));");
-                        }
-                    }
-                    // New syntax:
                     if (decl.kind === SyntaxKind.ThisParameter) {
                         let thisDecl = <ThisParameterDeclaration> decl;
-                        let brandTypeDecl = thisDecl.type.brandTypeDeclaration;
-                        let brandProto = brandTypeDecl.prototypeBrandDeclaration;
-                        if (brandProto) {
+                        let brandTypeDecl = <DeclareTypeNode> thisDecl.type;
+                        let prototypeSymbol = brandTypeDecl.symbol.exports["prototype"];
+                        if (prototypeSymbol) {
                             writeLine();
                             emitCtsRt("cast(");
                             write("$$cts$$brand$$");
@@ -2846,7 +2832,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             function emitBrandingsForBlockEnd(block:Node) {
                 if (!block.locals) return;
                 for (let {type, name} of getBrandTypeDeclarations(block)) {
-                    let brandName:Identifier = type.brandTypeDeclaration.name;
+                    let brandName:Identifier = (<DeclareTypeNode>type).name;
                     write("$$cts$$runtime.brand($$cts$$brand$$");
                     writeTextOfNode(currentSourceFile, brandName);
                     write(", ");
@@ -4128,7 +4114,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         emitCtsType(type);
                         write(",");
                         write(param.name);
-                        console.log("PARAM NAME IS THIS? (shouldnt be)", param.name);
                         write(");");
                         //emitEnd(param);
                         didEmitProtectors = true;
@@ -7812,15 +7797,22 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     case SyntaxKind.ArrowFunction:
                         // [ConcreteTypeScript]
                         emitStart(node);
+                        // If a function needs a guarded version and an unguarded version, it is double-emitted.
+                        // There are two conditions to be met for double-emitting of functions.
+                        //      1. The function has a concrete 'this' type or parameter
+                        //      2. The function has a name derived from a cemented object (class / analyzed declare).
+                        if ((<FunctionLikeDeclaration>node).name) { 
+                            var second = ((<FunctionLikeDeclaration>node).name).kind === SyntaxKind.Identifier ? 
+                                "$$cts$$value$" + (<Identifier>(<FunctionLikeDeclaration>node).name).text
+                                : null;
+                        } else if (node.nameForRawFunctionEmit) {
+                            // If we have the field 'nameForRawFunctionEmit' then we must be a method.
+                            var second = "this.$$cts$$value$" + node.nameForRawFunctionEmit;
+                        }
                         // Might need to emit twice (with/without checks)
-                        if ((<FunctionLikeDeclaration>node).name && (<FunctionLikeDeclaration>node).name.kind !== SyntaxKind.Identifier) {
+                        if (!second) {
                             emitFunctionDeclaration(<FunctionLikeDeclaration>node);
                         } else {
-                            if ((<FunctionLikeDeclaration>node).name) { 
-                                var second = "$$cts$$value$" + (<Identifier>(<FunctionLikeDeclaration>node).name).text;
-                            } else if (node.nameForRawFunctionEmit) {
-                                var second = "$$cts$$value$" + node.nameForRawFunctionEmit;
-                            }
                             if (!emitFunctionDeclaration(<FunctionLikeDeclaration>node, undefined, true, second)) {
                                 if (node.nameForRawFunctionEmit) {
                                     write(", "); // Protection case. We need to cement with a raw version postpended.
