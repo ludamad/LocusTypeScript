@@ -4078,10 +4078,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             }
 
             // [ConcreteTypeScript] Protection for function arguments
-            function emitArgumentProtectors(node: FunctionLikeDeclaration) {
-                let didEmitProtectors = false;
-
-                // Possibly check 'this' first
+            function emitThisProtector(node: FunctionLikeDeclaration) {
+                Debug.assert(!!(node.nodeLinks && node.nodeLinks.resolvedSignature));
                 let classNode = node.parent && node.parent.kind === SyntaxKind.ClassDeclaration ? node.parent : void 0;
                 if (classNode && !(node.flags & NodeFlags.Static)) {
                     // Non-static method, must check 'this'
@@ -4091,21 +4089,48 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     write("(");
                     write(symbol.name);
                     write(",this);");
+                    return true;
+                }
+                let {resolvedThisType} = node.nodeLinks.resolvedSignature;
+                if (resolvedThisType && resolvedThisType.flags & TypeFlags.Concrete) {
+                    // Non-static method, must check 'this'
+                    writeLine();
+                    emitCtsRt("cast");
+                    write("(");
+                    emitCtsType(resolvedThisType);
+                    write(",this);");
+                    return true;
+                }
+                return false;
+            }
+
+            // [ConcreteTypeScript] Protection for function arguments
+            function emitArgumentProtectors(node: FunctionLikeDeclaration) {
+                if (!node.nodeLinks || !node.nodeLinks.resolvedSignature) {
+                    return; // If typechecking failed, try to be graceful.
+                }
+                let didEmitProtectors = false;
+                if (emitThisProtector(node)) {
                     didEmitProtectors = true;
                 }
-
+                let {parameters} = node.nodeLinks.resolvedSignature;
                 // Now check each of the arguments
-                for (let param of node.parameters) {
-                    if (param.type && (<TypeNode>param.type).isConcrete) {
+                for (let param of parameters) {
+                    if (!param.symbolLinks || !param.symbolLinks.type) {
+                        continue;
+                    }
+                    let {type} = param.symbolLinks;
+                    if (type && type.flags & TypeFlags.Concrete) {
                         writeLine();
-                        emitStart(param);
+                        //emitStart(param);
                         emitCtsRt("cast");
                         write("(");
-                        emitCtsTypeNode(<TypeNode>param.type);
+                        emitCtsType(type);
                         write(",");
-                        emitNodeWithoutSourceMap(param.name);
+                        write(param.name);
+                        console.log("PARAM NAME IS THIS? (shouldnt be)", param.name);
                         write(");");
-                        emitEnd(param);
+                        //emitEnd(param);
                         didEmitProtectors = true;
                     }
                 }
@@ -7621,15 +7646,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         emitFalseyCoercionPre(node.forceFalseyCoercion);
                     }
            
-                    var wrapped = false;
-                    if (emitProtectionAssignmentInstead(node)) {
-                        // TODO take this comment out if it causes problems.
-                        writeLine();
-                        write("/*  ^^^");
-                        wrapped = true;
+                    if (!emitProtectionAssignmentInstead(node)) {
+                        emitJavaScriptWorker(node);
                     }
-                    emitJavaScriptWorker(node);
-                    if (wrapped) write("^^^ */");
                     emitProtectionAssignmentsAfterStatement(node);
 
                     if (node.forceFalseyCoercion) {
@@ -7711,7 +7730,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 // Emit comments for everything else.
                 return true;
             }
-            
+
             function emitJavaScriptWorker(node: Node) {
                 // Check if the node can be emitted regardless of the ScriptTarget
                 switch (node.kind) {
@@ -7794,15 +7813,18 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         // [ConcreteTypeScript]
                         emitStart(node);
                         // Might need to emit twice (with/without checks)
-                        // TODO look into cementGlobal, etc 
                         if ((<FunctionLikeDeclaration>node).name && (<FunctionLikeDeclaration>node).name.kind !== SyntaxKind.Identifier) {
                             emitFunctionDeclaration(<FunctionLikeDeclaration>node);
                         } else {
-                            let second = null;
                             if ((<FunctionLikeDeclaration>node).name) { 
-                                second = "$$cts$$value$" + (<Identifier>(<FunctionLikeDeclaration>node).name).text;
+                                var second = "$$cts$$value$" + (<Identifier>(<FunctionLikeDeclaration>node).name).text;
+                            } else if (node.nameForRawFunctionEmit) {
+                                var second = "$$cts$$value$" + node.nameForRawFunctionEmit;
                             }
                             if (!emitFunctionDeclaration(<FunctionLikeDeclaration>node, undefined, true, second)) {
+                                if (node.nameForRawFunctionEmit) {
+                                    write(", "); // Protection case. We need to cement with a raw version postpended.
+                                }
                                 emitFunctionDeclaration(<FunctionLikeDeclaration>node, second, false);
                             }
                         }

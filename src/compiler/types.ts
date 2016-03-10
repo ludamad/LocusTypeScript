@@ -528,8 +528,8 @@ namespace ts {
         // If no type is provided, this is a cement operation. Otherwise, a protect.
         type?: Type;
         isTypeComplete: () => boolean;
-        guardVariable: string; // Automatically generated
-        brandGuardVariable: string; // Automatically generated
+        guardVariable: string; // Automatically generated during checker.ts
+        brandGuardVariable: string; // Automatically generated during checker.ts
         typeVar: string;
     }
 
@@ -585,7 +585,9 @@ namespace ts {
         ctsFlowData?:       FlowData; // What flow-members have been calculated for this specific node instance?
         ctsFinalFlowData?:  FlowData; // What are the final flow members for this node, after all assignments?
         // Set by binder
+        nameForRawFunctionEmit?: string;
         prototypeSymbol?: Symbol; // HACK: If we define a prototype symbol, stick it here so we can find it easily.
+        nodeLinks?: NodeLinks; // HACK: We store NodeLinks on our node, though it was not intended to be used this way. This simplifies type inspection during emit. 
         // [/ConcreteTypeScript]
     }
 
@@ -1903,6 +1905,7 @@ namespace ts {
         /* @internal */ constEnumOnlyModule?: boolean; // True if module contains only const enums or other modules with only const enums
         brandType?: DeclareTypeNode; // [ConcreteTypeScript] set for .prototype properties
         classType?: InterfaceType; // [ConcreteTypeScript] set for .prototype properties
+        symbolLinks?: SymbolLinks; // HACK: We store SymbolLinks on our symbol, though it was not intended to be used this way. This simplifies type inspection during emit. 
     }
 
     /* @internal */

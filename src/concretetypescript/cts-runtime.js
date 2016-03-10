@@ -234,13 +234,17 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
 
         // the "protectAssignment" adds a protector for a given type and name to an object, if one does not
         // already exist.
-        cement(this, "protectAssignment", function(disabled, type, name, obj, value) {
+        // If 'type' is not given, 'rawFunction' may be given to specify a 'raw' function value that is called to elide checks.`
+        cement(this, "protectAssignment", function(disabled, type, name, obj, value, rawFunction) {
             if (disabled) {
                 return value;
             }
             if (type === null) {
                 // Allowing undefined is a bit dangerous. We will use 'null' as our special 'cement instead' sentinel.
                 cement(obj, name, value, /*Enumerable*/ true);
+                if (rawFunction) {
+                    cement(obj, "$$cts$$value$" + name, rawFunction, /*Not enumerable*/ false);
+                }
                 return value;
             }
             var existingSetter = getSetter(obj, name);
@@ -265,7 +269,8 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             return retValue;
         });
 
-        cement(this, "protectProtoAssignment", function(disabled, type, protoCheckType, name, obj, value) {
+        // If 'type' is not given, 'rawFunction' may be given to specify a 'raw' function value that is called to elide checks.`
+        cement(this, "protectProtoAssignment", function(disabled, type, protoCheckType, name, obj, value, rawFunction) {
 
             if (disabled) {
                 return value;
@@ -278,7 +283,7 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
                 }
                 cement(obj, "prototype", prototype);
             }
-            this.protectAssignment(false, type, name, prototype, value);
+            this.protectAssignment(false, type, name, prototype, value, rawFunction);
         });
 
         function Brand(brandName) {

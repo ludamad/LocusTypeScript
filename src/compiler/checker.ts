@@ -385,14 +385,18 @@ namespace ts {
         }
 
         function getSymbolLinks(symbol: Symbol): SymbolLinks {
-            if (symbol.flags & SymbolFlags.Transient) return <TransientSymbol>symbol;
+            if (symbol.flags & SymbolFlags.Transient) {
+                let trans = <TransientSymbol>symbol;
+                symbol.symbolLinks = trans;
+                return trans;
+            }
             let id = getSymbolId(symbol);
-            return symbolLinks[id] || (symbolLinks[id] = {});
+            return symbolLinks[id] || (symbol.symbolLinks = symbolLinks[id] = {});
         }
 
         function getNodeLinks(node: Node): NodeLinks {
             let nodeId = getNodeId(node);
-            return nodeLinks[nodeId] || (nodeLinks[nodeId] = {});
+            return nodeLinks[nodeId] || (node.nodeLinks = nodeLinks[nodeId] = {});
         }
 
         function getSourceFile(node: Node): SourceFile {
@@ -18097,6 +18101,9 @@ namespace ts {
                         left, member, right, type: (isWeakConcreteType(type) ? null : type), 
                         targetDeclareType, isTypeComplete, guardVariable, brandGuardVariable,
                         typeVar: getTempTypeVar(containerScope, type)
+                    }
+                    if (right && isFunctionLike(right)) {
+                        right.nameForRawFunctionEmit = member;
                     }
 
                     if (node.kind === SyntaxKind.ObjectLiteralExpression) {
