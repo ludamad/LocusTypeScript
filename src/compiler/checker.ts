@@ -4015,8 +4015,8 @@ namespace ts {
                 let propType = getTypeOfSymbol(property);
                 return createTransientProperty(propType);
             }
-            if (type.flowData.memberSet[name]) {
-                let propType = flowTypeGet(type.flowData.memberSet[name]);
+            if (hasProperty(type.flowData.memberSet, name)) {
+                let propType = flowTypeGet(getProperty(type.flowData.memberSet, name));
                 return createTransientProperty(propType);
             }
             return null;
