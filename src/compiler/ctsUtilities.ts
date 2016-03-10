@@ -141,7 +141,6 @@ namespace ts {
                 declarations = declarations.concat([block.parameters.thisParam]);
             }
         }
-        console.log(declarations)
         return declarations;
         function isBrandDecl(node:Declaration) {
             if (node.kind === SyntaxKind.VariableDeclaration || node.kind == SyntaxKind.Parameter) {

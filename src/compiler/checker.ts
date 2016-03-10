@@ -2563,7 +2563,6 @@ namespace ts {
                     classType.prototypeDeclareType = links.type;
                 }
                 prototype.classType = <InterfaceType> classType;
-                console.log("Class type: ", prototype.classType);
                 return createConcreteType(getDeclaredTypeOfSymbol(prototype));
             }
             return links.type;
@@ -5031,6 +5030,7 @@ namespace ts {
                     // Make sure we have our baseType set
                     // so that we can access it in emit code:
                     let strippedTypes = map(type.types, (concreteType) => unconcrete(concreteType));
+                    strippedTypes.filter(t => !(t.flags & TypeFlags.Undefined) || !(t.flags & TypeFlags.Null));
                     let baseType = (<any>type).baseType = getUnionType(strippedTypes, true);
 
                     // We cast our UnionType into a concrete type,
@@ -9031,7 +9031,6 @@ namespace ts {
                 }
             }
             if (propType && isConcreteType(propType)) {
-                console.log("WHAAT")
                 return isWeakConcreteType(propType) ? ProtectionFlags.Cemented : ProtectionFlags.Protected;
             }    
             for (let subtype of getBaseTypes(type)) {
@@ -9040,7 +9039,6 @@ namespace ts {
                     return flags;
                 }
             }
-            console.log("-----????", member);
             return ProtectionFlags.None;
         }
         // [ConcreteTypeScript]
@@ -15829,7 +15827,7 @@ namespace ts {
                     if (!hasOne) return false;
                 }
                 for (let memberFinal of values(finalFlowData.memberSet)) { 
-                    let memberCurrent = flowData.memberSet[memberFinal.key];
+                    let memberCurrent = getProperty(flowData.memberSet, memberFinal.key);
                     if (!memberCurrent) {
                         return false;
                     }

@@ -2939,8 +2939,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     write(" {");
                     increaseIndent(); writeLine();
                     emit(node);
-                    // TODO Remove this, rendered obsolete
-                    // emitBrandingsForBlockEnd(node);
+                    emitBrandingsForBlockEnd(node);
                     decreaseIndent(); writeLine();
                     write("}");
                     // [/ConcreteTypeScript]
@@ -4583,12 +4582,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     increaseIndent();
                     emitLinesStartingAt(body.statements, startIndex);
 
-                    // TODO Remove this probably -- concretetypescript
-                    // let s = (<Block>node.body).statements;
-                    // if (s.length === 0 || s[s.length - 1].kind !== SyntaxKind.ReturnStatement) {
-                    //     emitBrandingsForBlockEnd(node.body);
-                    //     emitBrandingsForBlockEnd(node);
-                    // }
+                    let s = (<Block>node.body).statements;
+                    if (s.length === 0 || s[s.length - 1].kind !== SyntaxKind.ReturnStatement) {
+                        emitBrandingsForBlockEnd(node.body);
+                        emitBrandingsForBlockEnd(node);
+                    }
 
                     emitTempDeclarations(/*newLine*/ true);
 

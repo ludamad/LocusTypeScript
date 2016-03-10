@@ -1325,7 +1325,7 @@ namespace ts {
                 case ParsingContext.HeritageClauseElement:
                     return token === SyntaxKind.OpenBraceToken || token === SyntaxKind.ExtendsKeyword || token === SyntaxKind.ImplementsKeyword ||
                     // [ConcreteTypeScript]
-                    token === SyntaxKind.EqualsToken;
+                    token === SyntaxKind.EqualsToken || token === SyntaxKind.CommaToken || token == SyntaxKind.SemicolonToken;
                     // [/ConcreteTypeScript]
 
                 case ParsingContext.VariableDeclarations:
@@ -2525,7 +2525,10 @@ namespace ts {
             switch (token) {
                 case SyntaxKind.LikeKeyword: // [ConcreteTypeScript]
                 case SyntaxKind.ExclamationToken: // [ConcreteTypeScript]
-                    return lookAhead(isStartOfType);
+                    return lookAhead(() => {
+                        nextToken();
+                        return isStartOfType();
+                    });
                 case SyntaxKind.AnyKeyword:
                 case SyntaxKind.StringKeyword:
                 case SyntaxKind.NumberKeyword:

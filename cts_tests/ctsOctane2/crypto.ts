@@ -109,9 +109,6 @@ function BigInteger(this: declare BigInteger;
     else this.fromString(a,b);
 }
 
-var ZERO:!BigInteger = new BigInteger();
-var ONE:!BigInteger = new BigInteger();
-
 // Basic JavaScript BN library - subset useful for RSA encryption.
 // am: Compute w_j += (x*this_i), propagate carries,
 // c is initial carry, returns final carry.
@@ -1104,6 +1101,10 @@ BigInteger.prototype.millerRabin = function(t:!number) {
     return true;
 }
 
+var ZERO:!BigInteger = new BigInteger();
+var ONE:!BigInteger = new BigInteger();
+
+
 // am3/28 is best for SM, Rhino, but am4/26 is best for v8.
 // Kestrel (Opera 9.5) gets its best result with am4/26.
 // IE7 does 9% better with am3/28 than with am4/26.
@@ -1424,7 +1425,6 @@ function pkcs1pad2(s,n:!number) {
     while(i >= 0 && n > 0) ba[--n] = s.charCodeAt(i--);
     ba[--n] = 0;
     var rng = new SecureRandom();
-    console.log(rng.$$ct$$brands);
     var x = new Array();
     while(n > 2) { // random non-zero pad
         x[0] = 0;

@@ -132,12 +132,12 @@ module RichardsTYPEDVERSION {
      * @constructor
      */
     class Scheduler {
-        constructor(public queueCount : !intNumber = 0, //TODO: default argument assignments
-                    public holdCount : !intNumber = 0,
+        constructor(public queueCount : !number = 0, //TODO: default argument assignments
+                    public holdCount : !number = 0,
                     public blocks : !TaskControlBlock[] = new Array(NUMBER_OF_IDS),
                     public list : !TaskControlBlock = undefined,
                     public currentTcb : !TaskControlBlock = undefined,
-                    public currentId:!intNumber = -1) {
+                    public currentId:!number = -1) {
         }
 
         /**
@@ -147,7 +147,7 @@ module RichardsTYPEDVERSION {
          * @param {Packet} queue the queue of work to be processed by the task
          * @param {int} count the number of times to schedule the task
          */
-        public addIdleTask(id: !intNumber, priority: !intNumber, queue:!Packet, count: !intNumber) {
+        public addIdleTask(id: !number, priority: !number, queue:!Packet, count: !number) {
             this.addRunningTask(id, priority, queue, new IdleTask(this, 1, count));
         }
 
@@ -157,7 +157,7 @@ module RichardsTYPEDVERSION {
          * @param {int} priority the task's priority
          * @param {Packet} queue the queue of work to be processed by the task
          */
-        public addWorkerTask(id:!intNumber, priority:!intNumber, queue:!Packet) {
+        public addWorkerTask(id:!number, priority:!number, queue:!Packet) {
             this.addTask(id, priority, queue, new WorkerTask(this, ID_HANDLER_A, 0));
         }
 
@@ -167,7 +167,7 @@ module RichardsTYPEDVERSION {
          * @param {int} priority the task's priority
          * @param {Packet} queue the queue of work to be processed by the task
          */
-        public addHandlerTask(id:!intNumber, priority:!intNumber, queue:!Packet) {
+        public addHandlerTask(id:!number, priority:!number, queue:!Packet) {
             this.addTask(id, priority, queue, new HandlerTask(this));
         }
 
@@ -177,7 +177,7 @@ module RichardsTYPEDVERSION {
          * @param {int} priority the task's priority
          * @param {Packet} queue the queue of work to be processed by the task
          */
-        public addDeviceTask(id:!intNumber, priority:!intNumber, queue:!Packet) {
+        public addDeviceTask(id:!number, priority:!number, queue:!Packet) {
             this.addTask(id, priority, queue, new DeviceTask(this))
         }
 
@@ -188,7 +188,7 @@ module RichardsTYPEDVERSION {
          * @param {Packet} queue the queue of work to be processed by the task
          * @param {Task} task the task to add
          */
-        public addRunningTask(id:!intNumber, priority:!intNumber, queue:!Packet, task:!Task) {
+        public addRunningTask(id:!number, priority:!number, queue:!Packet, task:!Task) {
             this.addTask(id, priority, queue, task);
             this.currentTcb.setRunning();
         }
@@ -200,7 +200,7 @@ module RichardsTYPEDVERSION {
          * @param {Packet} queue the queue of work to be processed by the task
          * @param {Task} task the task to add
          */
-        public addTask(id:!intNumber, priority:!intNumber, queue:!Packet, task:!Task) {
+        public addTask(id:!number, priority:!number, queue:!Packet, task:!Task) {
             this.currentTcb = new TaskControlBlock(this.list, id, priority, queue, task);
             this.list = this.currentTcb;
             this.blocks[id] = this.currentTcb;
@@ -227,7 +227,7 @@ module RichardsTYPEDVERSION {
          * Release a task that is currently blocked and return the next block to run.
          * @param {int} id the id of the task to suspend
          */
-        public release(id:!intNumber) : !TaskControlBlock {
+        public release(id:!number) : !TaskControlBlock {
             var tcb = this.blocks[id];
             if (tcb == undefined) return tcb;
             tcb.markAsNotHeld();
@@ -280,7 +280,7 @@ module RichardsTYPEDVERSION {
 
 
     class TaskControlBlock {
-        private state: !intNumber = 0;
+        private state: !number = 0;
 
         /**
          * A task control block manages a task and the queue of work packages associated
@@ -292,7 +292,7 @@ module RichardsTYPEDVERSION {
          * @param {Task} task the task
          * @constructor
          */
-        constructor(public link:!TaskControlBlock, public id:!intNumber, public priority, public queue:!Packet, public task:!Task) {
+        constructor(public link:!TaskControlBlock, public id:!number, public priority, public queue:!Packet, public task:!Task) {
             if (this.queue === undefined) {
                 this.state = STATE_SUSPENDED;
             } else {
@@ -381,7 +381,7 @@ module RichardsTYPEDVERSION {
          * @param {int} count the number of times this task should be scheduled
          * @constructor
          */
-        constructor(public scheduler: !Scheduler, public v1: !intNumber, public count: !intNumber) {
+        constructor(public scheduler: !Scheduler, public v1: !number, public count: !number) {
             super();
         }
 
@@ -440,7 +440,7 @@ module RichardsTYPEDVERSION {
          * @param {int} v2 another seed used to specify how work packets are manipulated
          * @constructor
          */
-        constructor(public scheduler:!Scheduler, public v1:!intNumber, public v2:!intNumber) {
+        constructor(public scheduler:!Scheduler, public v1:!number, public v2:!number) {
             super();
         }
 
@@ -495,7 +495,7 @@ module RichardsTYPEDVERSION {
                     if (this.v2 != undefined) {
                         v = this.v2;
                         this.v2 = this.v2.link;
-                        v.a1 = <!intNumber>this.v1.a2[count];
+                        v.a1 = <!number>this.v1.a2[count];
                         this.v1.a1 = count + 1;
                         return this.scheduler.queue(v);
                     }
@@ -518,7 +518,7 @@ module RichardsTYPEDVERSION {
      * --- */
 
     class Packet {
-        public a2: !intNumber[] = new Array<!intNumber>(0);
+        public a2: !number[] = new Array<!number>(0);
         /**
          * A simple package of data that is manipulated by the tasks.  The exact layout
          * of the payload data carried by a packet is not importaint, and neither is the
@@ -531,11 +531,8 @@ module RichardsTYPEDVERSION {
          * @param {int} kind the type of this packet
          * @constructor
          */
-        constructor(public link:!Packet, 
-                    public id:!intNumber, 
-                    public kind:!intNumber, 
-                    public a1:!intNumber = 0) {
-            this.a2 = new Array<!intNumber>(DATA_SIZE); 
+        
+            this.a2 = new Array<!number>(DATA_SIZE); 
         }
 
         /**
