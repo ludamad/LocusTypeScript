@@ -17909,7 +17909,17 @@ namespace ts {
             let declaration = findDeclarationForName(obj, (<Identifier>obj).text);
             return isVariableLike(declaration);
         }
+
         function getScopeContainer(obj:Node) {
+            let scopeContainer = getScopeContainerWorker(obj);
+            if (!scopeContainer) {
+                smartPrint(obj, 'obj');
+            }
+            Debug.assert(!!scopeContainer);
+            return scopeContainer;
+        }
+
+        function getScopeContainerWorker(obj:Node) {
             if (isPrototypeAccess(obj)) {
                 return getScopeContainer(obj.expression);
             }
@@ -17964,13 +17974,14 @@ namespace ts {
         function getScopeContainerAndIdentifierForDeclareType(type: InterfaceType): [Node, Node] {
             if (isPrototypeType(type)) {
                 let funcDecl = getFunctionDeclarationForDeclareType(type.symbol.classType);//getTypeOfSymbol(type.symbol.parent));
+                Debug.assert(!!funcDecl)
                 if (!funcDecl) {
                     return [null, null];
                 }
                 return [funcDecl.parent, funcDecl.name];
             } else {
                 let name = getVariableNameFromDeclareTypeNode(getDeclareTypeNode(type));
-                return [getScopeContainer(type.symbol.declarations[0]), name];
+                return [getModuleOrSourceFileOrFunction(getDeclareTypeNode(type)), name];
             }
         }
 

@@ -307,6 +307,14 @@ namespace ts {
           return <Statement> scope;
       }
 
+      export function getModuleOrSourceFileOrFunction(scope:Node) {
+          while (scope.kind !== SyntaxKind.ModuleDeclaration && scope.kind !== SyntaxKind.SourceFile && !isFunctionLike(scope)) {
+              // Should always terminate; all incoming nodes should be children of the SourceFile:
+              scope = scope.parent;
+          }
+          return scope;
+      }
+
       export function getModuleOrSourceFile(scope:Node) {
           while (scope.kind !== SyntaxKind.ModuleDeclaration && scope.kind !== SyntaxKind.SourceFile) {
               // Should always terminate; all incoming nodes should be children of the SourceFile:
