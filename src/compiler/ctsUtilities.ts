@@ -322,12 +322,4 @@ namespace ts {
           }
           return scope;
       }
-
-      // [ConcreteTypeScript+Become]
-      // Is this node able to progressively build up members/intersected-types?
-      export function nodeRequiresFlowAnalysis(node: Node): boolean {
-        // Generally any raw identifier is a candidate:
-        return (node.kind == SyntaxKind.Identifier);
-      }
-      // [/ConcreteTypeScript+Become]
 }

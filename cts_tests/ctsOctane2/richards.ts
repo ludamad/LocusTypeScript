@@ -310,7 +310,7 @@ TaskControlBlock.prototype.markAsRunnable = function () {
 /**
  * Runs this task, if it is ready to be run, and returns the next task to run.
  */
-TaskControlBlock.prototype.run = function () {
+TaskControlBlock.prototype.run = function (): !TaskControlBlock {
     var packet = undefined;
     if (this.state == STATE_SUSPENDED_RUNNABLE) {
         packet = this.queue;
@@ -355,7 +355,7 @@ TaskControlBlock.prototype.toString = function () {
 function Task(this: declare Task) {
 }
 Task.prototype.contructor = function () { };
-Task.prototype.run = function (packet:!Packet) {
+Task.prototype.run = function (packet:!Packet): !TaskControlBlock {
     throw "Abstract method";
 };
 
@@ -444,7 +444,7 @@ function WorkerTask(this: declare WorkerTask extends Task; scheduler: !Scheduler
     this.v2 = v2;
 }
 __extends(WorkerTask, Task);
-WorkerTask.prototype.run = function (packet) {
+WorkerTask.prototype.run = function (packet): !TaskControlBlock {
     if (packet == undefined) {
         return this.scheduler.suspendCurrent();
     }
@@ -485,7 +485,7 @@ function HandlerTask(this: declare HandlerTask extends Task; scheduler: !Schedul
     this.v2 = v2;
 }
 __extends(HandlerTask, Task);
-HandlerTask.prototype.run = function (packet) {
+HandlerTask.prototype.run = function (packet): !TaskControlBlock {
     if (packet != undefined) {
         if (packet.kind == KIND_WORK) {
             this.v1 = packet.addTo(this.v1);

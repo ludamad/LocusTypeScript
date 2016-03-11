@@ -2810,12 +2810,36 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             function emitBrandObject(brand:DeclareTypeDeclaration) {
                 let brandName:Identifier = brand.name;
                 writeLine();
-                write(`var $$cts$$brand$$${brandName.text} = new $$cts$$runtime.Brand("${brandName.text}");`);
+                
+                // Attach a closure to resolve to the extended type (saves having to do ordering analysis):
+                write(`var $$cts$$brand$$${brandName.text} = new $$cts$$runtime.Brand("${brandName.text}", function(){`);
+                writeLine();
+                    emitExtendedTypesReturn(/*Prototype only?*/ false);
+                write("});"); writeLine();
+
                 // Prototype brand object:
+                write(`$$cts$$brand$$${brandName.text}.prototype = new $$cts$$runtime.Brand("${brandName.text}.prototype", function() {`);
                 writeLine();
-                write(`$$cts$$brand$$${brandName.text}.prototype = new $$cts$$runtime.Brand("${brandName.text}.prototype");`);
-                writeLine();
+                    emitExtendedTypesReturn(/*Prototype only?*/ true);
+                write("});"); writeLine();
                 emitDeclarationCement(brand);
+                return;
+                // Where:
+                function emitExtendedTypesReturn(prototypeOnly) {
+                    write("    return [");
+                    if (!prototypeOnly) {
+                        write(`$$cts$$brand$$${brandName.text}.prototype, `);
+                    }
+                    for (let extendedType of (getDeclareTypeBaseTypeNodes(brand) || [])) {
+                        if (!prototypeOnly) {
+                            emitCtsType(extendedType.nodeLinks.resolvedType);
+                            write(", ");
+                        }
+                        emitCtsType(extendedType.nodeLinks.resolvedType);
+                        write(".prototype, ");
+                    }
+                    write("];");  writeLine();
+                }
             }
             // [ConcreteTypeScript]
             function emitBrandTypesAtBlockStart(block:Node) {

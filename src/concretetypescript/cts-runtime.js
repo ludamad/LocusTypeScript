@@ -86,7 +86,7 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         cement(Boolean, "$$cts$$check", function(val) { return typeof val === "boolean"; });
         cement(Number, "$$cts$$check", function(val) { return typeof val === "number"; });
         cement(String, "$$cts$$check", function(val) { return typeof val === "string"; });
-        cement(Function.prototype, "$$cts$$check", function(val) { return val instanceof this || val === null || typeof val === "undefined"; });
+        cement(Function.prototype, "$$cts$$check", function(val) { return val instanceof this;});
 
         // A union of concrete types, eg !a | !b.
         // We consider the concreteness of !(a | b) to be and reinterpret it as !a | !b.
@@ -176,10 +176,11 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         function protect(type, name, obj, enumerable) {
             var pname = "$$cts$$value$" + name;
             var setterName ="$$cts$$setter$"+name;
-            var getter = function() { return this[pname]; };
+            var getter = new Function("console.log(new Error().stack) ;return this." + pname + ";");
             var setter = type[setterName];
             if (!setter) {
-                setter = function(val) { this[pname] = $$cts$$runtime.cast(type, val); };
+//                setter = new Function('val', "this." + pname + " = val;");
+                setter = function(val) { this[pname] = val; $$cts$$runtime.cast(type, val); };
                 addUnenum(type, setterName, setter);
                 if (!type.$$cts$$type) {
                     addUnenum(setter, "$$cts$$type", type);
@@ -235,8 +236,10 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         // already exist.
         // If 'type' is not given, 'rawFunction' may be given to specify a 'raw' function value that is called to elide checks.`
         cement(this, "protectAssignment", function(disabled, type, name, obj, value, rawFunction) {
-            obj[name] = value; return value;
+////            obj[name] = value;
+//            obj['$$cts$$value$' + name] = rawFunction || value; return value;
             if (disabled) {
+                obj[name] = value;
                 return value;
             }
             if (type === null) {
@@ -271,11 +274,10 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
 
         // If 'type' is not given, 'rawFunction' may be given to specify a 'raw' function value that is called to elide checks.`
         cement(this, "protectProtoAssignment", function(disabled, type, protoCheckType, name, obj, value, rawFunction) {
-            obj.prototype[name] = value;
-            obj.prototype['$$cts$$value$' + name] = rawFunction;
-            return value;
-
+//            obj.prototype[name] = value;
+//            obj.prototype['$$cts$$value$' + name] = value || rawFunction; return value;
             if (disabled) {
+                obj.prototype[name] = value;
                 return value;
             }
             var prototype = obj.prototype;
@@ -290,15 +292,17 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         });
 
         var brandsCreated = 0;
-        function Brand(brandName) {
+        function Brand(brandName, getBaseBrands) {
             this.brandName = brandName;
             this.brandId = brandsCreated++;
+            this.getBaseBrands = getBaseBrands;
+            this.singleton = null;
         }
 
         cement(Brand, "prototype", Brand.prototype);
-        cement(Brand, "toString", function() {return this.brandName;});
+        cement(Brand.prototype, "toString", function() {return this.brandName;});
         cement(Brand.prototype, "$$cts$$check", function(obj) {
-            if (typeof obj !== "object" || typeof obj.$$cts$$brands === "undefined") {
+            if (obj == null || typeof obj.$$cts$$brands === "undefined") {
                 return false;
             }
             for (var i = 0; i < obj.$$cts$$brands.length; i++) {
@@ -309,20 +313,31 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             return false;
         });
 
-        function singletonBrandSet(brand) {
-            var brandSet = [brand];
+        function getBrandSet(brand) {
+            // Done very few times, doesn't need to be amazingly fast:
+            var brandSet = [brand].concat(brand.getBaseBrands());
             brandSet.refinedSets = {};
-            brandSet.refinedSets[brand.brandId] = brandSet;
+            for (var i = 0; i < brandSet.length; i++) {
+                brandSet.refinedSets[brandSet[i].brandId] = brandSet;
+            }
             return brandSet;
         }
 
         function refineBrandSet(brandSet, brand) {
-            if (brandSet.refinedSets[brand.brandId]) {
+            if (typeof brandSet.refinedSets[brand.brandId] !== "undefined") {
                 return brandSet.refinedSets[brand.brandId];
             }
-            var newSet = brandSet.concat([brand]);
+            // Done very few times, doesn't need to be amazingly fast:
+            var newSet = brandSet.refinedSets[brand.brandId] = [];
             newSet.refinedSets = {};
-            brandSet.refinedSets[brand.brandId] = newSet;
+            var brandsToMerge = brandSet.concat([brand]).concat(brand.getBaseBrands());
+            for (var i = 0; i < brandsToMerge.length; i++) {
+                // TODO recursive merge is needed for complete correctness
+                if (newSet.indexOf(brandsToMerge[i]) === -1) {
+                    newSet.push(brandsToMerge[i]);
+                    newSet.refinedSets[brandsToMerge[i].brandId] = newSet;
+                }
+            }
             return newSet;
         }
 
@@ -331,8 +346,7 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
                 throw new Error("Attempt to brand undefined/null object!")
             }
             if (typeof obj.$$cts$$brands === "undefined") {
-                addUnenum(obj, "$$cts$$brands", 
-                    typeof brand.singleton !== "undefined" ? brand.singleton : brand.singleton = singletonBrandSet(brand));
+                addUnenum(obj, "$$cts$$brands", brand.singleton !== null ? brand.singleton : brand.singleton = getBrandSet(brand));
             } else {
                 obj.$$cts$$brands = refineBrandSet(obj.$$cts$$brands, brand);
             }

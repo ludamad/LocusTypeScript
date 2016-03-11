@@ -3470,9 +3470,12 @@ namespace ts {
             return null;
         }
         function getPrototypeSymbolTypeOfType(type: InterfaceType) {
-            var stripped = unconcrete(type);
+            let stripped = unconcrete(type);
             if (stripped.symbol && stripped.symbol.exports) {
                 let prototype = <Symbol> getProperty(stripped.symbol.exports, "prototype");
+                if (!prototype) {
+                    return null;
+                }
                 Debug.assert(!!(prototype.flags & SymbolFlags.Prototype));
                 return prototype;
             }
@@ -3542,9 +3545,9 @@ namespace ts {
             let flowData = getFlowDataForType(type);
             if (type.flags & TypeFlags.Declare) {
                 Debug.assert(!!flowData);
-                console.log('VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV');
-                console.log(flowData);
-                console.log('^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^');
+                //console.log('VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV');
+                //console.log(flowData);
+                //console.log('^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^');
             }
             if (flowData) {
                 if (baseTypes.length === 0) {
@@ -3904,7 +3907,6 @@ namespace ts {
                     }
                 }
             }
-            console.log((new Error() as any).stack);
         }
 
         function getPropertiesOfUnionOrIntersectionType(_type: UnionOrIntersectionType): Symbol[] {
@@ -4078,15 +4080,16 @@ namespace ts {
             // concrete types are the properties of their non-concrete
             // equivalent
             type = getApparentType(unconcrete(type));
-
-            // [ConcreteTypeScript] 
             // If we are a type currently being resolved, don't attempt to get a property
             if (markAsRecursiveFlowAnalysis(type)) {
-                smartPrint(name, 'FFIELD')
+                smartPrint(name, 'markAsRecursiveFlowAnalysis')
                 return undefined;
             }
             // [/ConcreteTypeScript]
 
+            if (name === 'setRunning') {
+                smartPrint(type, name);
+            }
             if (type.flags & TypeFlags.IntermediateFlow) {
                 return getPropertyOfIntermediateFlowType(<IntermediateFlowType>type, name);
             }
@@ -5052,7 +5055,7 @@ namespace ts {
                     // Make sure we have our baseType set
                     // so that we can access it in emit code:
                     let strippedTypes = map(type.types, (concreteType) => unconcrete(concreteType));
-                    strippedTypes.filter(t => !(t.flags & TypeFlags.Undefined) || !(t.flags & TypeFlags.Null));
+                    strippedTypes = strippedTypes.filter(t => !(t.flags & TypeFlags.Undefined) && !(t.flags & TypeFlags.Null));
                     let baseType = (<any>type).baseType = getUnionType(strippedTypes, true);
 
                     // We cast our UnionType into a concrete type,
@@ -9153,7 +9156,6 @@ namespace ts {
                     node.mangled = true;
                 }
             }
-
             return propType;
             // [/ConcreteTypeScript]
         }
@@ -17912,9 +17914,6 @@ namespace ts {
 
         function getScopeContainer(obj:Node) {
             let scopeContainer = getScopeContainerWorker(obj);
-            if (!scopeContainer) {
-                smartPrint(obj, 'obj');
-            }
             Debug.assert(!!scopeContainer);
             return scopeContainer;
         }
@@ -17988,9 +17987,6 @@ namespace ts {
         function getFlowDataForDeclareType(type: InterfaceType):FlowData {
             if (!type.flowData) {
                 var [containerScope, identifier] = getScopeContainerAndIdentifierForDeclareType(type);
-                smartPrint(type, 'type');
-                smartPrint(containerScope, 'containerScope');
-                smartPrint(identifier, 'identifier');
                 // Placeholder:
 //                type.flowData = {memberSet: {}, flowTypes: []};
                 if (containerScope) {
@@ -18057,7 +18053,6 @@ namespace ts {
             } else {
                 var flowData:FlowData = {flowTypes: [{type, firstBindingSite: containerScope}], memberSet: {}};
             }
-            Debug.assert(containerScope != null);
             forEachChildRecursive(containerScope, node => {
                 if (isReference(node)) {
                     // 'null is used as a sentinel to avoid recursion, as opposed to 'undefined' permitting analysis.
@@ -18078,7 +18073,7 @@ namespace ts {
                 /*Current flow-data: */ flowData, 
                 /*Original flow-data: */ flowData
             ); 
-            if (targetDeclareType) {// && !isCurrentFlowAnalysisUntrustable(targetDeclareType)) {
+            if (targetDeclareType && !isCurrentFlowAnalysisUntrustable(targetDeclareType)) {
                 forEachChildRecursive(containerScope, node => {
                     if (isReference(node)) {
                         node.ctsFinalFlowData = finalFlowData;
@@ -18110,9 +18105,6 @@ namespace ts {
                 // For now, don't expect any bare-becomes:
                 Debug.assert(false);
             }
-            console.log('V--------------------------------------------------V');
-            console.log(targetDeclareType);
-            console.log('^--------------------------------------------------^');
             return;
             // Note: 'right' can be null, signifying that we are protecting the existing value.
             function emitProtection(flowDataAfterAssignment: FlowData, node:Node, left: Node, member: string, right?: Node) {
