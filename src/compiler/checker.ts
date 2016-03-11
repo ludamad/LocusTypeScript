@@ -270,7 +270,7 @@ namespace ts {
         }
 
         function showStack() {
-//            console.log((<any>new Error()).stack);
+            //console.log((<any>new Error()).stack);
         }
         function error(location: Node, message: DiagnosticMessage, arg0?: any, arg1?: any, arg2?: any): void {
             showStack();
@@ -854,7 +854,6 @@ namespace ts {
          * requiring checks or float/int coercion, and mark the given node as
          * requiring those checks */
         function checkCtsCoercion(node: Node, fromType: Type, toType: Type) {
-            smartPrint(node, 'cooerce');
             /* If the target type is concrete and value type isn't, must check,
              * unless it's known null or undefined */
             if (isConcreteType(toType) && !isConcreteType(fromType) &&
@@ -3541,6 +3540,12 @@ namespace ts {
             // [ConcreteTypeScript]
             // TODO un-resolve classes that were 'resolved' during recursive computation
             let flowData = getFlowDataForType(type);
+            if (type.flags & TypeFlags.Declare) {
+                Debug.assert(!!flowData);
+                console.log('VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV');
+                console.log(flowData);
+                console.log('^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^');
+            }
             if (flowData) {
                 if (baseTypes.length === 0) {
                     members = createSymbolTable([]);
@@ -3874,7 +3879,22 @@ namespace ts {
             // concrete types are the properties of their non-concrete
             // equivalent
             type = unconcrete(type);
+
+            // Access prototype directly, in the case of TypeFlags.Declare. 
+            // This is necessary so that we can access non-flow-dependent parts of the object.
+            // TODO this causes redundant checking with below if the Declare type is fully resolved.
+            if (type.flags & TypeFlags.Declare) {
+                let prototypeType = getPrototypeSymbolTypeOfType(<InterfaceType> type);
+                if (prototypeType) {
+                    let protoProp = getPropertyOfType(getDeclaredTypeOfSymbol(prototypeType), name);
+                    if (protoProp) {
+                        return protoProp;
+                    }
+                }
+            }
+
             // [/ConcreteTypeScript]
+
             if (type.flags & TypeFlags.ObjectType) {
                 let resolved = resolveStructuredTypeMembers(<ObjectType>type);
                 if (hasProperty(resolved.members, name)) {
@@ -3884,6 +3904,7 @@ namespace ts {
                     }
                 }
             }
+            console.log((new Error() as any).stack);
         }
 
         function getPropertiesOfUnionOrIntersectionType(_type: UnionOrIntersectionType): Symbol[] {
@@ -4061,6 +4082,7 @@ namespace ts {
             // [ConcreteTypeScript] 
             // If we are a type currently being resolved, don't attempt to get a property
             if (markAsRecursiveFlowAnalysis(type)) {
+                smartPrint(name, 'FFIELD')
                 return undefined;
             }
             // [/ConcreteTypeScript]
@@ -17955,17 +17977,21 @@ namespace ts {
         function getFlowDataForDeclareType(type: InterfaceType):FlowData {
             if (!type.flowData) {
                 var [containerScope, identifier] = getScopeContainerAndIdentifierForDeclareType(type);
+                smartPrint(type, 'type');
+                smartPrint(containerScope, 'containerScope');
+                smartPrint(identifier, 'identifier');
                 // Placeholder:
 //                type.flowData = {memberSet: {}, flowTypes: []};
                 if (containerScope) {
-            //        // Remove any previously cached value?
-            //        (<ResolvedType><ObjectType>type).members = null; 
+                    // Remove any previously cached value?
+                    (<ResolvedType><ObjectType>type).members = null; 
 
                     let flowType = getTypeFromDeclareTypeNode(getDeclareTypeNode(type), type);
                     ensureFlowDataIsSet(containerScope, isReference, flowType);
                     Debug.assert(!!type.flowData);
                 }
             }
+            Debug.assert(!!type.flowData);
             return type.flowData;
             // Where:
             function isReference(node: Node) {
@@ -18041,7 +18067,7 @@ namespace ts {
                 /*Current flow-data: */ flowData, 
                 /*Original flow-data: */ flowData
             ); 
-            if (!targetDeclareType || !isCurrentFlowAnalysisUntrustable(targetDeclareType)) {
+            if (targetDeclareType) {// && !isCurrentFlowAnalysisUntrustable(targetDeclareType)) {
                 forEachChildRecursive(containerScope, node => {
                     if (isReference(node)) {
                         node.ctsFinalFlowData = finalFlowData;
@@ -18064,7 +18090,7 @@ namespace ts {
                     produceDiagnostics = true; 
                 }
             }
-            if (targetDeclareType && !isCurrentFlowAnalysisUntrustable(targetDeclareType)) {
+            if (targetDeclareType) {// && !isCurrentFlowAnalysisUntrustable(targetDeclareType)) {
                 for (let protect of protectionQueue) {
                     protect(finalFlowData);
                 }
@@ -18073,6 +18099,9 @@ namespace ts {
                 // For now, don't expect any bare-becomes:
                 Debug.assert(false);
             }
+            console.log('V--------------------------------------------------V');
+            console.log(targetDeclareType);
+            console.log('^--------------------------------------------------^');
             return;
             // Note: 'right' can be null, signifying that we are protecting the existing value.
             function emitProtection(flowDataAfterAssignment: FlowData, node:Node, left: Node, member: string, right?: Node) {
