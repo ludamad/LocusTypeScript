@@ -78,6 +78,7 @@ var STATE_HELD = 4;
 var STATE_SUSPENDED_RUNNABLE = STATE_SUSPENDED | STATE_RUNNABLE;
 var STATE_NOT_HELD = ~STATE_HELD;
 function testRichards() {
+    var func = runRichards;
     for (var i = 0; i < 1000; i++) {
         runRichards();
     }
