@@ -176,7 +176,7 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         function protect(type, name, obj, enumerable) {
             var pname = "$$cts$$value$" + name;
             var setterName ="$$cts$$setter$"+name;
-            var getter = new Function("console.log(new Error().stack) ;return this." + pname + ";");
+            var getter = new Function("return this." + pname + ";");
             var setter = type[setterName];
             if (!setter) {
 //                setter = new Function('val', "this." + pname + " = val;");
@@ -236,7 +236,7 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         // already exist.
         // If 'type' is not given, 'rawFunction' may be given to specify a 'raw' function value that is called to elide checks.`
         cement(this, "protectAssignment", function(disabled, type, name, obj, value, rawFunction) {
-////            obj[name] = value;
+//            obj[name] = value;
 //            obj['$$cts$$value$' + name] = rawFunction || value; return value;
             if (disabled) {
                 obj[name] = value;
