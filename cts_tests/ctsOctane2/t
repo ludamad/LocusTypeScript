@@ -1,0 +1,17 @@
+crypto.ts(329,44): error TS2365: Operator '+' cannot be applied to types 'number' and 'BigInteger'.
+crypto.ts(330,13): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number' or an enum type.
+crypto.ts(331,11): error TS2365: Operator '+' cannot be applied to types 'number' and 'BigInteger'.
+crypto.ts(348,14): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number' or an enum type.
+crypto.ts(351,34): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number' or an enum type.
+crypto.ts(368,26): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number' or an enum type.
+crypto.ts(370,14): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number' or an enum type.
+crypto.ts(506,28): error TS2345: Argument of type 'number' is not assignable to parameter of type 'BigInteger'.
+crypto.ts(667,41): error TS2345: Argument of type 'BigInteger' is not assignable to parameter of type 'number'.
+crypto.ts(677,11): error TS2339: Property 'nextBytes' does not exist on type '!BigInteger'.
+crypto.ts(755,29): error TS2345: Argument of type 'number' is not assignable to parameter of type 'BigInteger'.
+crypto.ts(755,55): error TS2345: Argument of type 'number' is not assignable to parameter of type 'BigInteger'.
+crypto.ts(762,29): error TS2345: Argument of type 'number' is not assignable to parameter of type 'BigInteger'.
+crypto.ts(762,55): error TS2345: Argument of type 'number' is not assignable to parameter of type 'BigInteger'.
+crypto.ts(1247,19): error TS2345: Argument of type 'number' is not assignable to parameter of type 'BigInteger'.
+  Property 'millerRabin' is missing in type 'Number'.
+

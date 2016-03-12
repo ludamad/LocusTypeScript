@@ -1,0 +1,48 @@
+chards.ts(180,25): error TS2339: Property 'setRunning' does not exist on type '!TaskControlBlock | !undefined'.
+richards.ts(201,33): error TS2339: Property 'isHeldOrSuspended' does not exist on type '!TaskControlBlock | !undefined'.
+richards.ts(202,51): error TS2339: Property 'link' does not exist on type '!TaskControlBlock | !undefined'.
+richards.ts(205,50): error TS2339: Property 'id' does not exist on type '!TaskControlBlock | !undefined'.
+richards.ts(206,51): error TS2339: Property 'run' does not exist on type '!TaskControlBlock | !undefined'.
+richards.ts(218,13): error TS2339: Property 'markAsNotHeld' does not exist on type '!TaskControlBlock'.
+richards.ts(219,17): error TS2339: Property 'priority' does not exist on type '!TaskControlBlock'.
+richards.ts(219,44): error TS2339: Property 'priority' does not exist on type '!TaskControlBlock | !undefined'.
+richards.ts(233,25): error TS2339: Property 'markAsHeld' does not exist on type '!TaskControlBlock | !undefined'.
+richards.ts(234,32): error TS2339: Property 'link' does not exist on type '!TaskControlBlock | !undefined'.
+richards.ts(241,25): error TS2339: Property 'markAsSuspended' does not exist on type '!TaskControlBlock | !undefined'.
+richards.ts(251,36): error TS2339: Property 'id' does not exist on type '!Packet'.
+richards.ts(255,16): error TS2339: Property 'link' does not exist on type '!Packet'.
+richards.ts(256,16): error TS2339: Property 'id' does not exist on type '!Packet'.
+richards.ts(257,18): error TS2339: Property 'checkPriorityAdd' does not exist on type '!TaskControlBlock'.
+richards.ts(288,14): error TS2339: Property 'state' does not exist on type '!TaskControlBlock'.
+richards.ts(291,14): error TS2339: Property 'state' does not exist on type '!TaskControlBlock'.
+richards.ts(291,27): error TS2339: Property 'state' does not exist on type '!TaskControlBlock'.
+richards.ts(294,14): error TS2339: Property 'state' does not exist on type '!TaskControlBlock'.
+richards.ts(294,27): error TS2339: Property 'state' does not exist on type '!TaskControlBlock'.
+richards.ts(297,22): error TS2339: Property 'state' does not exist on type '!TaskControlBlock'.
+richards.ts(297,56): error TS2339: Property 'state' does not exist on type '!TaskControlBlock'.
+richards.ts(300,14): error TS2339: Property 'state' does not exist on type '!TaskControlBlock'.
+richards.ts(300,27): error TS2339: Property 'state' does not exist on type '!TaskControlBlock'.
+richards.ts(303,14): error TS2339: Property 'state' does not exist on type '!TaskControlBlock'.
+richards.ts(303,27): error TS2339: Property 'state' does not exist on type '!TaskControlBlock'.
+richards.ts(310,18): error TS2339: Property 'state' does not exist on type '!TaskControlBlock'.
+richards.ts(311,27): error TS2339: Property 'queue' does not exist on type '!TaskControlBlock'.
+richards.ts(312,18): error TS2339: Property 'queue' does not exist on type '!TaskControlBlock'.
+richards.ts(313,22): error TS2339: Property 'queue' does not exist on type '!TaskControlBlock'.
+richards.ts(314,22): error TS2339: Property 'state' does not exist on type '!TaskControlBlock'.
+richards.ts(317,22): error TS2339: Property 'state' does not exist on type '!TaskControlBlock'.
+richards.ts(323,21): error TS2339: Property 'task' does not exist on type '!TaskControlBlock'.
+richards.ts(331,18): error TS2339: Property 'queue' does not exist on type '!TaskControlBlock.prototype becomes !TaskControlBlock'.
+richards.ts(334,22): error TS2339: Property 'priority' does not exist on type '!TaskControlBlock'.
+richards.ts(334,38): error TS2339: Property 'priority' does not exist on type '!TaskControlBlock'.
+richards.ts(338,33): error TS2339: Property 'addTo' does not exist on type '!Packet'.
+richards.ts(338,44): error TS2339: Property 'queue' does not exist on type '!TaskControlBlock'.
+richards.ts(343,32): error TS2339: Property 'task' does not exist on type '!TaskControlBlock'.
+richards.ts(343,50): error TS2339: Property 'state' does not exist on type '!TaskControlBlock'.
+richards.ts(482,33): error TS2339: Property 'a1' does not exist on type '!Packet | !undefined'.
+richards.ts(487,39): error TS2339: Property 'link' does not exist on type '!Packet | !undefined'.
+richards.ts(488,36): error TS2339: Property 'a2' does not exist on type '!Packet | !undefined'.
+richards.ts(489,29): error TS2339: Property 'a1' does not exist on type '!Packet | !undefined'.
+richards.ts(495,35): error TS2339: Property 'link' does not exist on type '!Packet | !undefined'.
+richards.ts(539,14): error TS2339: Property 'link' does not exist on type '!Packet'.
+richards.ts(544,29): error TS2339: Property 'link' does not exist on type '!Packet'.
+richards.ts(546,14): error TS2339: Property 'link' does not exist on type '!Packet'

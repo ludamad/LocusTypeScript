@@ -1,0 +1,165 @@
+crypto.ts(84,22): error TS7006: Parameter 'd' implicitly has an 'any' type.                                                                                                                                                                    
+crypto.ts(121,57): error TS7006: Parameter 'w' implicitly has an 'any' type.
+crypto.ts(135,61): error TS7006: Parameter 'w' implicitly has an 'any' type.
+crypto.ts(152,57): error TS7006: Parameter 'w' implicitly has an 'any' type.
+crypto.ts(170,37): error TS7022: 'i' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(170,39): error TS7022: 'x' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(170,41): error TS7022: 'w' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(170,43): error TS7022: 'j' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(170,45): error TS7022: 'c' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(170,47): error TS7022: 'n' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(199,40): error TS7022: 'r' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(209,41): error TS7022: 'x' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(219,44): error TS7022: 's' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(219,46): error TS7022: 'b' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(221,9): error TS7005: Variable 'k' implicitly has an 'any' type.
+crypto.ts(270,9): error TS7005: Variable 'k' implicitly has an 'any' type.
+crypto.ts(277,24): error TS7005: Variable 'd' implicitly has an 'any' type.
+crypto.ts(304,43): error TS7022: 'a' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(325,43): error TS7022: 'n' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(325,45): error TS7022: 'r' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(328,9): error TS7005: Variable 'i' implicitly has an 'any' type.
+crypto.ts(336,53): error TS7006: Parameter 'r' implicitly has an 'any' type.
+crypto.ts(345,52): error TS7006: Parameter 'r' implicitly has an 'any' type.
+crypto.ts(351,68): error TS7005: Variable 'i' implicitly has an 'any' type.
+crypto.ts(364,52): error TS7006: Parameter 'r' implicitly has an 'any' type.
+crypto.ts(384,39): error TS7022: 'a' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(384,41): error TS7022: 'r' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(421,44): error TS7022: 'a' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(421,46): error TS7022: 'r' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(437,42): error TS7022: 'r' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(458,42): error TS7022: 'm' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(458,44): error TS7022: 'q' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(458,46): error TS7022: 'r' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(511,37): error TS7022: 'a' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(551,47): error TS7006: Parameter 'z' implicitly has an 'any' type.
+crypto.ts(564,43): error TS7022: 'e' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(564,45): error TS7022: 'm' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(565,9): error TS7005: Variable 'z' implicitly has an 'any' type.
+crypto.ts(566,35): error TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+crypto.ts(566,60): error TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+crypto.ts(605,43): error TS7022: 'r' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(631,43): error TS7006: Parameter 's' implicitly has an 'any' type.
+crypto.ts(658,54): error TS7006: Parameter 'b' implicitly has an 'any' type.
+crypto.ts(709,40): error TS7022: 'a' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(710,37): error TS7022: 'a' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(711,37): error TS7022: 'a' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(714,58): error TS7006: Parameter 'op' implicitly has an 'any' type.
+crypto.ts(735,37): error TS7022: 'a' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(736,36): error TS7022: 'a' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(737,37): error TS7022: 'a' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(738,40): error TS7022: 'a' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(808,39): error TS7022: 'a' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(808,41): error TS7022: 'r' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(844,37): error TS7022: 'a' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(847,42): error TS7022: 'a' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(850,42): error TS7022: 'a' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(853,40): error TS7022: 'a' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(856,43): error TS7022: 'a' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(859,52): error TS7022: 'a' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(868,40): error TS2345: Argument of type 'BigInteger' is not assignable to parameter of type 'number'.
+crypto.ts(887,23): error TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+crypto.ts(891,49): error TS7006: Parameter 'a' implicitly has an 'any' type.
+crypto.ts(891,61): error TS7006: Parameter 'r' implicitly has an 'any' type.
+crypto.ts(898,9): error TS7005: Variable 'j' implicitly has an 'any' type.
+crypto.ts(906,49): error TS7006: Parameter 'a' implicitly has an 'any' type.
+crypto.ts(906,61): error TS7006: Parameter 'r' implicitly has an 'any' type.
+crypto.ts(920,40): error TS7006: Parameter 'e' implicitly has an 'any' type.
+crypto.ts(922,28): error TS7005: Variable 'k' implicitly has an 'any' type.
+crypto.ts(922,43): error TS7005: Variable 'z' implicitly has an 'any' type.
+crypto.ts(930,13): error TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+crypto.ts(932,13): error TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+crypto.ts(934,13): error TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+crypto.ts(949,20): error TS7005: Variable 'w' implicitly has an 'any' type.
+crypto.ts(949,47): error TS7005: Variable 't' implicitly has an 'any' type.
+crypto.ts(1062,9): error TS7005: Variable 'i' implicitly has an 'any' type.
+crypto.ts(1104,24): error TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+crypto.ts(1105,23): error TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+crypto.ts(1113,28): error TS7006: Parameter 'setup' implicitly has an 'any' type.
+crypto.ts(1113,35): error TS7006: Parameter 'bits' implicitly has an 'any' type.
+crypto.ts(1132,25): error TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+crypto.ts(1137,5): error TS7005: Variable 'rr' implicitly has an 'any' type.
+crypto.ts(1137,8): error TS7005: Variable 'vv' implicitly has an 'any' type.
+crypto.ts(1145,19): error TS7006: Parameter 'n' implicitly has an 'any' type.
+crypto.ts(1146,16): error TS7006: Parameter 's' implicitly has an 'any' type.
+crypto.ts(1167,41): error TS7006: Parameter 'm' implicitly has an 'any' type.
+crypto.ts(1170,38): error TS7022: 'x' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1175,37): error TS7022: 'x' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1176,37): error TS7022: 'x' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1177,36): error TS7022: 'x' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1177,38): error TS7022: 'y' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1177,40): error TS7022: 'r' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1178,36): error TS7022: 'x' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1178,38): error TS7022: 'r' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1182,47): error TS7006: Parameter 'm' implicitly has an 'any' type.
+crypto.ts(1192,41): error TS7022: 'x' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1201,40): error TS7022: 'x' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1209,40): error TS7022: 'x' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1229,39): error TS7022: 'x' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1229,41): error TS7022: 'r' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1232,39): error TS7022: 'x' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1232,41): error TS7022: 'y' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1232,43): error TS7022: 'r' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1237,34): error TS7022: 'x' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1238,36): error TS7022: 'x' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1238,38): error TS7022: 'y' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1238,40): error TS7022: 'r' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1239,36): error TS7022: 'x' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1239,38): error TS7022: 'r' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1251,38): error TS7022: 'x' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1257,37): error TS7022: 'x' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1260,37): error TS7022: 'x' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1271,36): error TS7022: 'x' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1271,38): error TS7022: 'r' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1274,36): error TS7022: 'x' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1274,38): error TS7022: 'y' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1274,40): error TS7022: 'r' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1292,35): error TS7022: 'key' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1293,9): error TS7005: Variable 'i' implicitly has an 'any' type.
+crypto.ts(1293,12): error TS7005: Variable 'j' implicitly has an 'any' type.
+crypto.ts(1293,15): error TS7005: Variable 't' implicitly has an 'any' type.
+crypto.ts(1308,9): error TS7005: Variable 't' implicitly has an 'any' type.
+crypto.ts(1319,12): error TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+crypto.ts(1331,5): error TS7005: Variable 'rng_state' implicitly has an 'any' type.
+crypto.ts(1332,5): error TS7005: Variable 'rng_pool' implicitly has an 'any' type.
+crypto.ts(1333,5): error TS7005: Variable 'rng_pptr' implicitly has an 'any' type.
+crypto.ts(1355,9): error TS7005: Variable 't' implicitly has an 'any' type.
+crypto.ts(1381,24): error TS7006: Parameter 'ba' implicitly has an 'any' type.
+crypto.ts(1382,9): error TS7005: Variable 'i' implicitly has an 'any' type.
+crypto.ts(1388,46): error TS7022: 'ba' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1396,22): error TS7006: Parameter 'str' implicitly has an 'any' type.
+crypto.ts(1396,26): error TS7006: Parameter 'r' implicitly has an 'any' type.
+crypto.ts(1397,12): error TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+crypto.ts(1400,18): error TS7006: Parameter 's' implicitly has an 'any' type.
+crypto.ts(1400,20): error TS7006: Parameter 'n' implicitly has an 'any' type.
+crypto.ts(1418,20): error TS7006: Parameter 's' implicitly has an 'any' type.
+crypto.ts(1427,15): error TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+crypto.ts(1436,12): error TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+crypto.ts(1452,39): error TS7022: 'N' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1452,41): error TS7022: 'E' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1462,38): error TS7022: 'x' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1467,37): error TS7022: 'text' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1483,40): error TS7022: 'N' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1483,42): error TS7022: 'E' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1483,44): error TS7022: 'D' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1494,42): error TS7022: 'N' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1494,44): error TS7022: 'E' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1494,46): error TS7022: 'D' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1494,48): error TS7022: 'P' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1494,50): error TS7022: 'Q' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1494,52): error TS7022: 'DP' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1494,55): error TS7022: 'DQ' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1494,58): error TS7022: 'C' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1510,38): error TS7022: 'B' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1510,40): error TS7022: 'E' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1511,15): error TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+crypto.ts(1514,14): error TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+crypto.ts(1517,22): error TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+crypto.ts(1521,22): error TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+crypto.ts(1544,39): error TS7022: 'x' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1559,37): error TS7022: 'ctext' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+crypto.ts(1586,5): error TS7005: Variable 'encrypted' implicitly has an 'any' type.
+crypto.ts(1589,15): error TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+crypto.ts(1596,15): error TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+
+
