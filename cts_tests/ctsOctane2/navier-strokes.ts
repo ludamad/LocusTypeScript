@@ -422,11 +422,16 @@ function runNavierStrokes() {
     NavierStokes.tearDownNavierStokes();
 };
 
-function testNavierStrokes() {
-    for (var i = 0; i < ; i++) {
-        runNavierStrokes();
+function timeIt(f) {
+    for (let i = 0; i < 10; i++) {
+        f();
     }
+    let timeBefore = new Date();
+    for (let i = 0; i < 100; i++) {
+        f();
+    }
+    let timeDelta = (new Date() as any) - (timeBefore as any);
+    console.log("Milliseconds: " + timeDelta);
 }
 
-testNavierStrokes();
- 
+timeIt(runNavierStokes);

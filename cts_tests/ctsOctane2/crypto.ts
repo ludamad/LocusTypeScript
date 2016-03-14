@@ -41,13 +41,6 @@ function timeIt(f) {
     console.log("Milliseconds: " + timeDelta);
 }
 
-function main() {
-    timeIt(function() {
-        encrypt(); 
-        decrypt(); 
-    });
-}
-
 // Bits per digit
 var dbits : !number;
 var BI_DB : !number;
@@ -1614,4 +1607,9 @@ function decrypt() {
     }
 }
 
-main();
+// Run with performance timing:
+timeIt(function() {
+    encrypt(); 
+    decrypt(); 
+});
+
