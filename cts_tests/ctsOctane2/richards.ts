@@ -78,11 +78,22 @@ var STATE_HELD = 4;
 var STATE_SUSPENDED_RUNNABLE = STATE_SUSPENDED | STATE_RUNNABLE;
 var STATE_NOT_HELD = ~STATE_HELD;
 function testRichards() {
-    var func = runRichards;
-    for (var i = 0; i < 1000; i++) {
-        runRichards();
-    }
+    timeIt(runRichards);
 }
+
+function timeIt(f) {
+    for (let i = 0; i < 10; i++) {
+        f();
+    }
+    let timeBefore = new Date();
+    for (let i = 0; i < 100; i++) {
+        f();
+    }
+    let timeDelta = (new Date() as any) - (timeBefore as any);
+    console.log("Milliseconds: " + timeDelta);
+}
+
+
 /**
  * The Richards benchmark simulates the task dispatcher of an
  * operating system.

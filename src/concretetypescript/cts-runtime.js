@@ -153,7 +153,7 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
                     case String: return ""+val;
                 }
             }
-            throw new Error("Cannot cast value " + val + " to type " + type);
+            throw new Error("Cannot cast value " + JSON.stringify(val) + " to type " + type);
         }
         // A special case for emitting purposes, that takes the value to cast in 'val', but a value to propagate in 'ret'
         function castRet3rd(type, val, ret) {
@@ -275,7 +275,7 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         // If 'type' is not given, 'rawFunction' may be given to specify a 'raw' function value that is called to elide checks.`
         cement(this, "protectProtoAssignment", function(disabled, type, protoCheckType, name, obj, value, rawFunction) {
 //            obj.prototype[name] = value;
-//            obj.prototype['$$cts$$value$' + name] = value || rawFunction; return value;
+//            obj.prototype['$$cts$$value$' + name] = rawFunction || value; return value;
             if (disabled) {
                 obj.prototype[name] = value;
                 return value;

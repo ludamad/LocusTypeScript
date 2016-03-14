@@ -15,644 +15,643 @@
 // Variable used to hold a number that can be used to verify that
 // the scene was ray traced correctly.
 
-var checkNumber:!floatNumber=0;
-export class Color {
+var checkNumber;
 
-RayTracer(public red = 0.0, public green = 0.0, public blue= 0.0) {
+function Color(this: declare Color; red:!number = 0.0, green:!number = 0.0, blue:!number= 0.0) {
+    this.red = red;
+    this.green = green;
+    this.blue = blue;
 }
 
-    public static add(c1:!Color, c2:!Color) {
-        var result = new Color(0, 0, 0);
+function Color_add(c1:!Color, c2:!Color) {
+    var result = new Color(0, 0, 0);
 
-        result.red = c1.red + c2.red;
-        result.green = c1.green + c2.green;
-        result.blue = c1.blue + c2.blue;
+    result.red = c1.red + c2.red;
+    result.green = c1.green + c2.green;
+    result.blue = c1.blue + c2.blue;
 
-        return result;
-    }
-
-    public static addScalar(c1:!Color, s:!floatNumber) {
-        var result = new Color(0, 0, 0);
-
-        result.red = c1.red + s;
-        result.green = c1.green + s;
-        result.blue = c1.blue + s;
-
-        result.limit();
-
-        return result;
-    }
-
-
-    public static subtract(c1:!Color, c2:!Color) {
-        var result = new Color(0, 0, 0);
-
-        result.red = c1.red - c2.red;
-        result.green = c1.green - c2.green;
-        result.blue = c1.blue - c2.blue;
-
-        return result;
-    }
-
-    public static multiply(c1:!Color, c2:!Color) {
-        var result = new Color(0, 0, 0);
-
-        result.red = c1.red * c2.red;
-        result.green = c1.green * c2.green;
-        result.blue = c1.blue * c2.blue;
-
-        return result;
-    }
-
-    public static multiplyScalar(c1:!Color, f:!floatNumber) {
-        var result = new Color(0, 0, 0);
-
-        result.red = c1.red * f;
-        result.green = c1.green * f;
-        result.blue = c1.blue * f;
-
-        return result;
-    }
-
-
-    public static divideFactor(c1:!Color, f:!floatNumber) {
-        var result = new Color(0, 0, 0);
-
-        result.red = c1.red / f;
-        result.green = c1.green / f;
-        result.blue = c1.blue / f;
-
-        return result;
-    }
-
-    RayTrace.prototype.limit = function() {
-        this.red = (this.red > 0.0) ? ((this.red > 1.0) ? 1.0 : this.red) : 0.0;
-        this.green = (this.green > 0.0) ? ((this.green > 1.0) ? 1.0 : this.green) : 0.0;
-        this.blue = (this.blue > 0.0) ? ((this.blue > 1.0) ? 1.0 : this.blue) : 0.0;
-    }
-
-    RayTrace.prototype.distance = function(color:!Color) {
-        var d =<!floatNumber> ( Math.abs(this.red - color.red) + Math.abs(this.green - color.green) + Math.abs(this.blue - color.blue));
-        return d;
-    }
-
-    public static blend(c1:!Color, c2:!Color, w:!floatNumber) {
-        var result = new Color(0, 0, 0);
-        result = Color.add(
-            Color.multiplyScalar(c1, 1 - w),
-            Color.multiplyScalar(c2, w)
-        );
-        return result;
-    }
-
-    RayTrace.prototype.brightness = function() {
-        var r = <!intNumber> Math.floor(this.red * 255);
-        var g = <!intNumber> Math.floor(this.green * 255);
-        var b = <!intNumber> Math.floor(this.blue * 255);
-        return <!intNumber> ( (r * 77 + g * 150 + b * 29) >> 8 );
-    }
-
-    RayTrace.prototype.toString = function() {
-        var r = <!intNumber> Math.floor(this.red * 255);
-        var g = <!intNumber> Math.floor(this.green * 255);
-        var b = <!intNumber> Math.floor(this.blue * 255);
-
-        return "rgb(" + r + "," + g + "," + b + ")";
-    }
+    return result;
 }
 
-export class Light {
-    constructor(public position:!Vector= null, public color:!Color= null, public intensity= 10.0) {
-    }
+function Color_addScalar(c1:!Color, s:!number) {
+    var result = new Color(0, 0, 0);
 
-    public toString() {
-        return 'Light [' + this.position.x + ',' + this.position.y + ',' + this.position.z + ']';
-    }
+    result.red = c1.red + s;
+    result.green = c1.green + s;
+    result.blue = c1.blue + s;
+
+    result.limit();
+
+    return result;
 }
 
-export class Vector {
-    constructor(public x= 0.0, public y= 0.0, public z= 0.0) {
-    }
+function Color_subtract(c1:!Color, c2:!Color) {
+    var result = new Color(0, 0, 0);
 
-    public copy(vector:!Vector) {
-        this.x = vector.x;
-        this.y = vector.y;
-        this.z = vector.z;
-    }
+    result.red = c1.red - c2.red;
+    result.green = c1.green - c2.green;
+    result.blue = c1.blue - c2.blue;
 
-    public normalize() {
-        var m =<!floatNumber> ( this.magnitude());
-        return new Vector(this.x / m, this.y / m, this.z / m);
-    }
-
-    public magnitude() {
-        return <!floatNumber> Math.sqrt((this.x * this.x) + (this.y * this.y) + (this.z * this.z));
-    }
-
-    public cross(w:!Vector) {
-        return new Vector(
-                -this.z * w.y + this.y * w.z,
-            this.z * w.x - this.x * w.z,
-                -this.y * w.x + this.x * w.y);
-    }
-
-    public dot(w:!Vector) {
-        return this.x * w.x + this.y * w.y + this.z * w.z;
-    }
-
-    public static add(v:!Vector, w:!Vector) {
-        return new Vector(w.x + v.x, w.y + v.y, w.z + v.z);
-    }
-
-    public static subtract(v:!Vector, w:!Vector) {
-        if (!w || !v) throw 'Vectors must be defined [' + v + ',' + w + ']';
-        return new Vector(v.x - w.x, v.y - w.y, v.z - w.z);
-    }
-
-    public static multiplyVector(v:!Vector, w:!Vector) {
-        return new Vector(v.x * w.x, v.y * w.y, v.z * w.z);
-    }
-
-    public static multiplyScalar(v:!Vector, w:!floatNumber) {
-        return new Vector(v.x * w, v.y * w, v.z * w);
-    }
-
-    public toString() {
-        return 'Vector [' + this.x + ',' + this.y + ',' + this.z + ']';
-    }
+    return result;
 }
 
-export class Ray {
-    constructor(public position:!Vector, public direction:!Vector) {
-    }
+function Color_multiply(c1:!Color, c2:!Color) {
+    var result = new Color(0, 0, 0);
 
-    public toString() {
-        return 'Ray [' + this.position + ',' + this.direction + ']';
-    }
+    result.red = c1.red * c2.red;
+    result.green = c1.green * c2.green;
+    result.blue = c1.blue * c2.blue;
+
+    return result;
 }
 
-export class Scene {
-    public camera : !Camera = null;
-    public shapes : Shape[] = [];
-    public lights : Light[] = [];
-    public background : !Background = null;
+function Color_multiplyScalar(c1:!Color, f:!number) {
+    var result = new Color(0, 0, 0);
 
-    constructor() {
-        this.camera = new Camera(
-            new Vector(0, 0, -5),
-            new Vector(0, 0, 1),
-            new Vector(0, 1, 0)
-        );
-        this.shapes = new Array<Shape>(0);
-        this.lights = new Array<Light>(0);
-        this.background = new Background(new Color(0, 0, 0.5), 0.2);
-    }
+    result.red = c1.red * f;
+    result.green = c1.green * f;
+    result.blue = c1.blue * f;
+
+    return result;
+}
+
+
+function Color_divideFactor(c1:!Color, f:!number) {
+    var result = new Color(0, 0, 0);
+
+    result.red = c1.red / f;
+    result.green = c1.green / f;
+    result.blue = c1.blue / f;
+
+    return result;
+}
+
+Color.prototype.limit = function() {
+    this.red = (this.red > 0.0) ? ((this.red > 1.0) ? 1.0 : this.red) : 0.0;
+    this.green = (this.green > 0.0) ? ((this.green > 1.0) ? 1.0 : this.green) : 0.0;
+    this.blue = (this.blue > 0.0) ? ((this.blue > 1.0) ? 1.0 : this.blue) : 0.0;
+}
+
+Color.prototype.distance = function(color:!Color) {
+    var d =+( Math.abs(this.red - color.red) + Math.abs(this.green - color.green) + Math.abs(this.blue - color.blue));
+    return d;
+}
+
+function Color_blend(c1:!Color, c2:!Color, w:!number) {
+    var result = new Color(0, 0, 0);
+    result = Color_add(
+        Color_multiplyScalar(c1, 1 - w),
+        Color_multiplyScalar(c2, w)
+    );
+    return result;
+}
+
+Color.prototype.brightness = function() {
+    var r = +Math.floor(this.red * 255);
+    var g = +Math.floor(this.green * 255);
+    var b = +Math.floor(this.blue * 255);
+    return +( (r * 77 + g * 150 + b * 29) >> 8 );
+}
+
+Color.prototype.toString = function() {
+    var r = +Math.floor(this.red * 255);
+    var g = +Math.floor(this.green * 255);
+    var b = +Math.floor(this.blue * 255);
+
+    return "rgb(" + r + "," + g + "," + b + ")";
+}
+
+function Light(this: declare Light; position:!Vector= null, color:!Color= null, intensity= 10.0) {
+    this.position = position;
+    this.color = color;
+    this.intensity = intensity;
+}
+
+Light.prototype.toString = function() {
+    return 'Light [' + this.position.x + ',' + this.position.y + ',' + this.position.z + ']';
+}
+
+function Vector(this: declare Vector; x:!number= 0.0, y:!number= 0.0, z:!number= 0.0) {
+    this.x = x;
+    this.y = y;
+    this.z = y;
+}
+
+Vector.prototype.copy = function(vector:!Vector) {
+    this.x = vector.x;
+    this.y = vector.y;
+    this.z = vector.z;
+}
+
+Vector.prototype.normalize = function() {
+    var m =+( this.magnitude());
+    return new Vector(this.x / m, this.y / m, this.z / m);
+}
+
+Vector.prototype.magnitude = function() {
+    return +Math.sqrt((this.x * this.x) + (this.y * this.y) + (this.z * this.z));
+}
+
+Vector.prototype.cross = function(w:!Vector) {
+    return new Vector(
+            -this.z * w.y + this.y * w.z,
+        this.z * w.x - this.x * w.z,
+            -this.y * w.x + this.x * w.y);
+}
+
+Vector.prototype.dot = function(w:!Vector) {
+    return this.x * w.x + this.y * w.y + this.z * w.z;
+}
+
+function Vector_add(v:!Vector, w:!Vector) {
+    return new Vector(w.x + v.x, w.y + v.y, w.z + v.z);
+}
+
+function Vector_subtract(v:!Vector, w:!Vector) {
+    if (!w || !v) throw 'Vectors must be defined [' + v + ',' + w + ']';
+    return new Vector(v.x - w.x, v.y - w.y, v.z - w.z);
+}
+
+function Vector_multiplyVector(v:!Vector, w:!Vector) {
+    return new Vector(v.x * w.x, v.y * w.y, v.z * w.z);
+}
+
+function Vector_multiplyScalar(v:!Vector, w:!number) {
+    return new Vector(v.x * w, v.y * w, v.z * w);
+}
+
+Vector.prototype.toString = function() {
+    return 'Vector [' + this.x + ',' + this.y + ',' + this.z + ']';
+}
+
+function Ray(this: declare Ray; position:!Vector, direction:!Vector) {
+    this.position = position;
+    this.direction = direction;
+}
+
+Ray.prototype.toString = function() {
+    return 'Ray [' + this.position + ',' + this.direction + ']';
+}
+
+function Scene(this: declare Scene) {
+    this.camera = new Camera(
+        new Vector(0, 0, -5),
+        new Vector(0, 0, 1),
+        new Vector(0, 1, 0)
+    );
+    this.shapes = new Array<Shape>(0);
+    this.lights = new Array<Light>(0);
+    this.background = new Background(new Color(0, 0, 0.5), 0.2);
 }
 
 // module Material {
 
-export class BaseMaterial {
-    constructor(public gloss = 2.0,             // [0...infinity] 0 = matt
-                public transparency = 0.0,      // 0=opaque
-                public reflection = 0.0,       // [0...infinity] 0 = no reflection
-                public refraction = 0.50,
-                public hasTexture = false) {
-    }
-
-    public getColor(u:!floatNumber, v:!floatNumber) : !Color {
-        throw "Abstract method";
-    }
-
-    public wrapUp(t:!floatNumber) {
-        t = t % 2.0;
-        if (t < -1) t += 2.0;
-        if (t >= 1) t -= 2.0;
-        return t;
-    }
-
-    public toString() {
-        return 'Material [gloss=' + this.gloss + ', transparency=' + this.transparency + ', hasTexture=' + this.hasTexture + ']';
-    }
+function BaseMaterial(this: declare BaseMaterial) {
+    this.gloss = 2.0;
+    this.transparency = 0.0;
+    this.reflection = 0.0;
+    this.refraction = 0.50;
+    this.hasTexture = false;
 }
 
-export class Solid extends BaseMaterial {
-    constructor(public color:!Color, reflection:!floatNumber, refraction:!floatNumber, transparency:!floatNumber, gloss:!floatNumber) {
-        super(gloss, transparency, reflection, refraction);
-    }
-
-    public getColor(u:!floatNumber, v:!floatNumber) : !Color {
-        return this.color;
-    }
-
-    public toString() {
-        return 'SolidMaterial [gloss=' + this.gloss + ', transparency=' + this.transparency + ', hasTexture=' + this.hasTexture + ']';
-    }
+BaseMaterial.prototype.getColor = function (u:!number, v:!number) : !Color {
+    throw "Abstract method";
 }
 
-export class Chessboard extends BaseMaterial {
-    constructor(public colorEven:!Color, public colorOdd:!Color, 
-                reflection:!floatNumber, 
-                transparency:!floatNumber, 
-                gloss:!floatNumber, 
-                public density= 0.5) {
-        super(gloss, transparency, reflection, 0.50, true);
-    }
-
-    public getColor(u:!floatNumber, v:!floatNumber) : !Color {
-        var t =<!floatNumber> ( this.wrapUp(u * this.density) * this.wrapUp(v * this.density));
-
-        if (t < 0.0)
-            return this.colorEven;
-        else
-            return this.colorOdd;
-    }
-
-    public toString() {
-        return 'ChessMaterial [gloss=' + this.gloss + ', transparency=' + this.transparency + ', hasTexture=' + this.hasTexture + ']';
-    }
+BaseMaterial.prototype.wrapUp = function(t:!number) {
+    t = t % 2.0;
+    if (t < -1) t += 2.0;
+    if (t >= 1) t -= 2.0;
+    return t;
 }
 
-export class Shape {
-    constructor(public position:!Vector, public material:!BaseMaterial) {
-    }
-
-    public intersect(ray:!Ray) : !IntersectionInfo {
-        throw "Abstract method";
-    }
+BaseMaterial.prototype.toString = function() {
+    return 'Material [gloss=' + this.gloss + ', transparency=' + this.transparency + ', hasTexture=' + this.hasTexture + ']';
 }
 
-export class Sphere extends Shape {
-    constructor(position:!Vector, public radius:!floatNumber, material:!BaseMaterial) {
-        super(position, material);
-    }
-
-    public intersect(ray:!Ray) : !IntersectionInfo {
-        var info = new IntersectionInfo();
-        info.shape = this;
-
-        var dst = Vector.subtract(ray.position, this.position);
-
-        var B =<!floatNumber> ( dst.dot(ray.direction));
-        var C =<!floatNumber> ( dst.dot(dst) - (this.radius * this.radius));
-        var D =<!floatNumber> ( (B * B) - C);
-
-        if (D > 0) { // intersection!
-            info.isHit = true;
-            info.distance = (-B) - <!floatNumber> Math.sqrt(D);
-            info.position = Vector.add(
-                ray.position,
-                Vector.multiplyScalar(
-                    ray.direction,
-                    info.distance
-                )
-            );
-            info.normal = Vector.subtract(
-                info.position,
-                this.position
-            ).normalize();
-
-            info.color = this.material.getColor(0, 0);
-        } else {
-            info.isHit = false;
-        }
-        return info;
-    }
-
-    public toString() {
-        return 'Sphere [position=' + this.position + ', radius=' + this.radius + ']';
-    }
+function Solid(this: declare Solid extends BaseMaterial; color:!Color, reflection:!number, refraction:!number, transparency:!number, gloss:!number) {
+    (BaseMaterial as any).call(this, gloss, transparency, reflection, refraction);
+    this.color = color;
 }
 
-export class Plane extends Shape {
-    constructor(position:!Vector, public d:!floatNumber, material:!BaseMaterial) {
-        super(position, material);
-    }
+Solid.prototype.getColor = function(u:!number, v:!number) : !Color {
+    return this.color;
+}
 
-    public intersect(ray:!Ray) : !IntersectionInfo {
-        var info = new IntersectionInfo();
+Solid.prototype.toString = function() {
+    return 'SolidMaterial [gloss=' + this.gloss + ', transparency=' + this.transparency + ', hasTexture=' + this.hasTexture + ']';
+}
 
-        var Vd = this.position.dot(ray.direction);
-        if (Vd == 0) return info; // no intersection
+function Chessboard(this: declare Chessboard extends BaseMaterial; colorEven:!Color, colorOdd:!Color, 
+            reflection:!number, 
+            transparency:!number, 
+            gloss:!number, 
+            density= 0.5) {
+    (BaseMaterial as any).call(this, gloss, transparency, reflection, 0.50, true);
+    this.colorOdd = colorOdd;
+    this.colorEven = colorEven;
+    this.density = density;
+}
 
-        var t =<!floatNumber> ( -(this.position.dot(ray.position) + this.d) / Vd);
-        if (t <= 0) return info;
+Chessboard.prototype.getColor = function(u:!number, v:!number) : !Color {
+    var t =+( this.wrapUp(u * this.density) * this.wrapUp(v * this.density));
 
-        info.shape = this;
+    if (t < 0.0)
+        return this.colorEven;
+    else
+        return this.colorOdd;
+}
+
+Chessboard.prototype.toString = function() {
+    return 'ChessMaterial [gloss=' + this.gloss + ', transparency=' + this.transparency + ', hasTexture=' + this.hasTexture + ']';
+}
+
+function Shape(this: declare Shape; position:!Vector, material:!BaseMaterial) {
+    this.position = position;
+    this.material = material;
+}
+
+Shape.prototype.intersect = function(ray:!Ray) : !IntersectionInfo {
+    throw "Abstract method";
+}
+
+function Sphere(this: declare Sphere extends Shape; position:!Vector, radius:!number, material:!BaseMaterial) {
+    (Shape as any).call(this, position, material);
+    this.radius = radius;
+}
+
+Sphere.prototype.intersect = function(ray:!Ray) : !IntersectionInfo {
+    var info = new IntersectionInfo();
+    info.shape = this;
+
+    var dst = Vector_subtract(ray.position, this.position);
+
+    var B =+( dst.dot(ray.direction));
+    var C =+( dst.dot(dst) - (this.radius * this.radius));
+    var D =+( (B * B) - C);
+
+    if (D > 0) { // intersection!
         info.isHit = true;
-        info.position = Vector.add(
+        info.distance = (-B) - +Math.sqrt(D);
+        info.position = Vector_add(
             ray.position,
-            Vector.multiplyScalar(
+            Vector_multiplyScalar(
                 ray.direction,
-                t
+                info.distance
             )
         );
-        info.normal = this.position;
-        info.distance = t;
-
-        if (this.material.hasTexture) {
-            var vU = new Vector(this.position.y, this.position.z, -this.position.x);
-            var vV = vU.cross(this.position);
-            var u = info.position.dot(vU);
-            var v = info.position.dot(vV);
-            info.color = this.material.getColor(u, v);
-        } else {
-            info.color = this.material.getColor(0, 0);
-        }
-
-        return info;
-    }
-
-    public toString() {
-        return 'Plane [' + this.position + ', d=' + this.d + ']';
-    }
-}
-// }
-
-export class IntersectionInfo {
-
-    constructor(public isHit= false,
-                public hitCount= 0,
-                public shape:!Shape= null,
-                public position:!Vector= null,
-                public normal:!Vector= null,
-                public color:!Color= null,
-                public distance:!floatNumber= 2000) { }
-
-    public initialize() {
-        this.color = new Color(0, 0, 0);
-    }
-
-    public toString() {
-        return 'Intersection [' + this.position + ']';
-    }
-}
-
-export class Camera {
-    public equator:!Vector = null;
-    public screen:!Vector = null;
-
-    constructor(public position:!Vector = null,
-                public lookAt:!Vector = null,
-                public up:!Vector = null) {
-        this.equator = this.lookAt.normalize().cross(this.up);
-        this.screen = Vector.add(this.position, this.lookAt);
-    }
-
-    public getRay(vx:!floatNumber, vy:!floatNumber) {
-        var pos = Vector.subtract(
-            this.screen,
-            Vector.subtract(
-                Vector.multiplyScalar(this.equator, vx),
-                Vector.multiplyScalar(this.up, vy)
-            )
-        );
-        pos.y = pos.y * -1;
-        var dir = Vector.subtract(
-            pos,
+        info.normal = Vector_subtract(
+            info.position,
             this.position
-        );
+        ).normalize();
 
-        var ray = new Ray(pos, dir.normalize());
-
-        return ray;
+        info.color = this.material.getColor(0, 0);
+    } else {
+        info.isHit = false;
     }
-    
-    public toString() {
-        return 'Ray []';
+    return info;
+}
+
+Sphere.prototype.toString = function() {
+    return 'Sphere [position=' + this.position + ', radius=' + this.radius + ']';
+}
+
+function Plane(this: declare Plane extends Shape; position:!Vector, d:!number, material:!BaseMaterial) {
+    (Shape as any).call(this, position, material);
+    this.d = d;
+}
+
+Plane.prototype.intersect = function(ray:!Ray) : !IntersectionInfo {
+    var info = new IntersectionInfo();
+
+    var Vd = this.position.dot(ray.direction);
+    if (Vd == 0) return info; // no intersection
+
+    var t =+( -(this.position.dot(ray.position) + this.d) / Vd);
+    if (t <= 0) return info;
+
+    info.shape = this;
+    info.isHit = true;
+    info.position = Vector_add(
+        ray.position,
+        Vector_multiplyScalar(
+            ray.direction,
+            t
+        )
+    );
+    info.normal = this.position;
+    info.distance = t;
+
+    if (this.material.hasTexture) {
+        var vU = new Vector(this.position.y, this.position.z, -this.position.x);
+        var vV = vU.cross(this.position);
+        var u = info.position.dot(vU);
+        var v = info.position.dot(vV);
+        info.color = this.material.getColor(u, v);
+    } else {
+        info.color = this.material.getColor(0, 0);
+    }
+
+    return info;
+}
+
+Plane.prototype.toString = function() {
+    return 'Plane [' + this.position + ', d=' + this.d + ']';
+}
+
+
+function IntersectionInfo(
+        this: declare IntersectionInfo;
+        isHit= false,
+        hitCount= 0,
+        shape:!Shape|!null= null,
+        position:!Vector|!null= null,
+        normal:!Vector|!null= null,
+        color:!Color|!null= null,
+        distance:!number= 2000) { 
+    this.isHit = isHit;
+    this.hitCount = hitCount;
+    this.shape = shape;
+    this.position = position;
+    this.normal = normal;
+    this.color = color;
+    this.distance = distance;
+}
+
+IntersectionInfo.prototype.initialize = function() {
+    this.color = new Color(0, 0, 0);
+}
+
+IntersectionInfo.prototype.toString = function() {
+    return 'Intersection [' + this.position + ']';
+}
+
+function Camera(this: declare Camera;
+        position:!Vector|!null = null,
+        lookAt:!Vector|!null = null,
+        up:!Vector|!null = null) {
+    this.position = position;
+    this.lookAt = lookAt;
+    this.up = up;
+    this.equator = this.lookAt.normalize().cross(this.up);
+    this.screen = Vector_add(this.position, this.lookAt);
+}
+
+Camera.prototype.getRay = function(vx:!number, vy:!number) {
+    var pos = Vector_subtract(
+        this.screen,
+        Vector_subtract(
+            Vector_multiplyScalar(this.equator, vx),
+            Vector_multiplyScalar(this.up, vy)
+        )
+    );
+    pos.y = pos.y * -1;
+    var dir = Vector_subtract(
+        pos,
+        this.position
+    );
+
+    var ray = new Ray(pos, dir.normalize());
+
+    return ray;
+}
+
+Camera.prototype.toString = function() {
+    return 'Ray []';
+}
+
+function Background(this: declare Background; color:!Color|!null= null, ambience= 0.0) {
+    this.color = color;
+    this.ambience = ambience;
+}
+
+function Options(
+        this: declare Options; 
+        canvasWidth: !number,
+        canvasHeight: !number,
+        pixelWidth: !number,
+        pixelHeight: !number,
+        renderDiffuse: !boolean,
+        renderHighlights: !boolean,
+        renderShadows: !boolean,
+        renderReflections: !boolean,
+        rayDepth: !number) {
+    this.canvasWidth = canvasWidth;
+    this.canvasHeight = canvasHeight;
+    this.pixelWidth = pixelWidth;
+    this.pixelHeight = pixelHeight;
+    this.renderDiffuse = renderDiffuse;
+    this.renderHighlights = renderHighlights;
+    this.renderShadows = renderShadows;
+    this.renderReflections = renderReflections;
+    this.rayDepth = rayDepth;
+}
+
+function Engine(this: declare Engine; options:!Options) {
+    this.canvas = <any> null;
+    var newOptions = new Options(
+        +100,
+        +100,
+        +2,
+        +2,
+        false,
+        false,
+        false,
+        false,
+        2
+    );
+    if (options === null || options === undefined) {
+        options = newOptions;
+    }
+    this.options = options;
+
+    this.options.canvasHeight /= this.options.pixelHeight;
+    this.options.canvasWidth /= this.options.pixelWidth;
+}
+
+Engine.prototype.setPixel = function(x, y, color:!Color) {
+    var pxW, pxH;
+    pxW = this.options.pixelWidth;
+    pxH = this.options.pixelHeight;
+
+    if (this.canvas) {
+        this.canvas.fillStyle = color.toString();
+        this.canvas.fillRect(x * pxW, y * pxH, pxW, pxH);
+    } else {
+        if (x === y) {
+            checkNumber += color.brightness();
+        }
+        // print(x * pxW, y * pxH, pxW, pxH);
     }
 }
 
-export class Background {
-    constructor(public color:!Color= null, public ambience= 0.0) { }
-}
+Engine.prototype.renderScene = function(scene:!Scene, canvas) {
+    checkNumber = 0;
+    /* Get canvas */
+    if (canvas) {
+        this.canvas = <any> canvas.getContext("2d");
+    } else {
+        this.canvas = <any> null;
+    }
 
-export class Options {
-    constructor(
-        public canvasWidth: !floatNumber,
-        public canvasHeight: !floatNumber,
-        public pixelWidth: !floatNumber,
-        public pixelHeight: !floatNumber,
-        public renderDiffuse: !boolean,
-        public renderHighlights: !boolean,
-        public renderShadows: !boolean,
-        public renderReflections: !boolean,
-        public rayDepth: !floatNumber) {
-            /* Nothing to do */    
+    var canvasHeight:!number = this.options.canvasHeight;
+    var canvasWidth:!number = this.options.canvasWidth;
+
+    for (var y:!number = 0; y < canvasHeight; y++) {
+        for (var x:!number = 0; x < canvasWidth; x++) {
+            var yp = y * 1.0 / canvasHeight * 2 - 1;
+            var xp = x * 1.0 / canvasWidth * 2 - 1;
+
+            var ray = scene.camera.getRay(xp, yp);
+
+            var color = this.getPixelColor(ray, scene);
+
+            this.setPixel(x, y, color);
+        }
+    }
+    if (checkNumber !== 2321) {
+    // throw new Error("Scene rendered incorrectly");
     }
 }
 
-export class Engine {
-    public canvas = null; /* 2d context we can render to */
-    public options:!Options = null;
-
-    constructor(options:!Options) {
-        var newOptions = new Options(
-            <!floatNumber> 100,
-            <!floatNumber> 100,
-            <!floatNumber> 2,
-            <!floatNumber> 2,
-            false,
-            false,
-            false,
-            false,
-            2
-        );
-        if (options === null || options === undefined) {
-            options = newOptions;
-        }
-        this.options = options;
-
-        this.options.canvasHeight /= this.options.pixelHeight;
-        this.options.canvasWidth /= this.options.pixelWidth;
-
-        /* TODO: dynamically include other scripts */
+Engine.prototype.getPixelColor = function(ray:!Ray, scene:!Scene) {
+    var info = this.testIntersection(ray, scene, null);
+    if (info.isHit) {
+        var color = this.rayTrace(info, ray, scene, 0);
+        return color;
     }
+    return scene.background.color;
+}
 
-    public setPixel(x, y, color:!Color) {
-        var pxW, pxH;
-        pxW = this.options.pixelWidth;
-        pxH = this.options.pixelHeight;
+Engine.prototype.testIntersection = function(ray:!Ray, scene:!Scene, exclude:!Shape) : !IntersectionInfo {
+    var hits:!number = 0;
+    var best = new IntersectionInfo();
+    best.distance = 2000;
 
-        if (this.canvas) {
-            this.canvas.fillStyle = color.toString();
-            this.canvas.fillRect(x * pxW, y * pxH, pxW, pxH);
-        } else {
-            if (x === y) {
-                checkNumber += color.brightness();
-            }
-            // print(x * pxW, y * pxH, pxW, pxH);
-        }
-    }
+    for (var i = 0; i < scene.shapes.length; i++) {
+        var shape = scene.shapes[i];
 
-    public renderScene(scene:!Scene, canvas) {
-        checkNumber = 0;
-        /* Get canvas */
-        if (canvas) {
-            this.canvas = canvas.getContext("2d");
-        } else {
-            this.canvas = null;
-        }
-
-        var canvasHeight:!floatNumber = this.options.canvasHeight;
-        var canvasWidth:!floatNumber = this.options.canvasWidth;
-
-        for (var y:!floatNumber = 0; y < canvasHeight; y++) {
-            for (var x:!floatNumber = 0; x < canvasWidth; x++) {
-                var yp = y * 1.0 / canvasHeight * 2 - 1;
-                var xp = x * 1.0 / canvasWidth * 2 - 1;
-
-                var ray = scene.camera.getRay(xp, yp);
-
-                var color = this.getPixelColor(ray, scene);
-
-                this.setPixel(x, y, color);
+        if (shape != exclude) {
+            var info = shape.intersect(ray);
+            if (info.isHit && info.distance >= 0 && info.distance < best.distance) {
+                best = info;
+                hits++;
             }
         }
-        if (checkNumber !== 2321) {
-        // throw new Error("Scene rendered incorrectly");
-        }
     }
+    best.hitCount = hits;
+    return best;
+}
 
-    public getPixelColor(ray:!Ray, scene:!Scene) {
-        var info = this.testIntersection(ray, scene, null);
-        if (info.isHit) {
-            var color = this.rayTrace(info, ray, scene, 0);
-            return color;
-        }
-        return scene.background.color;
-    }
+Engine.prototype.getReflectionRay = function(P:!Vector, N:!Vector, V:!Vector) {
+    var c1:!number = -N.dot(V);
+    var R1 = Vector_add(
+        Vector_multiplyScalar(N, 2 * c1),
+        V
+    );
+    return new Ray(P, R1);
+}
 
-    public testIntersection(ray:!Ray, scene:!Scene, exclude:!Shape) : !IntersectionInfo {
-        var hits:!intNumber = 0;
-        var best = new IntersectionInfo();
-        best.distance = 2000;
+Engine.prototype.rayTrace = function(info:!IntersectionInfo, ray:!Ray, scene:!Scene, depth:!number) {
+    // Calc ambient
+    var color = Color_multiplyScalar(info.color, scene.background.ambience);
+    var oldColor = color;
+    var shininess =+( Math.pow(10, info.shape.material.gloss + 1));
 
-        for (var i = 0; i < scene.shapes.length; i++) {
-            var shape = scene.shapes[i];
+    for (var i = 0; i < scene.lights.length; i++) {
+        var light = scene.lights[i];
 
-            if (shape != exclude) {
-                var info = shape.intersect(ray);
-                if (info.isHit && info.distance >= 0 && info.distance < best.distance) {
-                    best = info;
-                    hits++;
-                }
-            }
-        }
-        best.hitCount = hits;
-        return best;
-    }
+        // Calc diffuse lighting
+        var v = Vector_subtract(
+            light.position,
+            info.position
+        ).normalize();
 
-    public getReflectionRay(P:!Vector, N:!Vector, V:!Vector) {
-        var c1:!floatNumber = -N.dot(V);
-        var R1 = Vector.add(
-            Vector.multiplyScalar(N, 2 * c1),
-            V
-        );
-        return new Ray(P, R1);
-    }
-
-    public rayTrace(info:!IntersectionInfo, ray:!Ray, scene:!Scene, depth:!floatNumber) {
-        // Calc ambient
-        var color = Color.multiplyScalar(info.color, scene.background.ambience);
-        var oldColor = color;
-        var shininess =<!floatNumber> ( Math.pow(10, info.shape.material.gloss + 1));
-
-        for (var i = 0; i < scene.lights.length; i++) {
-            var light = scene.lights[i];
-
-            // Calc diffuse lighting
-            var v = Vector.subtract(
-                light.position,
-                info.position
-            ).normalize();
-
-            if (this.options.renderDiffuse) {
-                var L =<!floatNumber> ( v.dot(info.normal));
-                if (L > 0.0) {
-                    color = Color.add(
-                        color,
-                        Color.multiply(
-                            info.color,
-                            Color.multiplyScalar(
-                                light.color,
-                                L
-                            )
+        if (this.options.renderDiffuse) {
+            var L =+( v.dot(info.normal));
+            if (L > 0.0) {
+                color = Color_add(
+                    color,
+                    Color_multiply(
+                        info.color,
+                        Color_multiplyScalar(
+                            light.color,
+                            L
                         )
-                    );
-                }
-            }
-
-            // The greater the depth the more accurate the colours, but
-            // this is exponentially (!) expensive
-            if (depth <= this.options.rayDepth) {
-                // calculate reflection ray
-                if (this.options.renderReflections && info.shape.material.reflection > 0) {
-                    var reflectionRay = this.getReflectionRay(info.position, info.normal, ray.direction);
-                    var refl = this.testIntersection(reflectionRay, scene, info.shape);
-
-                    if (refl.isHit && refl.distance > 0) {
-                        refl.color = this.rayTrace(refl, reflectionRay, scene, depth + 1);
-                    } else {
-                        refl.color = scene.background.color;
-                    }
-
-                    color = Color.blend(
-                        color,
-                        refl.color,
-                        info.shape.material.reflection
-                    );
-                }
-
-                // Refraction
-                /* TODO */
-            }
-
-            /* Render shadows and highlights */
-
-            var shadowInfo = new IntersectionInfo();
-
-            if (this.options.renderShadows) {
-                var shadowRay = new Ray(info.position, v);
-
-                shadowInfo = this.testIntersection(shadowRay, scene, info.shape);
-                if (shadowInfo.isHit && shadowInfo.shape != info.shape /*&& shadowInfo.shape.type != 'PLANE'*/) {
-                    var vA = Color.multiplyScalar(color, 0.5);
-                    var dB =<!floatNumber> ( (0.5 * Math.pow(shadowInfo.shape.material.transparency, 0.5)));
-                    color = Color.addScalar(vA, dB);
-                }
-            }
-
-            // Phong specular highlights
-            if (this.options.renderHighlights && !shadowInfo.isHit && info.shape.material.gloss > 0) {
-                var Lv = Vector.subtract(
-                    info.shape.position,
-                    light.position
-                ).normalize();
-
-                var E = Vector.subtract(
-                    scene.camera.position,
-                    info.shape.position
-                ).normalize();
-
-                var H = Vector.subtract(
-                    E,
-                    Lv
-                ).normalize();
-
-                var glossWeight =<!floatNumber> ( Math.pow(Math.max(info.normal.dot(H), 0), shininess));
-                color = Color.add(
-                    Color.multiplyScalar(light.color, glossWeight),
-                    color
+                    )
                 );
             }
         }
-        color.limit();
-        return color;
-    }
-}
-// }
 
-export function renderScene() {
+        // The greater the depth the more accurate the colours, but
+        // this is exponentially (!) expensive
+        if (depth <= this.options.rayDepth) {
+            // calculate reflection ray
+            if (this.options.renderReflections && info.shape.material.reflection > 0) {
+                var reflectionRay = this.getReflectionRay(info.position, info.normal, ray.direction);
+                var refl = this.testIntersection(reflectionRay, scene, info.shape);
+
+                if (refl.isHit && refl.distance > 0) {
+                    refl.color = this.rayTrace(refl, reflectionRay, scene, depth + 1);
+                } else {
+                    refl.color = scene.background.color;
+                }
+
+                color = Color_blend(
+                    color,
+                    refl.color,
+                    info.shape.material.reflection
+                );
+            }
+
+            // Refraction
+            /* TODO */
+        }
+
+        /* Render shadows and highlights */
+
+        var shadowInfo = new IntersectionInfo();
+
+        if (this.options.renderShadows) {
+            var shadowRay = new Ray(info.position, v);
+
+            shadowInfo = this.testIntersection(shadowRay, scene, info.shape);
+            if (shadowInfo.isHit && shadowInfo.shape != info.shape /*&& shadowInfo.shape.type != 'PLANE'*/) {
+                var vA = Color_multiplyScalar(color, 0.5);
+                var dB =+( (0.5 * Math.pow(shadowInfo.shape.material.transparency, 0.5)));
+                color = Color_addScalar(vA, dB);
+            }
+        }
+
+        // Phong specular highlights
+        if (this.options.renderHighlights && !shadowInfo.isHit && info.shape.material.gloss > 0) {
+            var Lv = Vector_subtract(
+                info.shape.position,
+                light.position
+            ).normalize();
+
+            var E = Vector_subtract(
+                scene.camera.position,
+                info.shape.position
+            ).normalize();
+
+            var H = Vector_subtract(
+                E,
+                Lv
+            ).normalize();
+
+            var glossWeight =+( Math.pow(Math.max(info.normal.dot(H), 0), shininess));
+            color = Color_add(
+                Color_multiplyScalar(light.color, glossWeight),
+                color
+            );
+        }
+    }
+    color.limit();
+    return color;
+}
+
+function renderScene() {
     var scene = new Scene();
 
     scene.camera = new Camera(
@@ -721,14 +720,14 @@ export function renderScene() {
     scene.lights.push(light);
     scene.lights.push(light1);
 
-    var imageWidth:!floatNumber = 100; // $F('imageWidth');
-    var imageHeight:!floatNumber = 100; // $F('imageHeight');
+    var imageWidth:!number = 100; // $F('imageWidth');
+    var imageHeight:!number = 100; // $F('imageHeight');
     var pixelSize = [5,5];//"5,5".split(','); //  $F('pixelSize').split(',');
     var renderDiffuse = true; // $F('renderDiffuse');
     var renderShadows = true; // $F('renderShadows');
     var renderHighlights = true; // $F('renderHighlights');
     var renderReflections = true; // $F('renderReflections');
-    var rayDepth:!floatNumber = 2;//$F('rayDepth');
+    var rayDepth:!number = 2;//$F('rayDepth');
 
     var raytracer = new Engine(
         new Options(
@@ -746,3 +745,16 @@ export function renderScene() {
     raytracer.renderScene(scene, null);
 }
 
+function timeIt(f) {
+    for (let i = 0; i < 10; i++) {
+        f();
+    }
+    let timeBefore = new Date();
+    for (let i = 0; i < 100; i++) {
+        f();
+    }
+    let timeDelta = (new Date() as any) - (timeBefore as any);
+    console.log("Milliseconds: " + timeDelta);
+}
+
+timeIt(renderScene);

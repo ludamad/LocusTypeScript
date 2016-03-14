@@ -1,1 +1,1 @@
-/home/adomurad/now/ConcreteTypeScript/src/concretetypescript/cts-runtime.js
+../src/concretetypescript/cts-runtime.js

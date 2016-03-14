@@ -29,11 +29,23 @@
  * and disclaimer.
  */
 
+function timeIt(f) {
+    for (let i = 0; i < 10; i++) {
+        f();
+    }
+    let timeBefore = new Date();
+    for (let i = 0; i < 100; i++) {
+        f();
+    }
+    let timeDelta = (new Date() as any) - (timeBefore as any);
+    console.log("Milliseconds: " + timeDelta);
+}
+
 function main() {
-    for (var i = 0; i< 10; i++) {
+    timeIt(function() {
         encrypt(); 
         decrypt(); 
-    }
+    });
 }
 
 // Bits per digit

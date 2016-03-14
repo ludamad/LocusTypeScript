@@ -523,14 +523,14 @@ namespace ts {
     export interface BindingData {
         left: Node;
         member: string;
-        right: Node;
+        right?: Node;
         targetDeclareType: Type;
         // If no type is provided, this is a cement operation. Otherwise, a protect.
         type?: Type;
         isTypeComplete: () => boolean;
-        guardVariable: string; // Automatically generated during checker.ts
-        brandGuardVariable: string; // Automatically generated during checker.ts
-        typeVar: string;
+        guardVariable?: string; // Automatically generated during checker.ts
+        brandGuardVariable?: string; // Automatically generated during checker.ts
+        typeVar?: string;
     }
 
     export interface EmitData {
@@ -1895,6 +1895,7 @@ namespace ts {
         name: string;                           // Name of symbol
         declarations?: Declaration[];           // Declarations associated with this symbol
         valueDeclaration?: Declaration;         // First value declaration of the symbol
+        checkVar?: string;                      // [ConcreteTypeScript] Cache variable for union/intersection types created for parameters
 
         members?: SymbolTable;                  // Class, interface or literal instance members
         exports?: SymbolTable;                  // Module exports
@@ -2046,6 +2047,7 @@ namespace ts {
         concreteType?: ConcreteType;
         prototypeDeclareType?: Type; // [ConcreteTypeScript] Convenience field for .prototype declare types
         flowRecursivePairs?: Type[];   // [ConcreteTypeScript] Recursively defined Declare types
+        emptyFlowType?: boolean;   // [ConcreteTypeScript] Empty flow types must be trearted specially because normally we attach branding actions to type refinement
     }
 
     /* @internal */

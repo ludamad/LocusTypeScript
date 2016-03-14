@@ -850,6 +850,13 @@ namespace ts {
             }
         }
 
+        // [ConcreteTypeScript]
+        function nodeMustCheck(node: Node, type: Type) {
+            Debug.assert(!node.mustCheck || node.mustCheck === type);
+            node.mustCheck = type;
+            node.checkVar = getTempTypeVar(getSourceFileOfNode(node), type);
+        }
+
         /* Check for assignability problems related to concreteness, namely
          * requiring checks or float/int coercion, and mark the given node as
          * requiring those checks */
@@ -858,8 +865,7 @@ namespace ts {
              * unless it's known null or undefined */
             if (isConcreteType(toType) && !isConcreteType(fromType) &&
                 fromType !== nullType && fromType !== undefinedType) {
-                node.mustCheck = toType;
-                node.mustCheck = toType;
+                nodeMustCheck(node, toType);
             }
 
             // If the target is float and expression isn't, must coerce
@@ -9129,7 +9135,7 @@ namespace ts {
                 // If we are not a concrete member that stemmed from a Class or Declare declaration site, we must check.
                 // The alternative would be to demote the concrete type, which was decided against as making
                 // the annotations have less impact.
-                node.mustCheck = propType;
+                nodeMustCheck(node, propType);
             } 
             if (flags & ProtectionFlags.MustDemote) {
                 propType = unconcrete(propType);
@@ -9180,7 +9186,7 @@ namespace ts {
         function checkIndexedAccess(node: ElementAccessExpression): Type {
             let type = checkIndexedAccessWorker(node);
             if (isConcreteType(type)) {
-                node.mustCheck = type;
+                nodeMustCheck(node, type);
             }
             return type;
         }
@@ -10441,6 +10447,10 @@ namespace ts {
                 else {
                     Debug.fail("Branch in 'getResolvedSignature' should be unreachable.");
                 }
+                for (let symbol of links.resolvedSignature.parameters) {
+                    let type = getTypeOfSymbol(symbol);
+                    symbol.checkVar = getTempTypeVar(getSourceFileOfNode(node), type);
+                }
             }
             return links.resolvedSignature;
         }
@@ -10493,8 +10503,7 @@ namespace ts {
                     let ttype = checkExpression(target);
                     if (!(isConcreteType(ttype) || (ttype.symbol && ttype.symbol.flags & SymbolFlags.Class))) { // 3
                         // Must check!
-                        node.mustCheck = rtype;
-
+                        nodeMustCheck(node, rtype);
                     } else if (isConcreteType(ttype) &&
                         (<ConcreteType>rtype).baseType.flags & TypeFlags.FloatHint) {
                         // Can assert that it's a float
@@ -10508,7 +10517,7 @@ namespace ts {
                     }
                 } else if (node.kind === SyntaxKind.CallExpression) {
                     // non-method non-constructors must be checked too
-                    node.mustCheck = rtype;
+                    nodeMustCheck(node, rtype);
                 }
             }
 
@@ -11066,7 +11075,7 @@ namespace ts {
 
                     // [ConcreteTypeScript]
                     // If we determined that we had to check the operand, we can't, as it's a reference
-                    node.operand.mustCheck = node.operand.mustFloat = node.operand.mustInt = void 0;
+                    node.operand.mustCheck = node.operand.checkVar = node.operand.mustFloat = node.operand.mustInt = void 0;
                     node.operand.assertFloat = node.operand.assertInt = void 0;
                     node.operand.direct = void 0;
                     // [/ConcreteTypeScript]
@@ -11089,7 +11098,7 @@ namespace ts {
 
             // [ConcreteTypeScript]
             // If we determined that we had to check the operand, we can't, as it's a reference
-            node.operand.mustCheck = node.operand.mustFloat = node.operand.mustInt = void 0;
+            node.operand.mustCheck = node.operand.checkVar = node.operand.mustFloat = node.operand.mustInt = void 0;
             node.operand.assertFloat = node.operand.assertInt = void 0;
             node.operand.direct = void 0;
             // [/ConcreteTypeScript]
@@ -11530,6 +11539,7 @@ namespace ts {
                     // [ConcreteTypeScript]
                     // If we determined that we had to check the LHS... well, we don't, we're just assigning
                     if (node.left.mustCheck) node.left.mustCheck = void 0;
+                    if (node.left.checkVar) node.left.checkVar = void 0;
                     if (node.left.mustFloat) node.left.mustFloat = void 0;
                     if (node.left.mustInt) node.left.mustInt = void 0;
                     if (node.left.assertFloat) node.left.assertFloat = void 0;
@@ -17731,20 +17741,43 @@ namespace ts {
             };
         }
 
-        function haveSameFlowTypes(dataA:FlowData, dataB:FlowData) : boolean {
-            if (dataA.flowTypes.length !== dataB.flowTypes.length) {
+        function flowTypesEqual(dataA:FlowType[], dataB:FlowType[]) : boolean {
+            if (dataA.length !== dataB.length) {
                 return false;
             }
-            for (let i = 0; i < dataA.flowTypes.length; i++) {
-                if (dataA.flowTypes[i].type !== dataB.flowTypes[i].type) {
+            for (let i = 0; i < dataA.length; i++) {
+                if (dataA[i].type !== dataB[i].type) {
                     return false;
                 }
             }
             return true;
         }
 
+        function haveSameMembers(dataA:FlowData, dataB:FlowData) : boolean {
+            let keys1 = Object.keys(dataA.memberSet), keys2 = Object.keys(dataB.memberSet);
+            if (keys1.length !== keys2.length) {
+                return false;
+            }
+            for (let i = 0; i < keys1.length; i++) {
+                if (keys1[i] !== keys2[i]) {
+                    return false;
+                }
+                if (flowTypesEqual(dataA.memberSet[keys1[i]].flowTypes, dataB.memberSet[keys2[i]].flowTypes)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function flowDataEqual(dataA:FlowData, dataB:FlowData): boolean {
+            if (!flowTypesEqual(dataA.flowTypes, dataB.flowTypes)) {
+                return false;
+            }
+            return haveSameMembers(dataA, dataB);
+        }
+
         function flowDataUnion(dataA:FlowData, dataB:FlowData) : FlowData {
-            if (haveSameFlowTypes(dataA, dataB)) {
+            if (flowTypesEqual(dataA.flowTypes, dataB.flowTypes)) {
                 return {
                     flowTypes: dataA.flowTypes, 
                     memberSet: flowUnion(dataA.memberSet, dataB.memberSet)
@@ -17950,9 +17983,9 @@ namespace ts {
             return scope.tempVarsToEmit[(prefix + "." + name)] || (scope.tempVarsToEmit[(prefix + "." + name)] = "cts$$temp$$" + (prefix + '_' + name) + "$$" + scope.nextTempVar++);
         }
 
-        function getTempTypeVar(scope: Node, type: Type) {
+        function getTempTypeVar(sourceFile: SourceFile, type: Type) {
             let {id} = type;
-            return getTempVar(scope, 'types', `${id}`);
+            return getTempVar(sourceFile, 'types', `${id}`);
         }
 
         function getFunctionDeclarationForDeclareType(type: InterfaceType) {
@@ -18096,9 +18129,14 @@ namespace ts {
                     produceDiagnostics = true; 
                 }
             }
-            if (targetDeclareType) {// && !isCurrentFlowAnalysisUntrustable(targetDeclareType)) {
+            if (targetDeclareType) {
+                // && !isCurrentFlowAnalysisUntrustable(targetDeclareType)) {
                 for (let protect of protectionQueue) {
                     protect(finalFlowData);
+                }
+                if (flowDataEqual(finalFlowData, flowData)) {
+                    console.log("EMPTY FLOW TYPE");
+                    targetDeclareType.emptyFlowType = true;
                 }
                 targetDeclareType.flowData = finalFlowData;
             } else {
@@ -18131,7 +18169,7 @@ namespace ts {
                     let bindingData = {
                         left, member, right, type: (isWeakConcreteType(type) ? null : type), 
                         targetDeclareType, isTypeComplete, guardVariable, brandGuardVariable,
-                        typeVar: getTempTypeVar(containerScope, type)
+                        typeVar: getTempTypeVar(getSourceFileOfNode(containerScope), type)
                     };
                     if (right && isFunctionLike(right)) {
                         right.nameForRawFunctionEmit = member;
