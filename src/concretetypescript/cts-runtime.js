@@ -272,8 +272,14 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             return retValue;
         });
 
+        function castForEachBaseTypeOfBrand(brand, object) {
+            var baseBrands = brand.getBaseBrands();
+            for (var i = 0; i < baseBrands.length; i++) {
+                cast(baseBrands[i], object);
+            }
+        }
         // If 'type' is not given, 'rawFunction' may be given to specify a 'raw' function value that is called to elide checks.`
-        cement(this, "protectProtoAssignment", function(disabled, type, protoCheckType, name, obj, value, rawFunction) {
+        cement(this, "protectProtoAssignment", function(disabled, type, brandType, name, obj, value, rawFunction) {
 //            obj.prototype[name] = value;
 //            obj.prototype['$$cts$$value$' + name] = rawFunction || value; return value;
             if (disabled) {
@@ -283,9 +289,9 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             var prototype = obj.prototype;
             if (!hasProperty(obj, "$$cts$$prototypeFrozen")) {
                 addUnenum(obj,"$$cts$$prototypeFrozen", true);
-                if (protoCheckType !== null) {
-                    cast(protoCheckType, prototype);
-                }
+                //if (protoCheckType !== null) {
+                // Must match all base types:
+                castForEachBaseTypeOfBrand(brandType, prototype);
                 cement(obj, "prototype", prototype);
             }
             return this.protectAssignment(false, type, name, prototype, value, rawFunction);

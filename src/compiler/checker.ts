@@ -18112,7 +18112,7 @@ namespace ts {
                         node.ctsFinalFlowData = finalFlowData;
                     }
                 });
-            } else {
+            } else if (targetDeclareType) {
                 (<ResolvedType><ObjectType>targetDeclareType).members = void 0; 
                 (<ResolvedType><ObjectType>targetDeclareType).properties = void 0;
                 (<ResolvedType><ObjectType>targetDeclareType).callSignatures = void 0;
@@ -18135,13 +18135,9 @@ namespace ts {
                     protect(finalFlowData);
                 }
                 if (flowDataEqual(finalFlowData, flowData)) {
-                    console.log("EMPTY FLOW TYPE");
                     targetDeclareType.emptyFlowType = true;
                 }
                 targetDeclareType.flowData = finalFlowData;
-            } else {
-                // For now, don't expect any bare-becomes:
-                Debug.assert(false);
             }
             return;
             // Note: 'right' can be null, signifying that we are protecting the existing value.

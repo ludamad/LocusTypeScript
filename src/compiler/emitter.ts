@@ -7610,8 +7610,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         write("false, ");
                     }
                     emitProtectionType(type); write(", "); 
-                    let extendedDeclareOrClass = getClassOrDeclareBaseType(left.checker, <InterfaceType> targetDeclareType);
-                    emitProtectionType(extendedDeclareOrClass); write(", ");
+                    // Emit the target declare type, we are able to query its base types dynamically.
+                    emitProtectionType(targetDeclareType); write(", ");
                     write("'"); write(member); write("', "); emit((left as any).expression); write(", "); 
                 } else {
                     emitCtsRt("protectAssignment("); 
