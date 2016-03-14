@@ -15,6 +15,13 @@
 // Variable used to hold a number that can be used to verify that
 // the scene was ray traced correctly.
 
+// From typescript output
+function __extends(d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() { this.constructor = d; }
+    d.prototype = b === null ? Object.create(b) : ((__ as any).prototype = b.prototype, new __());
+}
+
 var checkNumber;
 
 function Color(this: declare Color; red:!number = 0.0, green:!number = 0.0, blue:!number= 0.0) {
@@ -233,6 +240,7 @@ function Solid(this: declare Solid extends BaseMaterial; color:!Color, reflectio
     (BaseMaterial as any).call(this, gloss, transparency, reflection, refraction);
     this.color = color;
 }
+__extends(Solid, BaseMaterial);
 
 Solid.prototype.getColor = function(u:!number, v:!number) : !Color {
     return this.color;
@@ -252,6 +260,7 @@ function Chessboard(this: declare Chessboard extends BaseMaterial; colorEven:!Co
     this.colorEven = colorEven;
     this.density = density;
 }
+__extends(Chessboard, BaseMaterial);
 
 Chessboard.prototype.getColor = function(u:!number, v:!number) : !Color {
     var t =+( this.wrapUp(u * this.density) * this.wrapUp(v * this.density));
@@ -279,6 +288,7 @@ function Sphere(this: declare Sphere extends Shape; position:!Vector, radius:!nu
     (Shape as any).call(this, position, material);
     this.radius = radius;
 }
+__extends(Sphere, Shape);
 
 Sphere.prototype.intersect = function(ray:!Ray) : !IntersectionInfo {
     var info = new IntersectionInfo();
@@ -320,6 +330,7 @@ function Plane(this: declare Plane extends Shape; position:!Vector, d:!number, m
     (Shape as any).call(this, position, material);
     this.d = d;
 }
+__extends(Plane, Shape);
 
 Plane.prototype.intersect = function(ray:!Ray) : !IntersectionInfo {
     var info = new IntersectionInfo();
@@ -750,7 +761,7 @@ function timeIt(f) {
         f();
     }
     let timeBefore = new Date();
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 10; i++) {
         f();
     }
     let timeDelta = (new Date() as any) - (timeBefore as any);

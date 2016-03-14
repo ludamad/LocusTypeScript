@@ -7637,9 +7637,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 // Where:
                 function emitProtectionType(type: Type) {
                     if (typeVar && type && type.flags & (TypeFlags.Union | TypeFlags.Intersection)) {
-                        write(`${typeVar} === void 0 ? ${typeVar} = `);
+                        write(`(${typeVar} === void 0 ? ${typeVar} = `);
                         emitCtsType(type);
-                        write(`: ${typeVar}`);
+                        write(`: ${typeVar})`);
                     } else {
                         emitCtsType(type);
                     }

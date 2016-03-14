@@ -853,6 +853,8 @@ namespace ts {
         // [ConcreteTypeScript]
         function nodeMustCheck(node: Node, type: Type) {
             Debug.assert(!node.mustCheck || node.mustCheck === type);
+            smartPrint((new Error() as any).stack, 'type');
+            smartPrint(type, '<--type');
             node.mustCheck = type;
             node.checkVar = getTempTypeVar(getSourceFileOfNode(node), type);
         }
@@ -865,6 +867,8 @@ namespace ts {
              * unless it's known null or undefined */
             if (isConcreteType(toType) && !isConcreteType(fromType) &&
                 fromType !== nullType && fromType !== undefinedType) {
+                console.log((new Error() as any).stack);
+                smartPrint(node, "NODE");
                 nodeMustCheck(node, toType);
             }
 
@@ -10480,6 +10484,11 @@ namespace ts {
                     if (compilerOptions.noImplicitAny) {
                         error(node, Diagnostics.new_expression_whose_target_lacks_a_construct_signature_implicitly_has_an_any_type);
                     }
+                    // [ConcreteTypeScript] Except, if the type has a 'this' type stemming from a declare type node / becomes type node use that type.
+                    if (signature.resolvedThisType && signature.resolvedThisType.flags & TypeFlags.IntermediateFlow) {
+                        return (<IntermediateFlowType>signature.resolvedThisType).targetType;
+                    }
+                    // [/ConcreteTypeScript]
                     return anyType;
                 }
             }
@@ -10516,8 +10525,11 @@ namespace ts {
 
                     }
                 } else if (node.kind === SyntaxKind.CallExpression) {
-                    // non-method non-constructors must be checked too
-                    nodeMustCheck(node, rtype);
+                    // non-concrete functions must be checked too
+                    let funcType = getTypeOfNode(node.expression);
+                    if (!isConcreteType(funcType)) {
+                        nodeMustCheck(node, rtype);
+                    }
                 }
             }
 

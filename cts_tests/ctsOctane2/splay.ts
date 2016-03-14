@@ -55,14 +55,14 @@ function GeneratePayloadTree(depth, tag) {
 }
 
 
-function GenerateKey() {
+function GenerateKey(): !number {
     // The benchmark framework guarantees that Math.random is
     // deterministic; see base.js.
-    return <!number> Math.random();
+    return +Math.random();
 }
 
 
-function InsertNewNode() {
+function InsertNewNode(): !number {
     // Insert new node with a unique key.
     var key:!number = -1.1;
     do {
@@ -143,7 +143,7 @@ function SplayTree(this: declare SplayTree) {
      * @type {SplayTree.Node}
      * @private
      */
-    this.root_ = <!SplayTreeNode|!null> this;
+    this.root_ = <!SplayTreeNode|!null> null;
 }
 
 /**
@@ -383,11 +383,16 @@ function runSplay() {
     SplayTearDown(); 
 } 
 
-function testSplay() {
-    for (var i = 0; i < 1000; i++) {
-        runSplay();
+function timeIt(f) {
+    for (let i = 0; i < 1; i++) {
+        f();
     }
+    let timeBefore = new Date();
+    for (let i = 0; i < 1; i++) {
+        f();
+    }
+    let timeDelta = (new Date() as any) - (timeBefore as any);
+    console.log("Milliseconds: " + timeDelta);
 }
 
-testSplay();
-
+timeIt(runSplay);

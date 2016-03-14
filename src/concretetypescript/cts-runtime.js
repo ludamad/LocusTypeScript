@@ -171,30 +171,30 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         cement(Number, "$$cts$$falsey", function(val) { if (!val) return 0; else return val; });
         cement(String, "$$cts$$falsey", function(val) { if (!val) return ""; else return val; });
         cement(Function.prototype, "$$cts$$falsey", function(val) { if (!val) return void 0; else return val; });
-        
+
         // the "protect" function adds a protector for a given type and name to an object
         function protect(type, name, obj, enumerable) {
-            var pname = "$$cts$$value$" + name;
-            var setterName ="$$cts$$setter$"+name;
-            var getter = new Function("return this." + pname + ";");
-            var setter = type[setterName];
-            if (!setter) {
-//                setter = new Function('val', "this." + pname + " = val;");
-                setter = function(val) { this[pname] = val; $$cts$$runtime.cast(type, val); };
-                addUnenum(type, setterName, setter);
-                if (!type.$$cts$$type) {
-                    addUnenum(setter, "$$cts$$type", type);
-                }
+            if (typeof type.$$cts$$protectors === "undefined") {
+                addUnenum(type, "$$cts$$protectors", {});
+            }
+            if (typeof type.$$cts$$protectors[name] === "undefined") {
+                var pname = "$$cts$$value$" + name;
+                var getter = new Function("return this." + pname + ";"); // TODO evalute if new Function makes any sense.
+                var setter = function(val) { 
+                    $$cts$$runtime.cast(type, val); 
+                    this[pname] = val;
+                };
+                addUnenum(setter, "$$cts$$type", type);
+                type.$$cts$$protectors[name] = [getter, setter];
             }
 
-            if (Object.defineProperty) {
+            if (typeof Object.defineProperty !== "undefined") {
                 Object.defineProperty(obj, name, {
                     configurable: false,
                     enumerable: (typeof enumerable === "undefined") ? true : !!enumerable,
-                    get: getter,
-                    set:  setter
+                    get: type.$$cts$$protectors[name][0],
+                    set: type.$$cts$$protectors[name][1]
                 });
-
             } else throw new Error("Cannot protect properties!");
         }
         cement(this, "protect", protect);
@@ -220,6 +220,7 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         // TODO: It will be better to canonicalize union types, instead of 'new'ing them each time and needing a deep equals op.
         function typeEquals(type1, type2) {
             if (type1 === type2) return true;
+            // TODO handle intersection types
             if (!(type1 instanceof UnionType)) return false;
             if (!(type2 instanceof UnionType)) return false;
             if (type1.types.length !== type2.types.length) return false;
@@ -250,7 +251,7 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
                 }
                 return value;
             }
-            var existingSetter = getSetter(obj, name);
+/*            var existingSetter = getSetter(obj, name);
             if (existingSetter != null && typeEquals(existingSetter.$$cts$$type, type)) {
                 // Just use existing setter:
                 obj[name] = value;
@@ -259,8 +260,9 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             if (existingSetter != null) {
                 // Incompatible case:
                 throw new Error("Cannot reprotect '" + name + "'!");
-            }
+            }*/
             // OK, protection needed:
+            // TODO consider if protection detection still necessary given non-configurability.
             addUnenum(obj,"$$cts$$value$" + name, value);
             protect(type, name, obj, true);
             return value;

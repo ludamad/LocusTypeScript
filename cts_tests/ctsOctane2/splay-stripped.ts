@@ -76,6 +76,19 @@ function InsertNewNode() {
 
 
 function SplaySetup() {
+    Math.random = (function() {
+      var seed = 49734321;
+      return function() {
+        // Robert Jenkins' 32 bit integer hash function.
+        seed = ((seed + 0x7ed55d16) + (seed << 12))  & 0xffffffff;
+        seed = ((seed ^ 0xc761c23c) ^ (seed >>> 19)) & 0xffffffff;
+        seed = ((seed + 0x165667b1) + (seed << 5))   & 0xffffffff;
+        seed = ((seed + 0xd3a2646c) ^ (seed << 9))   & 0xffffffff;
+        seed = ((seed + 0xfd7046c5) + (seed << 3))   & 0xffffffff;
+        seed = ((seed ^ 0xb55a4f09) ^ (seed >>> 16)) & 0xffffffff;
+        return (seed & 0xfffffff) / 0x10000000;
+      };
+    })();
     splayTree = new SplayTree();
     for (var i = 0; i < kSplayTreeSize; i++) InsertNewNode();
 }
@@ -130,14 +143,14 @@ function SplayTree() {
      * @type {SplayTree.Node}
      * @private
      */
-    this.root_ = this;
+    this.root_ = null;
 }
 
 /**
  * @return {boolean} Whether the tree is empty.
  */
 SplayTree.prototype.isEmpty = function() {
-    return this.root_;
+    return !this.root_;
 }
 
 /**
@@ -189,7 +202,7 @@ SplayTree.prototype.remove = function(key) {
         throw new Error('Key not found: ' + key);
     }
     var removed = this.root_;
-    if (this.root_.left) {
+    if (!this.root_.left) {
         this.root_ = this.root_.right;
     } else {
         var right = this.root_.right;
@@ -260,9 +273,9 @@ SplayTree.prototype.findGreatestLessThan = function(key)  {
 /**
  * @return {Array<*>} An array containing all the keys of tree's nodes.
  */
-SplayTree.prototype.exportKeys = function() : any[] {
+SplayTree.prototype.exportKeys = function() {
     var result = [];
-    if (this.isEmpty()) {
+    if (!this.isEmpty()) {
         this.root_.traverse_(function (node) { result.push(node.key); });
     }
     return result;
@@ -294,7 +307,7 @@ SplayTree.prototype.splay_ = function(key) {
     var current = this.root_;
     while (true) {
         if (key < current.key) {
-            if (current.left) {
+            if (!current.left) {
                 break;
             }
             if (key < current.left.key) {
@@ -303,7 +316,7 @@ SplayTree.prototype.splay_ = function(key) {
                 current.left = tmp.right;
                 tmp.right = current;
                 current = tmp;
-                if (current.left) {
+                if (!current.left) {
                     break;
                 }
             }
@@ -312,7 +325,7 @@ SplayTree.prototype.splay_ = function(key) {
             right = current;
             current = current.left;
         } else if (key > current.key) {
-            if (current.right) {
+            if (!current.right) {
                 break;
             }
             if (key > current.right.key) {
@@ -321,7 +334,7 @@ SplayTree.prototype.splay_ = function(key) {
                 current.right = tmp.left;
                 tmp.left = current;
                 current = tmp;
-                if (current.right) {
+                if (!current.right) {
                     break;
                 }
             }
@@ -354,7 +367,7 @@ function SplayTreeNode(key, value) {
     this.right = null;
 }
 
-SplayTreeNode.prototype.traverse_ = function(f : ((arg) => void)) {
+SplayTreeNode.prototype.traverse_ = function(f) {
     var current = this;
     while (current) {
         var left = current.left;
@@ -368,13 +381,19 @@ function runSplay() {
     SplaySetup();
     SplayRun();
     SplayTearDown(); 
-}              
+} 
 
-function testSplay() {
-    for (var i = 0; i < 1000; i++) {
-        runSplay();
+function timeIt(f) {
+    for (let i = 0; i < 1; i++) {
+        f();
     }
+    let timeBefore = new Date();
+    for (let i = 0; i < 1; i++) {
+        f();
+    }
+    let timeDelta = (new Date() as any) - (timeBefore as any);
+    console.log("Milliseconds: " + timeDelta);
 }
 
-testSplay();
+timeIt(runSplay);
 
