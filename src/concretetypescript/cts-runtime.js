@@ -246,9 +246,8 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
             if (type === null) {
                 // Allowing undefined is a bit dangerous. We will use 'null' as our special 'cement instead' sentinel.
                 cement(obj, name, value, /*Enumerable*/ true);
-                if (rawFunction) {
-                    cement(obj, "$$cts$$value$" + name, rawFunction, /*Not enumerable*/ false);
-                }
+                // Always cement, even if no raw function provided, for consistency
+                cement(obj, "$$cts$$value$" + name, rawFunction || value, /*Not enumerable*/ false);
                 return value;
             }
 /*            var existingSetter = getSetter(obj, name);
