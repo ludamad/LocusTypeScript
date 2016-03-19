@@ -52,7 +52,6 @@ function checkResult(dens) {
 function setupNavierStokes()
 {
     solver = new FluidField(null);
-    console.log("Solver = ", solver);
     solver.setResolution(128, 128);
     solver.setIterations(20);
     solver.setDisplayFunction(function(f){});
@@ -428,7 +427,7 @@ function timeIt(f) {
         f();
     }
     let timeBefore = new Date();
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 1000; i++) {
         f();
     }
     let timeDelta = (new Date() as any) - (timeBefore as any);

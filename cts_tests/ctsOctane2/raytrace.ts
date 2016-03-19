@@ -22,7 +22,7 @@ function __extends(d, b) {
     d.prototype = b === null ? Object.create(b) : ((__ as any).prototype = b.prototype, new __());
 }
 
-var checkNumber;
+var checkNumber:!number = 0;
 
 function Color(this: declare Color; red:!number = 0.0, green:!number = 0.0, blue:!number= 0.0) {
     this.red = red;
@@ -206,8 +206,8 @@ function Scene(this: declare Scene) {
         new Vector(0, 0, 1),
         new Vector(0, 1, 0)
     );
-    this.shapes = new Array<Shape>(0);
-    this.lights = new Array<Light>(0);
+    this.shapes = new Array<any>(0);
+    this.lights = new Array<any>(0);
     this.background = new Background(new Color(0, 0, 0.5), 0.2);
 }
 
@@ -480,10 +480,9 @@ function Engine(this: declare Engine; options:!Options) {
     this.options.canvasWidth /= this.options.pixelWidth;
 }
 
-Engine.prototype.setPixel = function(x, y, color:!Color) {
-    var pxW, pxH;
-    pxW = this.options.pixelWidth;
-    pxH = this.options.pixelHeight;
+Engine.prototype.setPixel = function(x:!number, y:!number, color:!Color) {
+    var pxW = this.options.pixelWidth;
+    var pxH = this.options.pixelHeight;
 
     if (this.canvas) {
         this.canvas.fillStyle = color.toString();
@@ -543,7 +542,7 @@ Engine.prototype.testIntersection = function(ray:!Ray, scene:!Scene, exclude:!Sh
         var shape = scene.shapes[i];
 
         if (shape != exclude) {
-            var info = shape.intersect(ray);
+            var info:!IntersectionInfo = shape.intersect(ray);
             if (info.isHit && info.distance >= 0 && info.distance < best.distance) {
                 best = info;
                 hits++;
@@ -570,7 +569,7 @@ Engine.prototype.rayTrace = function(info:!IntersectionInfo, ray:!Ray, scene:!Sc
     var shininess =+( Math.pow(10, info.shape.material.gloss + 1));
 
     for (var i = 0; i < scene.lights.length; i++) {
-        var light = scene.lights[i];
+        var light:!Light = scene.lights[i];
 
         // Calc diffuse lighting
         var v = Vector_subtract(
@@ -713,9 +712,9 @@ function renderScene() {
         )
     );
 
-    scene.shapes.push(plane);
-    scene.shapes.push(sphere);
-    scene.shapes.push(sphere1);
+    scene.shapes.push(plane as any);
+    scene.shapes.push(sphere as any);
+    scene.shapes.push(sphere1 as any);
 
     var light = new Light(
         new Vector(5, 10, -1),
@@ -728,8 +727,8 @@ function renderScene() {
         100
     );
 
-    scene.lights.push(light);
-    scene.lights.push(light1);
+    scene.lights.push(light as any);
+    scene.lights.push(light1 as any);
 
     var imageWidth:!number = 100; // $F('imageWidth');
     var imageHeight:!number = 100; // $F('imageHeight');

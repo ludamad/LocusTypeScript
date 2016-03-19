@@ -853,8 +853,6 @@ namespace ts {
         // [ConcreteTypeScript]
         function nodeMustCheck(node: Node, type: Type) {
             Debug.assert(!node.mustCheck || node.mustCheck === type);
-            smartPrint((new Error() as any).stack, 'type');
-            smartPrint(type, '<--type');
             node.mustCheck = type;
             node.checkVar = getTempTypeVar(getSourceFileOfNode(node), type);
         }
@@ -867,8 +865,6 @@ namespace ts {
              * unless it's known null or undefined */
             if (isConcreteType(toType) && !isConcreteType(fromType) &&
                 fromType !== nullType && fromType !== undefinedType) {
-                console.log((new Error() as any).stack);
-                smartPrint(node, "NODE");
                 nodeMustCheck(node, toType);
             }
 
@@ -3016,13 +3012,16 @@ namespace ts {
                 if (target === checkBase) {
                     return true;
                 }
+                if (!(target.flags & (TypeFlags.Interface | TypeFlags.Declare | TypeFlags.Class))) {
+                    return false
+                }
+                // [/ConcreteTypeScript]
                 for (let baseType of getBaseTypes(target)) {
                     if (check(<InterfaceType> baseType)) {
                         return true;
                     }
                 }
                 return false;
-                // [ConcreteTypeScript]
             }
         }
 
@@ -4092,14 +4091,10 @@ namespace ts {
             type = getApparentType(unconcrete(type));
             // If we are a type currently being resolved, don't attempt to get a property
             if (markAsRecursiveFlowAnalysis(type)) {
-                smartPrint(name, 'markAsRecursiveFlowAnalysis')
                 return undefined;
             }
             // [/ConcreteTypeScript]
 
-            if (name === 'setRunning') {
-                smartPrint(type, name);
-            }
             if (type.flags & TypeFlags.IntermediateFlow) {
                 return getPropertyOfIntermediateFlowType(<IntermediateFlowType>type, name);
             }

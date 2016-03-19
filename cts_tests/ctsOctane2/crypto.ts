@@ -34,7 +34,7 @@ function timeIt(f) {
         f();
     }
     let timeBefore = new Date();
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 1000; i++) {
         f();
     }
     let timeDelta = (new Date() as any) - (timeBefore as any);
@@ -236,7 +236,7 @@ BigInteger.prototype.fromString = function(s,b:!number) {
     var i = +s.length, mi = false;
     var sh:!number = 0;
     while(--i >= 0) {
-        var x = (k==8)?s[i]&0xff:intAt(s,i);
+        var x = (k==8)?(s[i] as any)&0xff:intAt(s,i);
         if(x < 0) {
             if(s.charAt(i) == "-") mi = true;
             continue;
@@ -253,7 +253,7 @@ BigInteger.prototype.fromString = function(s,b:!number) {
         sh += k;
         if(sh >= BI_DB) sh -= BI_DB;
     }
-    if(k == 8 && (s[0]&0x80) != 0) {
+    if(k == 8 && ((s[0] as any)&0x80) != 0) {
         this.s = -1;
         if(sh > 0) this_array[this.t-1] |= ((1<<(BI_DB-sh))-1)<<sh;
     }
@@ -432,7 +432,7 @@ BigInteger.prototype.multiplyTo = function(a:!BigInteger,r:!BigInteger) {
     var i = x.t;
     r.t = i+y.t;
     while(--i >= 0) r_array[i] = 0;
-    for(i = 0; i < y.t; ++i) r_array[i+x.t] = x.am(0,y_array[i],r,i,0,x.t);
+    for(i = 0; i < y.t; ++i) r_array[i+x.t] = x.am(0,+y_array[i],r,i,0,x.t);
     r.s = 0;
     r.clamp();
     if(this.s != a.s) ZERO.subTo(r,r);
@@ -681,7 +681,7 @@ BigInteger.prototype.fromNumber = function(a:!number,b:any, c?:any) {
         x.length = (a>>3)+1;
         b.nextBytes(x);
         if(t > 0) x[0] &= ((1<<t)-1); else x[0] = 0;
-        this.fromString(x,256);
+//        this.fromString(x,256);
     }
 }
 
@@ -721,7 +721,7 @@ BigInteger.prototype.bitwiseTo = function(a:!BigInteger, op: any, r:!BigInteger)
     var a_array    = a.array;
     var r_array    = r.array;
     var i = <!number>0, f = <!number>0, m = +Math.min(a.t,this.t);
-    for(i = 0; i < m; ++i) r_array[i] = op(this_array[i],a_array[i]);
+    for(i = 0; i < m; ++i) r_array[i] = op(this_array[i],+a_array[i]);
     if(a.t < this.t) {
         f = a.s&BI_DM;
         for(i = m; i < this.t; ++i) r_array[i] = op(this_array[i],f);
@@ -729,7 +729,7 @@ BigInteger.prototype.bitwiseTo = function(a:!BigInteger, op: any, r:!BigInteger)
     }
     else {
         f = this.s&BI_DM;
-        for(i = m; i < a.t; ++i) r_array[i] = op(f,a_array[i]);
+        for(i = m; i < a.t; ++i) r_array[i] = op(f,+a_array[i]);
         r.t = a.t;
     }
     r.s = op(this.s,a.s);
@@ -1149,7 +1149,7 @@ for(vv = 10; vv < 36; ++vv) BI_RC[rr++] = vv;
 
 function int2char(n:!number) { return BI_RM.charAt(n); }
 function intAt(s:!string,i:!number) {
-    var c = BI_RC[s.charCodeAt(i)];
+    var c = BI_RC[+s.charCodeAt(i)];
     return +((c==null)?-1:c);
 }
 

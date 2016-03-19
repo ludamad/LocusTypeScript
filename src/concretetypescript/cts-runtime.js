@@ -139,20 +139,6 @@ if (typeof $$cts$$runtime === "undefined") (function(global) {
         // and a global caster, which checks and returns the value if the check succeeded or an exception otherwise
         function cast(type, val) {
             if (type.$$cts$$check(val)) return val;
-            if (!val) {
-                switch (type) {
-                    case Boolean: return false;
-                    case Number: return 0;
-                    case String: return "";
-                    default: return null;
-                }
-            } else {
-                switch (type) {
-                    case Boolean: return !!val;
-                    case Number: return +val;
-                    case String: return ""+val;
-                }
-            }
             throw new Error("Cannot cast value " + JSON.stringify(val) + " to type " + type);
         }
         // A special case for emitting purposes, that takes the value to cast in 'val', but a value to propagate in 'ret'

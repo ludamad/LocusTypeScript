@@ -86,7 +86,7 @@ function timeIt(f) {
         f();
     }
     let timeBefore = new Date();
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 1000; i++) {
         f();
     }
     let timeDelta = (new Date() as any) - (timeBefore as any);
@@ -287,7 +287,7 @@ Scheduler.prototype.queue = function (packet:!Packet): !TaskControlBlock {
  * @param {Task} task the task
  * @constructor
  */
-function TaskControlBlock(this: declare TaskControlBlock; link:!TaskControlBlock, id:!number, priority:!number, queue:!Packet, task:!Task) {
+function TaskControlBlock(this: declare TaskControlBlock; link:!TaskControlBlock, id:!number, priority:!number, queue:!Packet|!undefined, task:!Task) {
     this.link = link;
     this.id = id;
     this.priority = priority;
@@ -301,7 +301,7 @@ function TaskControlBlock(this: declare TaskControlBlock; link:!TaskControlBlock
         this.state = STATE_SUSPENDED_RUNNABLE;
     }
 }
-TaskControlBlock.prototype.setRunning = function () {
+TaskControlBlock.prototype.setRunning = function (): void {
     this.state = STATE_RUNNING;
 };
 TaskControlBlock.prototype.markAsNotHeld = function () {
@@ -323,7 +323,7 @@ TaskControlBlock.prototype.markAsRunnable = function () {
  * Runs this task, if it is ready to be run, and returns the next task to run.
  */
 TaskControlBlock.prototype.run = function (): !TaskControlBlock {
-    var packet = undefined;
+    var packet:!Packet|!undefined = undefined;
     if (this.state == STATE_SUSPENDED_RUNNABLE) {
         packet = this.queue;
         this.queue = packet.link;
@@ -456,7 +456,7 @@ function WorkerTask(this: declare WorkerTask extends Task; scheduler: !Scheduler
     this.v2 = v2;
 }
 __extends(WorkerTask, Task);
-WorkerTask.prototype.run = function (packet): !TaskControlBlock {
+WorkerTask.prototype.run = function (packet:!Packet): !TaskControlBlock {
     if (packet == undefined) {
         return this.scheduler.suspendCurrent();
     }
@@ -497,7 +497,7 @@ function HandlerTask(this: declare HandlerTask extends Task; scheduler: !Schedul
     this.v2 = v2;
 }
 __extends(HandlerTask, Task);
-HandlerTask.prototype.run = function (packet): !TaskControlBlock {
+HandlerTask.prototype.run = function (packet:!Packet): !TaskControlBlock {
     if (packet != undefined) {
         if (packet.kind == KIND_WORK) {
             this.v1 = packet.addTo(this.v1);
@@ -508,7 +508,7 @@ HandlerTask.prototype.run = function (packet): !TaskControlBlock {
     }
     if (this.v1 != undefined) {
         var count = this.v1.a1;
-        var v = undefined;
+        var v:!Packet|!undefined = undefined;
         if (count < DATA_SIZE) {
             if (this.v2 != undefined) {
                 v = this.v2;
@@ -547,7 +547,7 @@ HandlerTask.prototype.toString = function () {
  * @constructor
  */
 function Packet(this: declare Packet;
-                link:!Packet, 
+                link:!Packet|!undefined, 
                 id:!number, 
                 kind:!number, 
                 a1:!number = 0) {
@@ -566,7 +566,7 @@ Packet.prototype.addTo = function (queue: !Packet): !Packet {
     this.link = undefined;
     if (queue == undefined)
         return this;
-    var peek = undefined;
+    var peek:!Packet|!undefined = undefined;
     var next = queue;
     while ((peek = next.link) != undefined)
         next = peek;

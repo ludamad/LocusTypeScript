@@ -2446,9 +2446,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
 
             // A general way to wrap an expression in a type cast
             function emitCastPre(type: Type, checkVar?: string) {
-                if (type.flags & TypeFlags.Concrete) {
-                    type = (<ConcreteType>type).baseType;
-                }
                 write("(");
                 emitCtsRt("cast");
                 write("(");
