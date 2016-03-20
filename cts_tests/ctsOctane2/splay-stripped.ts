@@ -388,7 +388,7 @@ function timeIt(f) {
         f();
     }
     let timeBefore = new Date();
-    for (let i = 0; i < 1000; i++) {
+    for (let i = 0; i < 100; i++) {
         f();
     }
     let timeDelta = (new Date() as any) - (timeBefore as any);
