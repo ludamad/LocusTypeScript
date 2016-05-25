@@ -2811,6 +2811,9 @@ namespace ts {
                 }
                 // Handle catch clause variables
                 let declaration = symbol.valueDeclaration;
+                if (!declaration) {
+                    return links.type = anyType;
+                }
                 if (declaration.parent.kind === SyntaxKind.CatchClause) {
                     return links.type = anyType;
                 }
@@ -4818,7 +4821,7 @@ namespace ts {
         }
 
         function getHeritageClauseOfType(node: TypeNode) {
-            if ((node as any).heritageClauses) {
+            if (node && (node as any).heritageClauses) {
                 let heritageClause = getHeritageClause((node as any).heritageClauses, SyntaxKind.ExtendsKeyword);
                 return heritageClause;
             }
@@ -5530,7 +5533,6 @@ namespace ts {
                 errorNode: Node,
                 headMessage?: DiagnosticMessage,
                 containingMessageChain?: DiagnosticMessageChain): boolean {
-
             let errorInfo: DiagnosticMessageChain;
             let sourceStack: ObjectType[];
             let targetStack: ObjectType[];
@@ -5591,7 +5593,11 @@ namespace ts {
                 // [/ConcreteTypeScript] 
                 let result: Ternary;
                 // both types are the same - covers 'they are the same primitive type or both are Any' or the same type parameter cases
-                if (source === target) return Ternary.True;
+                // [ConcreteTypeScript] TODO hack
+                if (source === target || source.id === target.id) {
+                    return Ternary.True;
+                }
+                // [/ConcreteTypeScript] 
                 if (relation === identityRelation) {
                     return isIdenticalTo(source, target);
                 }

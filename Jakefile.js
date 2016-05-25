@@ -409,7 +409,7 @@ compileFile(servicesFile, servicesSources,[builtLocalDirectory, copyright].conca
             /*preserveConstEnums*/ true,
             /*keepComments*/ true,
             /*noResolve*/ false,
-            /*stripInternal*/ true,
+            /*stripInternal*/ false,
             /*callback*/ function () {
                 jake.cpR(servicesFile, nodePackageFile, {silent: true});
 

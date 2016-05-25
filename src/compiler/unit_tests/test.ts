@@ -26,7 +26,7 @@ describe("Nominal this", () => {
     function testRefIsNumber(ref) {
         it(`"${sourceFile.text.substring(ref.pos, ref.end).trim()}" @${ts.nodePosToString(ref)} should be a !number`, () => {
             let type = checker.getTypeAtLocation(ref);
-            let strippedType = checker.stripConcreteType(type);
+            let strippedType = checker.unconcrete(type);
             assert(strippedType.flags & ts.TypeFlags.NumberLike,
                 "Not a number, was " + checker.typeToString(type)
             );
@@ -139,8 +139,8 @@ describe("Calling functions with a declare parameter", () => {
         }
         let typeAfter = checker.getTypeAtLocation(refAfter);
         console.log(checker.typeToString(typeAfter))
-        assert(!!(checker.stripConcreteType(typeAfter).flags & ts.TypeFlags.Declare), "Should resolve to declare type!");
-        console.log(checker.getBaseTypes(<any>checker.stripConcreteType(typeAfter)).map(<any>checker.typeToString))
+        assert(!!(checker.unconcrete(typeAfter).flags & ts.TypeFlags.Declare), "Should resolve to declare type!");
+        console.log(checker.getBaseTypes(<any>checker.unconcrete(typeAfter)).map(<any>checker.typeToString))
         assert(checker.getPropertyOfType(typeAfter, "x"), "Does not have 'x' member.");
         assert(checker.getPropertyOfType(typeAfter, "y"), "Does not have 'y' member.");
     }
@@ -177,7 +177,7 @@ describe("Type relations of ConcreteTypeScript", () => {
         for (let node of nodes) ts.printNodeDeep(node);
         let refTypes:ts.Type[] = <ts.Type[]>findWithComment(rootNode, "Member1Ref", ts.isExpression)
             .map(checker.getTypeAtLocation)
-            .map(checker.stripConcreteType);
+            .map(checker.unconcrete);
         let idTypes = findWithComment(rootNode, "Member1Ref", ts.isExpression)
             .map(n => findFirst(n, ({text}:any) => text && !!text.match(varName)))
             .map(checker.getTypeAtLocation)
@@ -277,7 +277,7 @@ describe("Type relations of ConcreteTypeScript", () => {
         // Will not depend on whether resolves correctly:
         function getDeclType(node:ts.Node) {
             let type = getIntermediateType(node);
-            let declType = checker.stripConcreteType((<ts.IntermediateFlowType>type).targetType);
+            let declType = checker.unconcrete((<ts.IntermediateFlowType>type).targetType);
             assert(!!(declType.flags & ts.TypeFlags.Declare), "getDeclType failure");
             return declType;
         }
@@ -359,7 +359,7 @@ describe("The stages of binding", () => {
         function assertHasXAndY() {
             let targetType = getTargetType();
             if (!useBecomes) {
-                assert(checker.stripConcreteType(targetType).flags & ts.TypeFlags.Declare, "Resulting type should have Declare");
+                assert(checker.unconcrete(targetType).flags & ts.TypeFlags.Declare, "Resulting type should have Declare");
             }
             assert(checker.getPropertyOfType(targetType, "x"), "Target type should have 'x' attribute");
             assert(checker.getPropertyOfType(targetType, "y"), "Target type should have 'y' attribute");
