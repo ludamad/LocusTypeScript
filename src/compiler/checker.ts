@@ -4180,17 +4180,14 @@ namespace ts {
         }
 
         // [ConcreteTypeScript]
-        function markRecursiveTypeDependency(type1: Type, type2: Type) {
-            if (!type1.flowRecursivePairs) {
-                type1.flowRecursivePairs = [type2];
-            } else if (type1.flowRecursivePairs.indexOf(type2) === -1) {
-                type1.flowRecursivePairs.push(type2);
-            }
-        }
-
-        // [ConcreteTypeScript]
-        function isCurrentFlowAnalysisUntrustable(type: Type) {
-            return false;
+        // The current analysis of T cannot be used if a circularly 
+        // dependent type is being resolved higher on the stack.
+        //
+        // The presence of a circularly dependent type higher on the stack
+        // causes our flow analysis to return nothing, to avoid problematic cases.
+        // While we could analyze the types more precisely, this would have to be
+        // evaluated for usefulness.
+        function isCurrentFlowAnalysisUnusable(type: Type) {
             if (type.flowRecursivePairs) {
                 for (let pair of type.flowRecursivePairs) {
                     if (pair === type) {
@@ -4205,18 +4202,30 @@ namespace ts {
         }
 
         // [ConcreteTypeScript]
+        // Mark this type as circularly dependent on the first 
         function markAsRecursiveFlowAnalysis(type: Type) {
             if (!(type.flags & TypeFlags.Declare)) {
                 return false;
             }
             if (flowDependentTypeStack.indexOf(type) >= 0) {
-                // May be marked on self. Thats OK, but we dont do anything special.
+                // May be marked on self. Thats OK.
                 markRecursiveTypeDependency(type, flowDependentTypeStack[0]);
                 markRecursiveTypeDependency(flowDependentTypeStack[0], type);
                 return true;
             }
             return false;
         }
+
+        // [ConcreteTypeScript]
+        // Ensure the analysis is marked as circularly dependent. 
+        function markRecursiveTypeDependency(type1: Type, type2: Type) {
+            if (!type1.flowRecursivePairs) {
+                type1.flowRecursivePairs = [type2];
+            } else if (type1.flowRecursivePairs.indexOf(type2) === -1) {
+                type1.flowRecursivePairs.push(type2);
+            }
+        }
+
 
         // Return the index type of the given kind in the given type. Creates synthetic union index types when necessary and
         // maps primitive types and type parameters are to their apparent types.
@@ -18119,13 +18128,14 @@ namespace ts {
                 /*Current flow-data: */ flowData, 
                 /*Original flow-data: */ flowData
             ); 
-            if (targetDeclareType && !isCurrentFlowAnalysisUntrustable(targetDeclareType)) {
+            if (targetDeclareType && !isCurrentFlowAnalysisUnusable(targetDeclareType)) {
                 forEachChildRecursive(containerScope, node => {
                     if (isReference(node)) {
                         node.ctsFinalFlowData = finalFlowData;
                     }
                 });
             } else if (targetDeclareType) {
+                // Current analysis cannot be trusted:
                 (<ResolvedType><ObjectType>targetDeclareType).members = void 0; 
                 (<ResolvedType><ObjectType>targetDeclareType).properties = void 0;
                 (<ResolvedType><ObjectType>targetDeclareType).callSignatures = void 0;
@@ -18143,7 +18153,7 @@ namespace ts {
                 }
             }
             if (targetDeclareType) {
-                // && !isCurrentFlowAnalysisUntrustable(targetDeclareType)) {
+                // && !isCurrentFlowAnalysisUnusable(targetDeclareType)) {
                 for (let protect of protectionQueue) {
                     protect(finalFlowData);
                 }

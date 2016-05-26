@@ -3,6 +3,27 @@ require('./harness');
 
 Harness.lightMode = true;
 
+describe("getPropertyOfType", () => {
+    let sourceText = `var foo: declare Foo = {};
+        foo.x = 1;
+        foo.y = 1;
+        /*foo*/ foo;`;
+    let {rootNode: sourceFile, checker} = compileOne(sourceText);
+    findWithComment(sourceFile, "foo", ts.isExpression).map(checker.getTypeAtLocation).forEach(testFooPropertiesAreXAndY);
+    return;
+    // Where:
+    function testFooPropertiesAreXAndY(ref) {
+        it("testFooPropertiesAreXAndY", () => {
+            assert(!!checker.getPropertyOfType(ref, 'x'),
+                "getPropertyOfType('x')");
+            assert(!!checker.getPropertyOfType(ref, 'y'),
+                "getPropertyOfType('y')");
+            assert(checker.getPropertiesOfType(ref).length === 2,
+                "getPropertiesOfType()");
+        });
+    }
+});
+
 describe("Nominal this", () => {
     let sourceText = `function Foo(this: declare Foo) {
         /* first */ /*x*/ (this.x); 
@@ -364,7 +385,7 @@ describe("The stages of binding", () => {
             assert(checker.getPropertyOfType(targetType, "x"), "Target type should have 'x' attribute");
             assert(checker.getPropertyOfType(targetType, "y"), "Target type should have 'y' attribute");
             let refType = checker.getTypeAtLocation(getLastVarRef())
-            console.log(checker.getFlowDataAtLocation(getLastVarRef()));
+            console.log(checker.getFlowDataAtLocation(getLastVarRef(), refType));
             assert(checker.getPropertyOfType(refType, "x"), "Should infer 'x' attribute");
             assert(checker.getPropertyOfType(refType, "y"), "Should infer 'y' attribute");
         }
@@ -392,10 +413,11 @@ describe("Simple sequential assignments", () => {
         let [before] = findWithComment(rootNode, "Before", expectedKind);
         let [xAssign, yAssign] = find(rootNode, ts.SyntaxKind.PropertyAccessExpression);
 
-        let {memberSet: {x: x0, y: y0}} = checker.getFlowDataAtLocation(before);
-        let {memberSet: {x: x1, y: y1}} = checker.getFlowDataAtLocation(findFirst(xAssign, expectedKind));
-        let {memberSet: {x: x2, y: y2}} = checker.getFlowDataAtLocation(findFirst(yAssign, expectedKind));
-        let {memberSet: {x: x3, y: y3}} = checker.getFinalFlowData(findFirst(xAssign, expectedKind));
+        let varType = checker.getTypeAtLocation(before);
+        let {memberSet: {x: x0, y: y0}} = checker.getFlowDataAtLocation(before, varType);
+        let {memberSet: {x: x1, y: y1}} = checker.getFlowDataAtLocation(findFirst(xAssign, expectedKind), varType);
+        let {memberSet: {x: x2, y: y2}} = checker.getFlowDataAtLocation(findFirst(yAssign, expectedKind), varType);
+        let {memberSet: {x: x3, y: y3}} = checker.getFlowDataForType(varType);
 
         assert(!x0 && !y0, "Incorrect members before first assignment.");
         assert( x1 && !y1, "Incorrect members during first assignment.");
