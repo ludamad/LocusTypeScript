@@ -533,9 +533,6 @@ namespace ts {
         typeVar?: string;
     }
 
-    export interface EmitData {
-    }
-
     export interface FlowData {
         memberSet:FlowMemberSet;
         flowTypes:FlowType[];
@@ -1932,9 +1929,9 @@ namespace ts {
         BlockScopedBindingInLoop    = 0x00004000,
         LexicalModuleMergesWithClass= 0x00008000,  // Instantiated lexical module declaration is merged with a previous class declaration.
     }
-
-    // [ConcreteTypeScript] Node link data relevant to type checkability.
+    
     /* @internal */
+    // [ConcreteTypeScript] Node link data relevant to type checkability.
     export interface EmitDataNodeLinks {
         mustCheck?: Type;             // If this node must be type-checked at runtime, the type to check
         checkVar?: string;            // Variable for emit used to store union and intersection runtime types.
@@ -1946,26 +1943,21 @@ namespace ts {
         direct?: boolean;             // If set, may use direct access (i.e., is an access with correct, concrete types)
         assertFloat?: boolean;        // If set, can assert that this value is always a float instead of generic number
         assertInt?: boolean;          // If set, can assert that this value is always an int instead of generic number
-    }
-
-    // [ConcreteTypeScript] Node link data relevant to type checkability.
-    /* @internal */
-    export interface FlowDataNodeLinks {
+        // Related to flow data/type calculation:
         brandsToEmitAfterwards?:  DeclareTypeDeclaration[];
         brandsToEmitAtBeginning?: DeclareTypeDeclaration[]; // Special case for parameter-this
         // If 'getter' and 'setter' are not present, the field protection is emitted using 'cement', otherwise it is emitted using 'protectAssignment'
         brandProtectionsToEmit?: {getter?: string, setter?: string, expr: Node, field: string}[];
         tempVarsToEmit?: {[member: string]: string};
         nextTempVar? : number; // Used to create the temporary variable names above.
-        tempVars?: BindingData;
-        ctsEmitAfter?: BindingData[];
-        ctsEmitData?:       EmitData;
+        bindingInline?: BindingData;
+        bindingsAfter?: BindingData[];
         ctsFlowData?:       FlowData; // What flow-members have been calculated for this specific node instance?
         ctsFinalFlowData?:  FlowData; // What are the final flow members for this node, after all assignments?
     }
 
     /* @internal */
-    export interface NodeLinks extends EmitDataNodeLinks, FlowDataNodeLinks {
+    export interface NodeLinks /*ConcreteTypeScript: */ extends EmitDataNodeLinks {
         resolvedType?: Type;              // Cached type of type node
         resolvedAwaitedType?: Type;       // Cached awaited type of type node
         resolvedSignature?: Signature;    // Cached signature of signature node or call expression

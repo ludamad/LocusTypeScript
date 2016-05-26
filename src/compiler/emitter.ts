@@ -2121,15 +2121,15 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 // [ConcreteTypeScript] Use direct access if possible
                 let v8closers = "";
                 if (compilerOptions.emitV8Intrinsics) {
-                    if (node.assertFloat) {
+                    if (node.nodeLinks.assertFloat) {
                         write("%_UnsafeAssumeFloat(");
                         v8closers += ")";
                     }
-                    if (node.assertInt) {
+                    if (node.nodeLinks.assertInt) {
                         write("%_UnsafeAssumeInt(");
                         v8closers += ")";
                     }
-                    if (node.direct) {
+                    if (node.nodeLinks.direct) {
                         write("%_UnsafeAssumeMono(");
                         v8closers += ")";
                     }
@@ -2166,7 +2166,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 let indentedAfterDot = indentIfOnDifferentLines(node, node.dotToken, node.name);
 
                 // [ConcreteTypeScript] Use the mangled name if requested
-                if (node.mangled) {
+                if (node.nodeLinks.mangled) {
                     write("$$cts$$value$");
                 }
                 // [/ConcreteTypeScript]
@@ -2303,7 +2303,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             }
 
             function emitCallExpression(node: CallExpression) {
-                if (compilerOptions.emitV8Intrinsics && node.direct) write("%_UnsafeAssumeMethod("); // [ConcreteTypeScript]
+                if (compilerOptions.emitV8Intrinsics && node.nodeLinks.direct) write("%_UnsafeAssumeMethod("); // [ConcreteTypeScript]
 
                 if (languageVersion < ScriptTarget.ES6 && hasSpreadElement(node.arguments)) {
                     emitCallWithSpread(node);
@@ -2332,7 +2332,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     emitCommaList(node.arguments);
                     write(")");
                 }
-                if (compilerOptions.emitV8Intrinsics && node.direct) write(")");
+                if (compilerOptions.emitV8Intrinsics && node.nodeLinks.direct) write(")");
 
             }
 
@@ -2420,7 +2420,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     case SyntaxKind.BooleanKeyword:
                         return write("Boolean");
                     case SyntaxKind.TypeReference:
-                        if (type.resolvedType && type.resolvedType.flags & TypeFlags.Declare) {
+                        if (type.nodeLinks.resolvedType && type.nodeLinks.resolvedType.flags & TypeFlags.Declare) {
                             write("$$cts$$brand$$");
                         }
                         return emitEntityName((<TypeReferenceNode>type).typeName);
@@ -2741,7 +2741,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 // [/ConcreteTypeScript] 
                 // [ConcreteTypeScript] Handle binding assignment
                 // [ConcreteTypeScript] Direct access (for assignments)
-                if (node.direct && compilerOptions.emitV8Intrinsics) write("%_UnsafeAssumeMono(");
+                if (node.nodeLinks.direct && compilerOptions.emitV8Intrinsics) write("%_UnsafeAssumeMono(");
                 // [/ConcreteTypeScript]
                 if (languageVersion < ScriptTarget.ES6 && node.operatorToken.kind === SyntaxKind.EqualsToken &&
                     (node.left.kind === SyntaxKind.ObjectLiteralExpression || node.left.kind === SyntaxKind.ArrayLiteralExpression)) {
@@ -2770,7 +2770,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     }
                 }
 
-                if (node.direct && compilerOptions.emitV8Intrinsics) write(")"); // [ConcreteTypeScript]
+                if (node.nodeLinks.direct && compilerOptions.emitV8Intrinsics) write(")"); // [ConcreteTypeScript]
             }
 
             function synthesizedNodeStartsOnNewLine(node: Node) {
@@ -5126,7 +5126,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
 
             function emitClassLikeDeclarationForES6AndHigher(node: ClassLikeDeclaration) {
                 // [ConcreteTypeScript]
-                throw new Error("TODO ES6 emit not supported by ConcreteTypeScript");
+                if (true||true) throw new Error("TODO ES6 emit not supported by ConcreteTypeScript");
                 // [/ConcreteTypeScript]
                 let thisNodeIsDecorated = nodeIsDecorated(node);
                 if (node.kind === SyntaxKind.ClassDeclaration) {
@@ -7491,7 +7491,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
 
             function emitNodeWithCommentsAndWithoutSourcemap(node: Node): void {
                 if (DISABLE_PROTECTED_MEMBERS) {
-                    node.direct = false;
+                    node.nodeLinks.direct = false;
                 }
                 emitNodeConsideringCommentsOption(node, emitNodeWithoutSourceMap);
             }
@@ -7552,11 +7552,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 writeLine();
             }
             function emitProtectionTempVarsAtBlockStart(node: Node) {
-                if (!node.tempVarsToEmit) {
+                if (!node.nodeLinks.tempVarsToEmit) {
                     return;
                 }
-                for (let member of Object.keys(node.tempVarsToEmit)) {
-                    let tempVarName = node.tempVarsToEmit[member];
+                for (let member of Object.keys(node.nodeLinks.tempVarsToEmit)) {
+                    let tempVarName = node.nodeLinks.tempVarsToEmit[member];
                     if (tempVarName.indexOf("cts$$temp$$") === 0) {
                         write(`var ${tempVarName};`);
                     } else {
@@ -7566,18 +7566,18 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 }
             }
             function emitProtectionAssignmentInstead(node: Node): boolean {
-                if (DISABLE_PROTECTED_MEMBERS || !node.ctsEmitData || !node.ctsEmitData.inline) {
+                if (DISABLE_PROTECTED_MEMBERS || !node.nodeLinks.bindingsAfter) {
                     return false;
                 }
-                emitProtectionAssignment(node.ctsEmitData.inline);
+                emitProtectionAssignment(node.nodeLinks.bindingInline);
                 return true;
             }
             function emitProtectionAssignmentsAfterStatement(node: Node) {
-                if (DISABLE_PROTECTED_MEMBERS || !node.ctsEmitData || !node.ctsEmitData.after) {
+                if (DISABLE_PROTECTED_MEMBERS || !node.nodeLinks.bindingsAfter) {
                     return false;
                 }
                 writeLine();
-                node.ctsEmitData.after.forEach(x => emitProtectionAssignment(x));
+                node.nodeLinks.bindingsAfter.forEach(x => emitProtectionAssignment(x));
                 return true;
             }
             function emitProtectionAssignment({left, member, right, targetDeclareType, type, isTypeComplete, guardVariable, brandGuardVariable, typeVar} : BindingData, brandPrototype = false) {
@@ -7648,26 +7648,26 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 emitStart(node, false); // [ConcreteTypeScript]
                 if (node) {
                 // [ConcreteTypeScript] Emit type check if necessary
-                    if (node.mustFloat && compilerOptions.emitV8Intrinsics) {
+                    if (node.nodeLinks.mustFloat && compilerOptions.emitV8Intrinsics) {
                         write("%_ToFloat(");
                     }
 
-                    if (node.mustInt) {
+                    if (node.nodeLinks.mustInt) {
                         write("(~~(");
                     }
 
-                    if (node.mustCheck) {
-                        emitCastPre(node.mustCheck, node.checkVar);
+                    if (node.nodeLinks.mustCheck) {
+                        emitCastPre(node.nodeLinks.mustCheck, node.nodeLinks.checkVar);
                     }
 
-                    if (node.mustCheckBecomes) {
-                        for (let {expr, type} of node.mustCheckBecomes) {
+                    if (node.nodeLinks.mustCheckBecomes) {
+                        for (let {expr, type} of node.nodeLinks.mustCheckBecomes) {
                             emitBecomesCastPre(expr, type);
                         }
                     }
 
-                    if (node.forceFalseyCoercion) {
-                        emitFalseyCoercionPre(node.forceFalseyCoercion);
+                    if (node.nodeLinks.forceFalseyCoercion) {
+                        emitFalseyCoercionPre(node.nodeLinks.forceFalseyCoercion);
                     }
            
                     if (!emitProtectionAssignmentInstead(node)) {
@@ -7675,28 +7675,28 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     }
                     emitProtectionAssignmentsAfterStatement(node);
 
-                    if (node.forceFalseyCoercion) {
-                        emitFalseyCoercionPost(node.forceFalseyCoercion);
+                    if (node.nodeLinks.forceFalseyCoercion) {
+                        emitFalseyCoercionPost(node.nodeLinks.forceFalseyCoercion);
                     }
 
-                    if (node.mustCheckBecomes) {
-                        for (let _ of node.mustCheckBecomes) {
+                    if (node.nodeLinks.mustCheckBecomes) {
+                        for (let _ of node.nodeLinks.mustCheckBecomes) {
                             emitCastPost();
                         }
                     }
 
-                    if (node.mustCheck) {
+                    if (node.nodeLinks.mustCheck) {
                         emitCastPost();
                     }
 
-                    if (node.mustInt) {
+                    if (node.nodeLinks.mustInt) {
                         write("))");
                     }
-                    if (node.mustFloat && compilerOptions.emitV8Intrinsics) {
+                    if (node.nodeLinks.mustFloat && compilerOptions.emitV8Intrinsics) {
                         write(")");
                     }
-                    if (node.brandsToEmitAfterwards) {
-                        for(let brand of node.brandsToEmitAfterwards) {
+                    if (node.nodeLinks.brandsToEmitAfterwards) {
+                        for(let brand of node.nodeLinks.brandsToEmitAfterwards) {
                             emitBranding(brand);
                         }
                     }

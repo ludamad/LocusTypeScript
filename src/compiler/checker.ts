@@ -53,7 +53,7 @@ namespace ts {
 
         let undefinedSymbol = createSymbol(SymbolFlags.Property | SymbolFlags.Transient, "undefined");
         let argumentsSymbol = createSymbol(SymbolFlags.Property | SymbolFlags.Transient, "arguments");
-
+        var jsxElementClassType: Type = undefined;
         // [ConcreteTypeScript]
         let flowDependentTypeStack: Type[] = [];
         // [/ConcreteTypeScript]
@@ -852,9 +852,9 @@ namespace ts {
 
         // [ConcreteTypeScript]
         function nodeMustCheck(node: Node, type: Type) {
-            Debug.assert(!node.mustCheck || node.mustCheck === type);
-            node.mustCheck = type;
-            node.checkVar = getTempTypeVar(getSourceFileOfNode(node), type);
+            Debug.assert(!getNodeLinks(node).mustCheck || getNodeLinks(node).mustCheck === type);
+            getNodeLinks(node).mustCheck = type;
+            getNodeLinks(node).checkVar = getTempTypeVar(getSourceFileOfNode(node), type);
         }
 
         /* Check for assignability problems related to concreteness, namely
@@ -871,13 +871,13 @@ namespace ts {
             // If the target is float and expression isn't, must coerce
             if ((isConcreteType(toType) && unconcrete(toType).flags & TypeFlags.FloatHint) &&
                 !(isConcreteType(fromType) && unconcrete(fromType).flags & TypeFlags.FloatHint)) {
-                node.mustFloat = true;
+                getNodeLinks(node).mustFloat = true;
             }
 
             // And similar for int
             if ((isConcreteType(toType) && unconcrete(toType).flags & TypeFlags.IntHint) &&
                 !(isConcreteType(fromType) && unconcrete(fromType).flags & TypeFlags.IntHint)) {
-                node.mustInt = true;
+                getNodeLinks(node).mustInt = true;
             }
         }
         // [/ConcreteTypeScript]
@@ -5152,7 +5152,6 @@ namespace ts {
 
         function getTypeFromTypeNode(node: TypeNode): Type {
             let type = getTypeFromTypeNodeWorker(node);
-            node.resolvedType = type;
             if (node.isConcrete) {
                 if (canBeConcrete(type)) {
                     type = createConcreteType(type, false);
@@ -8742,7 +8741,6 @@ namespace ts {
             return prop || unknownSymbol;
         }
 
-        var jsxElementClassType: Type = undefined;
         function getJsxGlobalElementClassType(): Type {
             if (!jsxElementClassType) {
                 jsxElementClassType = getExportedTypeFromNamespace(JsxNames.JSX, JsxNames.ElementClass);
@@ -9134,25 +9132,25 @@ namespace ts {
                 propType = unconcrete(propType);
             } 
             if (flags & ProtectionFlags.Stable) {
-                node.direct = true; // Can use v8 accessors
+                getNodeLinks(node).direct = true; // Can use v8 accessors
             }
             if (flags & ProtectionFlags.ProtectedOrCemented) {
                 // And float/intness
                 if (unconcrete(propType).flags & TypeFlags.FloatHint) {
-                    node.assertFloat = true;
+                    getNodeLinks(node).assertFloat = true;
                 } else if (unconcrete(propType).flags & TypeFlags.IntHint) {
-                    node.assertInt = true;
+                    getNodeLinks(node).assertInt = true;
                 }
             }
             // We may use protection-eliding name-mangled access if the target value is protected.
             if (flags & ProtectionFlags.Protected) {
-                node.mangled = true;
+                getNodeLinks(node).mangled = true;
             } 
             if (flags & ProtectionFlags.Cemented) {
                 // As well, cemented method's of classes are concrete and can be accessed in this way, but only during method calls.
                 if (node.parent.kind === SyntaxKind.CallExpression) {
                     // TODO fix direct calls for prototypes
-                    node.mangled = true;
+                    getNodeLinks(node).mangled = true;
                 }
             }
             return propType;
@@ -10505,12 +10503,12 @@ namespace ts {
                     } else if (isConcreteType(ttype) &&
                         (<ConcreteType>rtype).baseType.flags & TypeFlags.FloatHint) {
                         // Can assert that it's a float
-                        node.assertFloat = true;
+                        getNodeLinks(node).assertFloat = true;
 
                     } else if (isConcreteType(ttype) &&
                         (<ConcreteType>rtype).baseType.flags & TypeFlags.IntHint) {
                         // Can assert that it's an int
-                        node.assertInt = true;
+                        getNodeLinks(node).assertInt = true;
 
                     }
                 } else if (node.kind === SyntaxKind.CallExpression) {
@@ -10523,9 +10521,9 @@ namespace ts {
             }
 
             // If the call target used direct access, that actually belongs on the call (because of how methods work in JS)
-            if (node.expression.direct) {
-                node.expression.direct = void 0;
-                node.direct = true;
+            if (getNodeLinks(node.expression).direct) {
+                getNodeLinks(node.expression).direct = void 0;
+                getNodeLinks(node).direct = true;
             }
 
             return rtype;
@@ -11076,9 +11074,10 @@ namespace ts {
 
                     // [ConcreteTypeScript]
                     // If we determined that we had to check the operand, we can't, as it's a reference
-                    node.operand.mustCheck = node.operand.checkVar = node.operand.mustFloat = node.operand.mustInt = void 0;
-                    node.operand.assertFloat = node.operand.assertInt = void 0;
-                    node.operand.direct = void 0;
+                    getNodeLinks(node.operand).mustCheck = getNodeLinks(node.operand).checkVar = void 0;
+                    getNodeLinks(node.operand).mustFloat = getNodeLinks(node.operand).mustInt = void 0;
+                    getNodeLinks(node.operand).assertFloat = getNodeLinks(node.operand).assertInt = void 0;
+                    getNodeLinks(node.operand).direct = void 0;
                     // [/ConcreteTypeScript]
 
                     return concreteNumberType; // [ConcreteTypeScript] Always concrete
@@ -11099,9 +11098,10 @@ namespace ts {
 
             // [ConcreteTypeScript]
             // If we determined that we had to check the operand, we can't, as it's a reference
-            node.operand.mustCheck = node.operand.checkVar = node.operand.mustFloat = node.operand.mustInt = void 0;
-            node.operand.assertFloat = node.operand.assertInt = void 0;
-            node.operand.direct = void 0;
+            getNodeLinks(node.operand).mustCheck = getNodeLinks(node.operand).checkVar = void 0;
+            getNodeLinks(node.operand).mustFloat = getNodeLinks(node.operand).mustInt = void 0;
+            getNodeLinks(node.operand).assertFloat = getNodeLinks(node.operand).assertInt = void 0;
+            getNodeLinks(node.operand).direct = void 0;
             // [/ConcreteTypeScript]
 
             return concreteNumberType; // [ConcreteTypeScript] Result always concrete
@@ -11478,7 +11478,7 @@ namespace ts {
                             checkCtsCoercion(node.left, leftType, rightType);
                         } else {
                             // need a hardcore coercion!
-                            node.left.forceFalseyCoercion = rightType;
+                            getNodeLinks(node.left).forceFalseyCoercion = rightType;
                         }
                     }
                     // [/ConcreteTypeScript]
@@ -11539,17 +11539,18 @@ namespace ts {
 
                     // [ConcreteTypeScript]
                     // If we determined that we had to check the LHS... well, we don't, we're just assigning
-                    if (node.left.mustCheck) node.left.mustCheck = void 0;
-                    if (node.left.checkVar) node.left.checkVar = void 0;
-                    if (node.left.mustFloat) node.left.mustFloat = void 0;
-                    if (node.left.mustInt) node.left.mustInt = void 0;
-                    if (node.left.assertFloat) node.left.assertFloat = void 0;
-                    if (node.left.assertInt) node.left.assertInt = void 0;
+                    let leftLinks = getNodeLinks(node.left);
+                    if (leftLinks.mustCheck) leftLinks.mustCheck = void 0;
+                    if (leftLinks.checkVar) leftLinks.checkVar = void 0;
+                    if (leftLinks.mustFloat) leftLinks.mustFloat = void 0;
+                    if (leftLinks.mustInt) leftLinks.mustInt = void 0;
+                    if (leftLinks.assertFloat) leftLinks.assertFloat = void 0;
+                    if (leftLinks.assertInt) leftLinks.assertInt = void 0;
 
                     // And if the LHS could be direct, it's actually the assignment
-                    if (node.left.direct) {
-                        node.left.direct = void 0;
-                        node.direct = true;
+                    if (leftLinks.direct) {
+                        leftLinks.direct = void 0;
+                        getNodeLinks(node).direct = true;
                     }
 
                     // We may have to check the RHS
@@ -17979,9 +17980,9 @@ namespace ts {
         }
 
         function getTempVar(scope: Node, prefix: string, name: string) {
-            scope.nextTempVar = scope.nextTempVar || 0;
-            scope.tempVarsToEmit = scope.tempVarsToEmit || {};
-            return scope.tempVarsToEmit[(prefix + "." + name)] || (scope.tempVarsToEmit[(prefix + "." + name)] = "cts$$temp$$" + (prefix + '_' + name) + "$$" + scope.nextTempVar++);
+            getNodeLinks(scope).nextTempVar = getNodeLinks(scope).nextTempVar || 0;
+            getNodeLinks(scope).tempVarsToEmit = getNodeLinks(scope).tempVarsToEmit || {};
+            return getNodeLinks(scope).tempVarsToEmit[(prefix + "." + name)] || (getNodeLinks(scope).tempVarsToEmit[(prefix + "." + name)] = "cts$$temp$$" + (prefix + '_' + name) + "$$" + getNodeLinks(scope).nextTempVar++);
         }
 
         function getTempTypeVar(sourceFile: SourceFile, type: Type) {
@@ -18050,12 +18051,12 @@ namespace ts {
             if (!canHaveFlowData(reference)) {
                 return null;
             }
-            if (reference.ctsFlowData === undefined) {
+            if (getNodeLinks(reference).ctsFlowData === undefined) {
                 let containerScope = getScopeContainer(reference);
                 ensureFlowDataIsSet(containerScope, isReference, type);
             }
-            Debug.assert(reference.ctsFlowData !== undefined);
-            return reference.ctsFlowData;
+            Debug.assert(getNodeLinks(reference).ctsFlowData !== undefined);
+            return getNodeLinks(reference).ctsFlowData;
             // Where:
             function isReference(node: Node) {
                 return areSameValue(node, reference);
@@ -18088,7 +18089,7 @@ namespace ts {
         // types mid-analysis are 'dummied out' locally. 'Dummied out' types 
         // are accessed in such a way as to get as much type information as 
         // possible without triggering flow analysis.
-        function getContextualFlowDataForType(type: Type, ) {
+        function getContextualFlowDataForType(type: Type) {
             
         }
         function pushFlowData(type: Type) {
@@ -18197,11 +18198,10 @@ namespace ts {
                     }
 
                     if (node.kind === SyntaxKind.ObjectLiteralExpression) {
-                        node.ctsEmitData = node.ctsEmitData || {after: []};
-                        node.ctsEmitData.after.push(bindingData);
+                        getNodeLinks(node).bindingsAfter = getNodeLinks(node).bindingsAfter || [];
+                        getNodeLinks(node).bindingsAfter.push(bindingData);
                     } else {
-                        node.ctsEmitData = node.ctsEmitData || {};
-                        node.ctsEmitData.inline = bindingData;
+                        getNodeLinks(node).bindingInline = bindingData;
                     }
                 });
             }
@@ -18252,7 +18252,7 @@ namespace ts {
             /** Function skeleton: **/
             // Correct conditional marks: (TODO inefficient)
             if (isReference(node)) {
-                node.ctsFlowData = prev;
+                getNodeLinks(node).ctsFlowData = prev;
             } else {
                 let orig = prev;
                 scanWorker();
@@ -18313,8 +18313,8 @@ namespace ts {
                             prev = flowDataBecomesType(node, prev, targetType)
                             if (isConcreteType(targetType) && !isConcreteType(exprType)) {
                                 // For emit:
-                                node.mustCheckBecomes = node.mustCheckBecomes || [];
-                                node.mustCheckBecomes.push({expr: node.arguments[i], type: targetType});
+                                getNodeLinks(node).mustCheckBecomes = getNodeLinks(node).mustCheckBecomes || [];
+                                getNodeLinks(node).mustCheckBecomes.push({expr: node.arguments[i], type: targetType});
                             }
 
                         }
@@ -18391,8 +18391,8 @@ namespace ts {
                         if (memberTarget && memberTarget !== undefinedType) {
                             let assumeFinalType = flowDataAssignment(prev, member, {firstBindingSite: node, type: memberTarget});
                             // Make sure the contextual type resolves to the type we want it to be:
-                            left.expression.ctsFlowData = assumeFinalType;
-                            left.expression.ctsFinalFlowData = assumeFinalType;
+                            getNodeLinks(left.expression).ctsFlowData = assumeFinalType;
+                            getNodeLinks(left.expression).ctsFinalFlowData = assumeFinalType;
                             var type = getNonContextualType(targetType, right);
                         } else {
                             var type = getNonContextualType(targetType, right);
@@ -18401,7 +18401,7 @@ namespace ts {
                             emitProtection(prev, node, left.expression, member, right);
                         }
                         // Ensure that nodes being assigned to are aware of their incoming types
-                        left.expression.ctsFlowData = prev;
+                        getNodeLinks(left.expression).ctsFlowData = prev;
                     }
                 }
             }
@@ -18428,7 +18428,6 @@ namespace ts {
                     // Emit protection after:
                     emitProtection(prev, node, varName, property.name, null);
                 }
-
             }
             function scanVariableLikeDeclaration(node: VariableLikeDeclaration) {
                 if (node.initializer && isReference(node.name)) {
