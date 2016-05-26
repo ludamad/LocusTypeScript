@@ -534,8 +534,6 @@ namespace ts {
     }
 
     export interface EmitData {
-        inline?: BindingData;
-        after?: BindingData[];
     }
 
     export interface FlowData {
@@ -562,31 +560,10 @@ namespace ts {
         /* @internal */ localSymbol?: Symbol;           // Local symbol declared by node (initialized by binding only for exported nodes)
 
         // [ConcreteTypeScript]
-        // Set during checker.ts.
-        mustCheck?: Type;             // If this node must be type-checked at runtime, the type to check
-        checkVar?: string; // Variable for emit used to store union and intersection runtime types.
-        mustCheckBecomes?: {expr: Node, type: Type}[];    // For call expressions with become types on nonconcrete functions.
-        mustFloat?: boolean;          // If set, this value must be explicitly coerced to float instead of generic number
-        mustInt?: boolean;            // If set, this value must be explicitly coerced to int instead of generic number
-        forceFalseyCoercion?: Type;   // If set, must coerce falsey values to the given type
-        mangled?: boolean;            // If set, use mangled name to access (i.e., access to concrete type/call of concrete type)
-        direct?: boolean;             // If set, may use direct access (i.e., is an access with correct, concrete types)
-        assertFloat?: boolean;        // If set, can assert that this value is always a float instead of generic number
-        assertInt?: boolean;          // If set, can assert that this value is always an int instead of generic number
-        // Set in checker.ts
-        resolvedType?:            Type;
-        brandsToEmitAfterwards?:  DeclareTypeDeclaration[];
-        brandsToEmitAtBeginning?: DeclareTypeDeclaration[]; // Special case for parameter-this
-        // If 'getter' and 'setter' are not present, the field protection is emitted using 'cement', otherwise it is emitted using 'protectAssignment'
-        brandProtectionsToEmit?: {getter?: string, setter?: string, expr: Node, field: string}[];
-        nextTempVar? : number; // Used to create the temporary variable names above.
-        tempVarsToEmit?: {[member: string]: string};
-        ctsEmitData?:       EmitData;
-        ctsFlowData?:       FlowData; // What flow-members have been calculated for this specific node instance?
-        ctsFinalFlowData?:  FlowData; // What are the final flow members for this node, after all assignments?
         // Set by binder
         nameForRawFunctionEmit?: string;
         prototypeSymbol?: Symbol; // HACK: If we define a prototype symbol, stick it here so we can find it easily.
+        // Set during checker.ts.
         nodeLinks?: NodeLinks; // HACK: We store NodeLinks on our node, though it was not intended to be used this way. This simplifies type inspection during emit. 
         // [/ConcreteTypeScript]
     }
@@ -1906,7 +1883,7 @@ namespace ts {
         /* @internal */ constEnumOnlyModule?: boolean; // True if module contains only const enums or other modules with only const enums
         brandType?: DeclareTypeNode; // [ConcreteTypeScript] set for .prototype properties
         classType?: InterfaceType; // [ConcreteTypeScript] set for .prototype properties
-        symbolLinks?: SymbolLinks; // HACK: We store SymbolLinks on our symbol, though it was not intended to be used this way. This simplifies type inspection during emit. 
+        symbolLinks?: SymbolLinks; // HACK: We store SymbolLinks on our symbol, though it was not intended to be used this way. This simplifies type inspection during emit. Never used during type checking.
     }
 
     /* @internal */
@@ -1956,8 +1933,39 @@ namespace ts {
         LexicalModuleMergesWithClass= 0x00008000,  // Instantiated lexical module declaration is merged with a previous class declaration.
     }
 
+    // [ConcreteTypeScript] Node link data relevant to type checkability.
     /* @internal */
-    export interface NodeLinks {
+    export interface EmitDataNodeLinks {
+        mustCheck?: Type;             // If this node must be type-checked at runtime, the type to check
+        checkVar?: string;            // Variable for emit used to store union and intersection runtime types.
+        mustCheckBecomes?: {expr: Node, type: Type}[];    // For call expressions with become types on nonconcrete functions.
+        mustFloat?: boolean;          // If set, this value must be explicitly coerced to float instead of generic number
+        mustInt?: boolean;            // If set, this value must be explicitly coerced to int instead of generic number
+        forceFalseyCoercion?: Type;   // If set, must coerce falsey values to the given type
+        mangled?: boolean;            // If set, use mangled name to access (i.e., access to concrete type/call of concrete type)
+        direct?: boolean;             // If set, may use direct access (i.e., is an access with correct, concrete types)
+        assertFloat?: boolean;        // If set, can assert that this value is always a float instead of generic number
+        assertInt?: boolean;          // If set, can assert that this value is always an int instead of generic number
+    }
+
+    // [ConcreteTypeScript] Node link data relevant to type checkability.
+    /* @internal */
+    export interface FlowDataNodeLinks {
+        brandsToEmitAfterwards?:  DeclareTypeDeclaration[];
+        brandsToEmitAtBeginning?: DeclareTypeDeclaration[]; // Special case for parameter-this
+        // If 'getter' and 'setter' are not present, the field protection is emitted using 'cement', otherwise it is emitted using 'protectAssignment'
+        brandProtectionsToEmit?: {getter?: string, setter?: string, expr: Node, field: string}[];
+        tempVarsToEmit?: {[member: string]: string};
+        nextTempVar? : number; // Used to create the temporary variable names above.
+        tempVars?: BindingData;
+        ctsEmitAfter?: BindingData[];
+        ctsEmitData?:       EmitData;
+        ctsFlowData?:       FlowData; // What flow-members have been calculated for this specific node instance?
+        ctsFinalFlowData?:  FlowData; // What are the final flow members for this node, after all assignments?
+    }
+
+    /* @internal */
+    export interface NodeLinks extends EmitDataNodeLinks, FlowDataNodeLinks {
         resolvedType?: Type;              // Cached type of type node
         resolvedAwaitedType?: Type;       // Cached awaited type of type node
         resolvedSignature?: Signature;    // Cached signature of signature node or call expression

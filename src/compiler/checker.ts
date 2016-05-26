@@ -3494,27 +3494,6 @@ namespace ts {
             return null;
         }
 
-        // [ConcreteTypeScript] 
-        function getFlowDataForType(type: Type): FlowData {
-            type = unconcrete(type);
-            if (markAsRecursiveFlowAnalysis(type)) {
-                return undefined;
-            }
-            if (type.flags & TypeFlags.IntermediateFlow) {
-                return (<IntermediateFlowType> type).flowData;
-            }
-            if (type.flags & TypeFlags.Declare) {
-                // TODO add to type
-                let brandInterfaceDeclaration = getSymbolDecl(type.symbol, SyntaxKind.DeclareTypeDeclaration);
-                if (brandInterfaceDeclaration) {
-                    // This was defined using a 'brand interface' declaration. There should be no associated flow data.
-                    return undefined;
-                }
-                return getFlowDataForDeclareType(<InterfaceType>type);
-            }
-            return undefined;
-        }
-
         // [ConcreteTypeScript] Handles TypeFlags.Declare too
         function resolveClassOrInterfaceMembers(type: InterfaceType): void {
             if (markAsRecursiveFlowAnalysis(type)) {
@@ -18083,6 +18062,39 @@ namespace ts {
             }
         }
 
+        // [ConcreteTypeScript] 
+        function getFlowDataForType(type: Type): FlowData {
+            type = unconcrete(type);
+            if (markAsRecursiveFlowAnalysis(type)) {
+                return undefined;
+            }
+            if (type.flags & TypeFlags.IntermediateFlow) {
+                return (<IntermediateFlowType> type).flowData;
+            }
+            if (type.flags & TypeFlags.Declare) {
+                // TODO add to type
+                let brandInterfaceDeclaration = getSymbolDecl(type.symbol, SyntaxKind.DeclareTypeDeclaration);
+                if (brandInterfaceDeclaration) {
+                    // This was defined using a 'brand interface' declaration. There should be no associated flow data.
+                    return undefined;
+                }
+                return getFlowDataForDeclareType(<InterfaceType>type);
+            }
+            return undefined;
+        }
+
+
+        // The contextual flow data is the flow data computed assuming that
+        // types mid-analysis are 'dummied out' locally. 'Dummied out' types 
+        // are accessed in such a way as to get as much type information as 
+        // possible without triggering flow analysis.
+        function getContextualFlowDataForType(type: Type, ) {
+            
+        }
+        function pushFlowData(type: Type) {
+            
+        }
+
         // Temporal logic for becomes-types.
         function ensureFlowDataIsSet(containerScope: Node, isReference: (node:Node)=>boolean, type: Type) {
             let targetDeclareType:InterfaceType = null, targetDeclareTypeNode = null;
@@ -18128,22 +18140,12 @@ namespace ts {
                 /*Current flow-data: */ flowData, 
                 /*Original flow-data: */ flowData
             ); 
-            if (targetDeclareType && !isCurrentFlowAnalysisUnusable(targetDeclareType)) {
+            if (targetDeclareType) {
                 forEachChildRecursive(containerScope, node => {
                     if (isReference(node)) {
                         node.ctsFinalFlowData = finalFlowData;
                     }
                 });
-            } else if (targetDeclareType) {
-                // Current analysis cannot be trusted:
-                (<ResolvedType><ObjectType>targetDeclareType).members = void 0; 
-                (<ResolvedType><ObjectType>targetDeclareType).properties = void 0;
-                (<ResolvedType><ObjectType>targetDeclareType).callSignatures = void 0;
-                (<ResolvedType><ObjectType>targetDeclareType).constructSignatures = void 0;
-                (<ResolvedType><ObjectType>targetDeclareType).stringIndexType = void 0;
-                (<ResolvedType><ObjectType>targetDeclareType).numberIndexType = void 0;
-                targetDeclareType.resolvedBaseConstructorType = void 0;
-                targetDeclareType.resolvedBaseTypes = void 0;
             }
             // Remove ourselves from the list of resolving types:
             if (targetDeclareType) {

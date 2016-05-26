@@ -31,11 +31,11 @@ describe("Nominal this", () => {
         /*y*/ (this.y);
         /*x*/ (this.x);
     }
-    foo.prototype.x = 1;
+    Foo.prototype.x = 1;
     function useFoo() {
         var foo = new Foo();
         /*x*/ (foo.x);
-        /*x*/ (foo.prototype.x);
+        /*x*/ (Foo.prototype.x);
         /*y*/ (foo.y);
     }
     `;
