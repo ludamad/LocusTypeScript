@@ -2046,7 +2046,7 @@ namespace ts {
         pattern?: DestructuringPattern;  // Destructuring pattern represented by type (if any)
         concreteType?: ConcreteType;
         prototypeDeclareType?: Type; // [ConcreteTypeScript] Convenience field for .prototype declare types
-        flowRecursivePairs?: Type[];   // [ConcreteTypeScript] Recursively defined Declare types
+        flowRecursivePairs?: Type[];   // [ConcreteTypeScript] Recursively defined Locus types
         emptyFlowType?: boolean;   // [ConcreteTypeScript] Empty flow types must be trearted specially because normally we attach branding actions to type refinement
     }
 
@@ -2074,12 +2074,14 @@ namespace ts {
         resolvedBaseConstructorType?: Type;        // Resolved base constructor type of class
         /* @internal */
         resolvedBaseTypes: ObjectType[];           // Resolved base types
+    }
 
+    export interface LocusType extends InterfaceType {
+        _locusType: any;
         // [ConcreteTypeScript]
-        // Declare types are essentially an InterfaceType with TypeFlags.Declare
+        // Locus types are essentially an InterfaceType with TypeFlags.Declare
         // and potentially a computed flowData member (after resolution for implicit declare types)
         flowData?: FlowData;
-
         // [/ConcreteTypeScript]
     }
 
@@ -2095,10 +2097,12 @@ namespace ts {
     export interface IntermediateFlowType extends ObjectType {
         flowData: FlowData;
         // If analysis is driven by a 'becomes' declaration, this is the type
-        // we wish to become. This is important for the effects of
+        // we wish to become. 'targetType' is used in decisions about
+        // which types to infer, and if our type is complete.
         targetType?: Type;
         resolvedProperties?: SymbolTable;
-        // Stored if there is an associated declareTypeNode.
+        // Stored if there is an associated declare node.
+        // Pragmatically, emit protection will occur in the local context.
         declareTypeNode?: DeclareTypeNode;
     }
     // [ConcreteTypeScript+Become]

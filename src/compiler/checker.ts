@@ -55,7 +55,8 @@ namespace ts {
         let argumentsSymbol = createSymbol(SymbolFlags.Property | SymbolFlags.Transient, "arguments");
         var jsxElementClassType: Type = undefined;
         // [ConcreteTypeScript]
-        let flowDependentTypeStack: Type[] = [];
+        let ignoredLocusTypeStack: LocusType[] = [];
+        let resolvingLocusTypeStack: Type[] = [];
         // [/ConcreteTypeScript]
         let checker: TypeChecker = {
             getNodeCount: () => sum(host.getSourceFiles(), "nodeCount"),
@@ -2560,7 +2561,7 @@ namespace ts {
             // the type of which is an instantiation of the class type with type Any supplied as a type argument for each type parameter.
             // It is an error to explicitly declare a static property member with the name 'prototype'.
 
-            // [ConcreteTypeScript] We make the prototype property its own Declare type
+            // [ConcreteTypeScript] We make the prototype property its own locus type
             let links = getSymbolLinks(prototype);
             if (!links.type) {
                 let classType = parentType || <InterfaceType>getParentTypeOfPrototypeProperty(prototype);
@@ -3876,7 +3877,7 @@ namespace ts {
 
             // Access prototype directly, in the case of TypeFlags.Declare. 
             // This is necessary so that we can access non-flow-dependent parts of the object.
-            // TODO this causes redundant checking with below if the Declare type is fully resolved.
+            // TODO this causes redundant checking with below if the locus type is fully resolved.
             if (type.flags & TypeFlags.Declare) {
                 let prototypeType = getPrototypeSymbolTypeOfType(<InterfaceType> type);
                 if (prototypeType) {
@@ -4172,7 +4173,7 @@ namespace ts {
                     if (pair === type) {
                         continue;
                     }
-                    if (flowDependentTypeStack.indexOf(pair) >= 0) {
+                    if (resolvingLocusTypeStack.indexOf(pair) >= 0) {
                         return true;
                     }
                 }
@@ -4186,10 +4187,10 @@ namespace ts {
             if (!(type.flags & TypeFlags.Declare)) {
                 return false;
             }
-            if (flowDependentTypeStack.indexOf(type) >= 0) {
+            if (resolvingLocusTypeStack.indexOf(type) >= 0) {
                 // May be marked on self. Thats OK.
-                markRecursiveTypeDependency(type, flowDependentTypeStack[0]);
-                markRecursiveTypeDependency(flowDependentTypeStack[0], type);
+                markRecursiveTypeDependency(type, resolvingLocusTypeStack[0]);
+                markRecursiveTypeDependency(resolvingLocusTypeStack[0], type);
                 return true;
             }
             return false;
@@ -15966,9 +15967,7 @@ namespace ts {
                 let intermediateFlowType = <IntermediateFlowType> createObjectType(TypeFlags.IntermediateFlow);
                 intermediateFlowType.targetType = (<IntermediateFlowType> type).targetType;
                 intermediateFlowType.declareTypeNode = (<IntermediateFlowType> type).declareTypeNode;
-                intermediateFlowType.targetType = (<IntermediateFlowType> type).targetType;
                 intermediateFlowType.flowData = currentFlowData;
-                intermediateFlowType.declareTypeNode = (<IntermediateFlowType> type).declareTypeNode;
                 return intermediateFlowType;
 //            } else if (currentFlowData) {
                 // We are just here to collect 'becomes' declarations.
@@ -15978,11 +15977,11 @@ namespace ts {
             }
         }
         // [ConcreteTypeScript]
-        function getTypeOfNode(node: Node): Type {
+        function getTypeOfNode(node: Node, dontExpandIFT = false): Type {
             node.checker = checker;
             let type = getTypeOfNodeWorker(node);
             // Handle become-types:
-            if (type.flags & TypeFlags.IntermediateFlow) {
+            if (!dontExpandIFT && type.flags & TypeFlags.IntermediateFlow) {
                 return getFormalTypeFromIntermediateFlowType(<IntermediateFlowType> type, /*Don't degrade: */ false);
             }
             return type;
@@ -17882,10 +17881,11 @@ namespace ts {
             if (objA.text !== objB.text) {
                 return false;
             }
+            Debug.assert(objA.symbol == objB.symbol); // TODO is this true?
             return findDeclarationForName(objA, objA.text) === findDeclarationForName(objB, objB.text);
         }
-        // Invariant: objA != null || objB != null
         function areSameValue(objA:Node, objB:Node) {
+            Debug.assert(objA != null && objB != null);
             if (!objA || !objB) {
                 return false;
             }
@@ -18019,17 +18019,15 @@ namespace ts {
             }
         }
 
-        function getFlowDataForDeclareType(type: InterfaceType):FlowData {
+        function getFlowDataForDeclareType(type: LocusType):FlowData {
             if (!type.flowData) {
                 var [containerScope, identifier] = getScopeContainerAndIdentifierForDeclareType(type);
                 // Placeholder:
 //                type.flowData = {memberSet: {}, flowTypes: []};
                 if (containerScope) {
                     // Remove any previously cached value?
-                    (<ResolvedType><ObjectType>type).members = null; 
-
                     let flowType = getTypeFromDeclareTypeNode(getDeclareTypeNode(type), type);
-                    ensureFlowDataIsSet(containerScope, isReference, flowType);
+                    computeFlowData(containerScope, isReference, flowType);
                     Debug.assert(!!type.flowData);
                 }
             }
@@ -18053,7 +18051,7 @@ namespace ts {
             }
             if (getNodeLinks(reference).ctsFlowData === undefined) {
                 let containerScope = getScopeContainer(reference);
-                ensureFlowDataIsSet(containerScope, isReference, type);
+                computeFlowData(containerScope, isReference, type);
             }
             Debug.assert(getNodeLinks(reference).ctsFlowData !== undefined);
             return getNodeLinks(reference).ctsFlowData;
@@ -18079,119 +18077,159 @@ namespace ts {
                     // This was defined using a 'brand interface' declaration. There should be no associated flow data.
                     return undefined;
                 }
-                return getFlowDataForDeclareType(<InterfaceType>type);
+                return getFlowDataForDeclareType(<LocusType>type);
             }
             return undefined;
         }
 
 
-        // The contextual flow data is the flow data computed assuming that
-        // types mid-analysis are 'dummied out' locally. 'Dummied out' types 
-        // are accessed in such a way as to get as much type information as 
-        // possible without triggering flow analysis.
-        function getContextualFlowDataForType(type: Type) {
-            
+        // The contextual flow data is the flow data computed such that
+        // ignored types are 'dummied out'. 'Dummied out' types 
+        // are represented by an IntermediateFlowType object of the type information 
+        // known from standard TypeScript type inference.
+        function getFlowContextualType(type: Type): Type {
+            let locusType = unboxLocusType(type);
+            if (locusType && resolvingLocusTypeStack.indexOf(locusType) > -1) {
+                pushIgnoredLocusType(locusType);
+                let tempFlowType = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
+                tempFlowType.flowData = getFlowDataForDeclareType(locusType);
+                popIgnoredLocusType();
+                return tempFlowType;
+            }
+            if (locusType && ignoredLocusTypeStack.indexOf(locusType) > -1) {
+                let identifier = getVariableNameFromDeclareTypeNode(<DeclareTypeNode>type.symbol.declarations[0]);
+                Debug.assert(identifier.kind === SyntaxKind.Identifier);
+                return getTypeOfNode(identifier, /* Don't invoke flow analysis: */ true);
+            }
+            return type;
         }
-        function pushFlowData(type: Type) {
-            
+        function pushIgnoredLocusType(type: LocusType) {
+            ignoredLocusTypeStack.push(type);
+            produceDiagnostics = false;
+        }
+        function popIgnoredLocusType() {
+            ignoredLocusTypeStack.pop();
+        }
+        function pushResolvingLocusType(type: LocusType) {
+            resolvingLocusTypeStack.push(type);
+        }
+        function popResolvingLocusType() {
+            resolvingLocusTypeStack.pop();
+            if (resolvingLocusTypeStack.length === 0) {
+                produceDiagnostics = true; 
+            }
+        }
+
+        function unboxLocusType(targetType: Type) {
+            targetType = unconcrete(targetType);
+            if (targetType.flags & TypeFlags.Declare) {
+                return <LocusType> targetType;
+            }
+            return null;
         }
 
         // Temporal logic for becomes-types.
-        function ensureFlowDataIsSet(containerScope: Node, isReference: (node:Node)=>boolean, type: Type) {
-            let targetDeclareType:InterfaceType = null, targetDeclareTypeNode = null;
-            let targetType:Type = null;
-            // Get the type, be careful not to trigger a loop:
-            if (type.flags & TypeFlags.IntermediateFlow) {
-                var flowData:FlowData = (<IntermediateFlowType>type).flowData;
-                targetType = (<IntermediateFlowType>type).targetType;
-                if (unconcrete(targetType).flags & TypeFlags.Declare) {
-                    targetDeclareType = <InterfaceType>unconcrete(targetType);
-                    targetDeclareTypeNode = (<IntermediateFlowType>type).declareTypeNode;
-                    produceDiagnostics = false;
-                    flowDependentTypeStack.push(targetDeclareType);
-                }
-                if (unconcrete(targetType).flags & TypeFlags.Declare && !isPrototypeType(unconcrete(targetType))) {
-                    let prototypeSymbol = getPrototypeSymbolOfType(targetDeclareType);
-                    if (prototypeSymbol) {
-                        Debug.assert(!!(prototypeSymbol.flags & SymbolFlags.Prototype));
-                        // Bug fix: Ensure we always resolve the prototype object first.
-                        getFlowDataForDeclareType(<InterfaceType> unconcrete(getTypeOfPrototypeProperty(prototypeSymbol)));
-                    }
-                }
-            } else {
-                var flowData:FlowData = {flowTypes: [{type, firstBindingSite: containerScope}], memberSet: {}};
+        //function computeFlowDataOverScope({targetType, flowData, declareTypeNode}: IntermediateFlowType, containerScope: Node, isReference: ReferenceDecider) {
+//            // Get the type, be careful not to trigger a loop:
+//            if (unconcrete(targetType).flags & TypeFlags.Declare && !isPrototypeType(unconcrete(targetType))) {
+//                let prototypeSymbol = getPrototypeSymbolOfType(targetDeclareType);
+//                if (prototypeSymbol) {
+//                    Debug.assert(!!(prototypeSymbol.flags & SymbolFlags.Prototype));
+//                    // Bug fix: Ensure we always resolve the prototype object first.
+//                    getFlowDataForDeclareType(<InterfaceType> unconcrete(getTypeOfPrototypeProperty(prototypeSymbol)));
+//                }
+//            }
+
+//        }
+
+        function computeFlowDataForNonLocusTypeWorker(scope: Node, isReference: ReferenceDecider, initialFlowData: FlowData, targetType: Type): FlowData {
+            Debug.assert(unboxLocusType(targetType) == null);
+            return computeFlowDataWorker(
+                /*Reference decider: */ isReference,
+                /*Type we wish to become in the end: */ targetType,
+                /*Non-inferred member types (besides base types): */ (member) => {
+                    let property = getPropertyOfType(targetType, member);
+                    return property ? getTypeOfSymbol(property) : undefinedType;
+                },
+                /*Node-links for control flow (eg break): */ {},
+                /*Container scope: */ scope,
+                /*Current node in recursive scan: */ scope,
+                /*Current flow-data: */ initialFlowData, 
+                /*Original flow-data: */ initialFlowData,
+                /*Protection emit callback, no-op if not declare type target:*/ <any> function() {}
+            );
+        }
+
+        function computeFlowData(scope: Node, isReference: ReferenceDecider, type: Type): FlowData {
+            if (!(type.flags & TypeFlags.IntermediateFlow)) {
+                return null;
             }
-            forEachChildRecursive(containerScope, node => {
+            let {flowData: initialFlowData, targetType, declareTypeNode} = <IntermediateFlowType> type;
+            if (!!declareTypeNode) { // Are we analyzing a 'declare' type declaration?
+                var finalFlowData = computeFlowDataForLocusTypeWorker(scope, isReference, initialFlowData, targetType);
+            } else {
+                var finalFlowData = computeFlowDataForNonLocusTypeWorker(scope, isReference, initialFlowData, targetType);
+            }
+
+            forEachChildRecursive(scope, node => {
                 if (isReference(node)) {
-                    // 'null is used as a sentinel to avoid recursion, as opposed to 'undefined' permitting analysis.
-                    node.ctsFlowData = null;
-                    node.ctsFinalFlowData = null;
+                    node.ctsFinalFlowData = finalFlowData;
                 }
             });
+            return finalFlowData;
+        }
+            
+        function computeFlowDataForLocusTypeWorker(scope: Node, isReference: ReferenceDecider, initialFlowData: FlowData, targetType: Type): FlowData {
+            Debug.assert(unboxLocusType(targetType) != null);
             let protectionQueue = [];
+            pushResolvingLocusType(unboxLocusType(targetType)); 
             // Analysis was not yet run for this scope
-            let finalFlowData = computeAndSetFlowDataForReferencesInScope(
+            let finalFlowData = computeFlowDataWorker(
                 /*Reference decider: */ isReference,
                 /*Type we wish to become in the end: */ targetType,
                 /*Non-inferred member types (besides base types): */ getTargetTypeForMember,
                 /*Node-links for control flow (eg break): */ {},
-                /*Container scope: */ containerScope,
-                /*Protection emit callback, no-op if not declare type target:*/ targetDeclareType ? emitProtection : <any> (() => {}), 
-                /*Current node in recursive scan: */ containerScope,
-                /*Current flow-data: */ flowData, 
-                /*Original flow-data: */ flowData
-            ); 
-            if (targetDeclareType) {
-                forEachChildRecursive(containerScope, node => {
-                    if (isReference(node)) {
-                        node.ctsFinalFlowData = finalFlowData;
-                    }
-                });
-            }
+                /*Container scope: */ scope,
+                /*Current node in recursive scan: */ scope,
+                /*Current flow-data: */ initialFlowData, 
+                /*Original flow-data: */ initialFlowData,
+                /*Protection emit callback, no-op if not declare type target:*/ emitProtection
+            );
             // Remove ourselves from the list of resolving types:
-            if (targetDeclareType) {
-                flowDependentTypeStack.pop();
-                if (flowDependentTypeStack.length === 0) {
-                    produceDiagnostics = true; 
-                }
+            popResolvingLocusType();
+
+            if (flowDataEqual(finalFlowData, initialFlowData)) {
+                unboxLocusType(targetType).emptyFlowType = true; // TODO fix for explicitly defined locus types 
             }
-            if (targetDeclareType) {
-                // && !isCurrentFlowAnalysisUnusable(targetDeclareType)) {
-                for (let protect of protectionQueue) {
-                    protect(finalFlowData);
-                }
-                if (flowDataEqual(finalFlowData, flowData)) {
-                    targetDeclareType.emptyFlowType = true;
-                }
-                targetDeclareType.flowData = finalFlowData;
+            for (let protect of protectionQueue) {
+                protect(finalFlowData);
             }
-            return;
+            unboxLocusType(targetType).flowData = finalFlowData; // TODO evaluate need / fix for explicitly defined locus types
+            return finalFlowData;
             // Note: 'right' can be null, signifying that we are protecting the existing value.
             function emitProtection(flowDataAfterAssignment: FlowData, node:Node, left: Node, member: string, right?: Node) {
-                protectionQueue.push(({memberSet}) => {
+                protectionQueue.push(({memberSet}: FlowData) => {
                     let type = flowTypeGet(<any>getProperty(memberSet, member));
                     if (!isConcreteType(type)) {
                         return;
                     }
-                    let guardVariable = getTempProtectVar(containerScope, targetDeclareType, member);
-                    let brandGuardVariable = getTempProtectVar(containerScope, targetDeclareType, '$$BRAND$$GUARD');
+                    let guardVariable = getTempProtectVar(scope, unboxLocusType(targetType), member);
+                    let brandGuardVariable = getTempProtectVar(scope, unboxLocusType(targetType), '$$BRAND$$GUARD');
                     // Creating closures is not ideal for performance but we cannot reason about the targetDeclareType
                     // until this function ends so it's convenient.
                     function isTypeComplete(): boolean {
-                        if (!getDeclareTypeName(targetDeclareTypeNode)) {
+                        if (!getDeclareTypeName(unboxLocusType(targetType))) {
                             return false;
                         }
-                        let type = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
-                        type.flowData = flowDataAfterAssignment;
-                        type.targetType = targetDeclareType;
-                        // Clearly marks this as a node computing members captured in some type:
-                        type.declareTypeNode = targetDeclareTypeNode;
-                        return isIntermediateFlowTypeSubtypeOfTarget(type);
+                        let tempFlowType = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
+                        tempFlowType.flowData = flowDataAfterAssignment;
+                        tempFlowType.targetType = targetType;
+                        return isIntermediateFlowTypeSubtypeOfTarget(tempFlowType);
                     }
                     let bindingData = {
                         left, member, right, type: (isWeakConcreteType(type) ? null : type), 
-                        targetDeclareType, isTypeComplete, guardVariable, brandGuardVariable,
-                        typeVar: getTempTypeVar(getSourceFileOfNode(containerScope), type)
+                        targetDeclareType: unboxLocusType(targetType), isTypeComplete, guardVariable, brandGuardVariable,
+                        typeVar: getTempTypeVar(getSourceFileOfNode(scope), type)
                     };
                     if (right && isFunctionLike(right)) {
                         right.nameForRawFunctionEmit = member;
@@ -18204,18 +18242,16 @@ namespace ts {
                         getNodeLinks(node).bindingInline = bindingData;
                     }
                 });
-            }
+            }            
             // Where:
             function getTargetTypeForMember(member:string): Type {
-                let isFlowType = (type.flags & TypeFlags.IntermediateFlow);
-                if (isFlowType && isFreshDeclareType((<IntermediateFlowType>type).targetType)) {
+                if (isFreshDeclareType(targetType)) {
                     // For a fresh type definition (ie, a standard declare), accept all members.
                     return null;
                 } 
-                var targetType = isFlowType ? (<IntermediateFlowType>type).targetType : type;
                 let prop = getPropertyOfType(targetType, member);
                 return prop ? getTypeOfSymbol(prop) : undefinedType;
-            }
+           }
         }
 
         // Carefully avoid problems we may run into.
@@ -18240,15 +18276,15 @@ namespace ts {
             }
         }
         // Recursively find all references to our node object descending from the node 'node'
-        function computeAndSetFlowDataForReferencesInScope(// Refer to the same object throughout a recursion instance:
+        function computeFlowDataWorker(// Refer to the same object throughout a recursion instance:
                                          isReference: ReferenceDecider, 
                                          targetType: Type,
                                          getTargetTypeForMember: (member:string)=>Type, 
                                          nodePostLinks,
                                          containerScope:Node, 
-                                         emitProtection: (flowDataAfter: FlowData, node:Node, left: Node, member: string, right: Node) => void,
                                          // Current node in recursive scan:
-                                         node:Node, prev:FlowData, orig:FlowData):FlowData {
+                                         node:Node, prev:FlowData, orig:FlowData, 
+                                         emitProtection: (flowDataAfter: FlowData, node:Node, left: Node, member: string, right: Node) => void):FlowData {
             /** Function skeleton: **/
             // Correct conditional marks: (TODO inefficient)
             if (isReference(node)) {
@@ -18531,7 +18567,7 @@ namespace ts {
             }
 
             function recurse(node:Node, prev:FlowData) {
-                return computeAndSetFlowDataForReferencesInScope(isReference, targetType, getTargetTypeForMember, nodePostLinks, containerScope, emitProtection, node, prev, orig);
+                return computeFlowDataWorker(isReference, targetType, getTargetTypeForMember, nodePostLinks, containerScope, node, prev, orig, emitProtection);
             }
             function descend() {
                 forEachChild(node, (subchild) => {
