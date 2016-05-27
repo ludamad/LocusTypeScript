@@ -7552,6 +7552,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 writeLine();
             }
             function emitProtectionTempVarsAtBlockStart(node: Node) {
+                node.nodeLinks = node.nodeLinks || {};
                 if (!node.nodeLinks.tempVarsToEmit) {
                     return;
                 }
@@ -7647,6 +7648,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             function emitNodeWithoutSourceMap(node: Node): void {
                 emitStart(node, false); // [ConcreteTypeScript]
                 if (node) {
+                    node.nodeLinks = node.nodeLinks || {}; // [ConcreteTypeScript] Allows assuming nodeLinks exists
                 // [ConcreteTypeScript] Emit type check if necessary
                     if (node.nodeLinks.mustFloat && compilerOptions.emitV8Intrinsics) {
                         write("%_ToFloat(");

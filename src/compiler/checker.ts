@@ -18171,9 +18171,10 @@ namespace ts {
                 var finalFlowData = computeFlowDataForNonLocusTypeWorker(scope, isReference, initialFlowData, targetType);
             }
 
-            forEachChildRecursive(scope, node => {
+            forEachChildRecursive(scope, (node: Node) => {
                 if (isReference(node)) {
-                    node.ctsFinalFlowData = finalFlowData;
+                    Debug.assert(!!getNodeLinks(node).ctsFlowData);
+                    getNodeLinks(node).ctsFinalFlowData = finalFlowData;
                 }
             });
             return finalFlowData;
@@ -18288,6 +18289,7 @@ namespace ts {
             /** Function skeleton: **/
             // Correct conditional marks: (TODO inefficient)
             if (isReference(node)) {
+                Debug.assert(!getNodeLinks(node).ctsFlowData);
                 getNodeLinks(node).ctsFlowData = prev;
             } else {
                 let orig = prev;
@@ -18318,9 +18320,8 @@ namespace ts {
                 for (let argument of node.arguments) {
                     if (isReference(argument)) {
                         couldBeBecomes = true;
-                    } else {
-                        prev = recurse(argument, prev);
-                    }
+                    } 
+                    prev = recurse(argument, prev);
                 }
                 // TODO proper fix to recursive call problem
                 if (!couldBeBecomes) {
