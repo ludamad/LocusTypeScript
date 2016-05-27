@@ -56,7 +56,7 @@ namespace ts {
         var jsxElementClassType: Type = undefined;
         // [ConcreteTypeScript]
         let ignoredLocusTypeStack: LocusType[] = [];
-        let resolvingLocusTypeStack: Type[] = [];
+        let resolvingLocusTypeStack: LocusType[] = [];
         // [/ConcreteTypeScript]
         let checker: TypeChecker = {
             getNodeCount: () => sum(host.getSourceFiles(), "nodeCount"),
@@ -3535,7 +3535,7 @@ namespace ts {
             // [ConcreteTypeScript]
             // TODO un-resolve classes that were 'resolved' during recursive computation
             let flowData = getFlowDataForType(type);
-            if (type.flags & TypeFlags.Declare) {
+            if (isFreshDeclareType(type)) {
                 Debug.assert(!!flowData);
                 //console.log('VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV');
                 //console.log(flowData);
@@ -4071,6 +4071,7 @@ namespace ts {
             // In terms of member access, properties of
             // concrete types are the properties of their non-concrete
             // equivalent
+            type = getFlowContextualType(type);
             type = getApparentType(unconcrete(type));
             // If we are a type currently being resolved, don't attempt to get a property
             if (markAsRecursiveFlowAnalysis(type)) {
@@ -4173,7 +4174,7 @@ namespace ts {
                     if (pair === type) {
                         continue;
                     }
-                    if (resolvingLocusTypeStack.indexOf(pair) >= 0) {
+                    if (resolvingLocusTypeStack.indexOf(<LocusType> pair) >= 0) {
                         return true;
                     }
                 }
@@ -4187,7 +4188,8 @@ namespace ts {
             if (!(type.flags & TypeFlags.Declare)) {
                 return false;
             }
-            if (resolvingLocusTypeStack.indexOf(type) >= 0) {
+            if (resolvingLocusTypeStack.indexOf(<LocusType> type) >= 0) {
+            Debug.assert(false); // TODO
                 // May be marked on self. Thats OK.
                 markRecursiveTypeDependency(type, resolvingLocusTypeStack[0]);
                 markRecursiveTypeDependency(resolvingLocusTypeStack[0], type);
@@ -15960,6 +15962,9 @@ namespace ts {
 //          if (currentFlowData && type.flags & TypeFlags.IntermediateFlow) {
            // TODO: For now, don't support becomes on arbitrary values for perf. reasons
            if (type.flags & TypeFlags.IntermediateFlow) {
+                if (resolvingLocusTypeStack.indexOf(unboxLocusType((<IntermediateFlowType>type).targetType)) > -1) {
+                    return (<IntermediateFlowType>type).targetType;
+                }
                 let currentFlowData:FlowData = getFlowDataAtLocation(node, type);
                 if (!currentFlowData) {
                     return type;
@@ -18020,16 +18025,13 @@ namespace ts {
         }
 
         function getFlowDataForDeclareType(type: LocusType):FlowData {
-            if (!type.flowData) {
+            // If ignoredLocusTypeStack.length > 0, we recompute types
+            // TODO only recompute if used ignored types
+            if (!type.flowData || ignoredLocusTypeStack.length > 0) {
                 var [containerScope, identifier] = getScopeContainerAndIdentifierForDeclareType(type);
-                // Placeholder:
-//                type.flowData = {memberSet: {}, flowTypes: []};
-                if (containerScope) {
-                    // Remove any previously cached value?
-                    let flowType = getTypeFromDeclareTypeNode(getDeclareTypeNode(type), type);
-                    computeFlowData(containerScope, isReference, flowType);
-                    Debug.assert(!!type.flowData);
-                }
+                Debug.assert(!!containerScope);
+                let flowType = getTypeFromDeclareTypeNode(getDeclareTypeNode(type), type);
+                return computeFlowData(containerScope, isReference, flowType);
             }
             Debug.assert(!!type.flowData);
             return type.flowData;
@@ -18064,9 +18066,6 @@ namespace ts {
         // [ConcreteTypeScript] 
         function getFlowDataForType(type: Type): FlowData {
             type = unconcrete(type);
-            if (markAsRecursiveFlowAnalysis(type)) {
-                return undefined;
-            }
             if (type.flags & TypeFlags.IntermediateFlow) {
                 return (<IntermediateFlowType> type).flowData;
             }
@@ -18090,7 +18089,7 @@ namespace ts {
         function getFlowContextualType(type: Type): Type {
             let locusType = unboxLocusType(type);
             if (locusType && resolvingLocusTypeStack.indexOf(locusType) > -1) {
-                pushIgnoredLocusType(locusType);
+                pushIgnoredLocusType(resolvingLocusTypeStack[resolvingLocusTypeStack.length - 1]);
                 let tempFlowType = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
                 tempFlowType.flowData = getFlowDataForDeclareType(locusType);
                 popIgnoredLocusType();
@@ -18159,6 +18158,13 @@ namespace ts {
                 /*Protection emit callback, no-op if not declare type target:*/ <any> function() {}
             );
         }
+        function objectCopy(obj) {
+            var cpy = {};
+            for (let key of Object.keys(obj)) {
+                cpy[key] = obj[key];
+            }
+            return cpy;
+        }
 
         function computeFlowData(scope: Node, isReference: ReferenceDecider, type: Type): FlowData {
             if (!(type.flags & TypeFlags.IntermediateFlow)) {
@@ -18166,14 +18172,21 @@ namespace ts {
             }
             let {flowData: initialFlowData, targetType, declareTypeNode} = <IntermediateFlowType> type;
             if (!!declareTypeNode) { // Are we analyzing a 'declare' type declaration?
+                if (ignoredLocusTypeStack.indexOf(unboxLocusType(type)) > -1) {
+                    var cachedNodeLinks = nodeLinks;
+                    nodeLinks = cachedNodeLinks.map(objectCopy); // HACK
+                }
                 var finalFlowData = computeFlowDataForLocusTypeWorker(scope, isReference, initialFlowData, targetType);
+                if (ignoredLocusTypeStack.indexOf(unboxLocusType(type)) > -1) {
+                    nodeLinks = cachedNodeLinks;
+                }
             } else {
                 var finalFlowData = computeFlowDataForNonLocusTypeWorker(scope, isReference, initialFlowData, targetType);
             }
 
             forEachChildRecursive(scope, (node: Node) => {
-                if (isReference(node)) {
-                    Debug.assert(!!getNodeLinks(node).ctsFlowData);
+                // Don't brand for eg uncaptured 'this'
+                if (isReference(node) && getNodeLinks(node).ctsFlowData) {
                     getNodeLinks(node).ctsFinalFlowData = finalFlowData;
                 }
             });
@@ -18182,6 +18195,7 @@ namespace ts {
             
         function computeFlowDataForLocusTypeWorker(scope: Node, isReference: ReferenceDecider, initialFlowData: FlowData, targetType: Type): FlowData {
             Debug.assert(unboxLocusType(targetType) != null);
+            Debug.assert(resolvingLocusTypeStack.indexOf(unboxLocusType(targetType)) === -1);
             let protectionQueue = [];
             pushResolvingLocusType(unboxLocusType(targetType)); 
             // Analysis was not yet run for this scope
@@ -18205,7 +18219,8 @@ namespace ts {
             for (let protect of protectionQueue) {
                 protect(finalFlowData);
             }
-            unboxLocusType(targetType).flowData = finalFlowData; // TODO evaluate need / fix for explicitly defined locus types
+            // Cache the result:
+            unboxLocusType(targetType).flowData = finalFlowData;
             return finalFlowData;
             // Note: 'right' can be null, signifying that we are protecting the existing value.
             function emitProtection(flowDataAfterAssignment: FlowData, node:Node, left: Node, member: string, right?: Node) {
@@ -18276,6 +18291,7 @@ namespace ts {
                 return getTypeOfNode(node);
             }
         }
+
         // Recursively find all references to our node object descending from the node 'node'
         function computeFlowDataWorker(// Refer to the same object throughout a recursion instance:
                                          isReference: ReferenceDecider, 
@@ -18482,13 +18498,12 @@ namespace ts {
             function scanFunctionLikeDeclaration(node: FunctionLikeDeclaration) {
                 // Special case so we don't consider our declaration scope as conditionally occuring:
                 let bodyScan = recurse(node.body, prev);
-                    // prev = bodyScan;
                 if (containerScope === node) {
                     prev = bodyScan;
                 } else {
                     // Do nothing for now. In the future we need to treat these like become/declare function
                     // throw new Error("embedded functions NYI");
-    //                prev = bodyScan.merge(prev);
+//                    prev = bodyScan.merge(prev);
                 }
             }
             function scanTryStatement(node: TryStatement) {

@@ -109,12 +109,14 @@ describe("Calling functions mutually recursive", () => {
                 foo.field1 = 1;
                 /*Lookup*/ (foo.barMember.field2);
                 /*After*/ foo;
+                return foo;
             }
             function Bar(bar : declare Bar) {
                 bar.fooMember = Foo({});
                 bar.field2 = 1;
                 /*Lookup*/ (bar.fooMember.field1);
                 /*After*/ bar;
+                return bar;
             }
         `;
         
@@ -127,12 +129,12 @@ describe("Calling functions mutually recursive", () => {
         smartPrint(type2, "type2");
         smartPrint(lastRefType1, "lastRefType1");
         smartPrint(lastRefType2, "lastRefType2");
-        assert(checker.getPropertyOfType(lastRefType1, "field1"), "Does not have 'field1' member.");
-        assert(checker.getPropertyOfType(lastRefType1, "barMember"), "Does not have 'barMember' member.");
+        assert(checker.getPropertyOfType(lastRefType1, "field1"), "Should have 'field1' member.");
+        assert(checker.getPropertyOfType(lastRefType1, "barMember"), "Should have 'barMember' member.");
         assert(!checker.getPropertyOfType(lastRefType1, "control"), "Should not have 'control' member.!");
-        assert(checker.getPropertyOfType(lastRefType2, "fooMember"), "Does not have 'fooMember' member.");
-        assert(type1.flags & ts.TypeFlags.NumberLike, "foo.barMember.field2 should be of type number");
-        assert(type2.flags & ts.TypeFlags.NumberLike, "bar.fooMember.field1 should be of type number");
+        assert(checker.getPropertyOfType(lastRefType2, "fooMember"), "Should have 'fooMember' member.");
+        assert(checker.unconcrete(type1).flags & ts.TypeFlags.NumberLike, "foo.barMember.field2 should be of type number");
+        assert(checker.unconcrete(type2).flags & ts.TypeFlags.NumberLike, "bar.fooMember.field1 should be of type number");
     });
 });
 
