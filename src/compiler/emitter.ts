@@ -2353,8 +2353,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     write("String");
                 } else if (type.flags & TypeFlags.Number) {
                     write("Number");
-                } else if (type.symbol && type.symbol.flags & SymbolFlags.Declare) {
-                    if (type.symbol.parent && type.symbol.parent.flags & SymbolFlags.Declare) {
+                } else if (type.symbol && type.symbol.flags & SymbolFlags.Locus) {
+                    if (type.symbol.parent && type.symbol.parent.flags & SymbolFlags.Locus) {
                         write("$$cts$$brand$$" + type.symbol.parent.name + ".prototype");
                     } else {
                         write("$$cts$$brand$$" + type.symbol.name);
@@ -2420,7 +2420,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     case SyntaxKind.BooleanKeyword:
                         return write("Boolean");
                     case SyntaxKind.TypeReference:
-                        if (type.nodeLinks.resolvedType && type.nodeLinks.resolvedType.flags & TypeFlags.Declare) {
+                        if (type.nodeLinks.resolvedType && type.nodeLinks.resolvedType.flags & TypeFlags.Locus) {
                             write("$$cts$$brand$$");
                         }
                         return emitEntityName((<TypeReferenceNode>type).typeName);
@@ -2793,23 +2793,23 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
 
             // [ConcreteTypeScript]
             function emitBrandPrototypeAsserts(block:Node) {
-                for (var decl of getBrandTypeDeclarations(block)) {
+                for (var decl of getLocusTypeDeclarations(block)) {
                     if (decl.kind === SyntaxKind.ThisParameter) {
                         let thisDecl = <ThisParameterDeclaration> decl;
-                        let brandTypeDecl = <DeclareTypeNode> thisDecl.type;
-                        let prototypeSymbol = brandTypeDecl.symbol.exports["prototype"];
+                        let locusTypeDecl = <LocusTypeNode> thisDecl.type;
+                        let prototypeSymbol = locusTypeDecl.symbol.exports["prototype"];
                         if (prototypeSymbol) {
                             writeLine();
                             emitCtsRt("cast(");
                             write("$$cts$$brand$$");
-                            write(brandTypeDecl.name.text);
+                            write(locusTypeDecl.name.text);
                             write(".prototype, Object.getPrototypeOf(this));");
                         }
                     }
                 }
             }
             // [ConcreteTypeScript]
-            function emitBrandObject(brand:DeclareTypeDeclaration) {
+            function emitBrandObject(brand:LocusTypeDeclaration) {
                 let brandName:Identifier = brand.name;
                 writeLine();
                 
@@ -2832,7 +2832,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     if (!prototypeOnly) {
                         write(`$$cts$$brand$$${brandName.text}.prototype, `);
                     }
-                    for (let extendedType of (getDeclareTypeBaseTypeNodes(brand) || [])) {
+                    for (let extendedType of (getLocusTypeBaseTypeNodes(brand) || [])) {
                         if (!prototypeOnly) {
                             emitCtsType(extendedType.nodeLinks.resolvedType);
                             write(", ");
@@ -2844,12 +2844,12 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 }
             }
             // [ConcreteTypeScript]
-            function emitBrandTypesAtBlockStart(block:Node) {
+            function emitLocusTypesAtBlockStart(block:Node) {
                 if (isFunctionLike(block)) {
                     return; // We don't emit brand objects inside functions.
                 }
-                let brandTypes = getBrandTypesInScope(block);
-                for (let brand of brandTypes) {
+                let locusTypes = getLocusTypesInScope(block);
+                for (let brand of locusTypes) {
                     emitBrandObject(brand);
                 }
             }
@@ -2857,8 +2857,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             // [ConcreteTypeScript]
             function emitBrandingsForBlockEnd(block:Node) {
                 if (!block.locals) return;
-                for (let {type, name} of getBrandTypeDeclarations(block)) {
-                    let brandName:Identifier = (<DeclareTypeNode>type).name;
+                for (let {type, name} of getLocusTypeDeclarations(block)) {
+                    let brandName:Identifier = (<LocusTypeNode>type).name;
                     write("$$cts$$runtime.brand($$cts$$brand$$");
                     writeTextOfNode(currentSourceFile, brandName);
                     write(", ");
@@ -2867,7 +2867,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     writeLine();
                 }
                 for (let {parameters, name} of getFunctionDeclarationsWithThisBrand(block)) {
-                    let brandDecl = parameters.thisParam.type.brandTypeDeclaration;
+                    let brandDecl = parameters.thisParam.type.locusTypeDeclaration;
                     let brandProto = brandDecl.prototypeBrandDeclaration;
                     if (brandProto) {
                         emitBranding(brandProto)
@@ -2930,7 +2930,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 emitToken(SyntaxKind.OpenBraceToken, node.pos);
                 increaseIndent();
                 scopeEmitStart(node.parent);
-                emitBrandTypesAtBlockStart(node);
+                emitLocusTypesAtBlockStart(node);
                 emitProtectionTempVarsAtBlockStart(node);
                 emitBrandPrototypeAsserts(node);
                 if (node.kind === SyntaxKind.ModuleBlock) {
@@ -3811,7 +3811,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 let scope = (<any>node).scope || node.parent;
                 let name = (<Identifier>node.name) && (<Identifier>node.name).text;
                 if (mangledName) name = "$$cts$$value$" + name;
-                let isBrand = (node.kind === SyntaxKind.BrandTypeDeclaration);
+                let isBrand = (node.kind === SyntaxKind.LocusTypeDeclaration);
 
                 // If it's a global or exported, we need to cement it
                 if (scope && scope.kind === SyntaxKind.SourceFile) {
@@ -4462,7 +4462,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 emitDefaultValueAssignments(node);
                 emitRestParameter(node);
                 // [ConcreteTypeScript] Brand type declarations and prototype protectors
-                // emitBrandTypesAtBlockStart(node);
+                // emitLocusTypesAtBlockStart(node);
                 emitBrandPrototypeAsserts(node);
                 // [/ConcreteTypeScript]
                 
@@ -4506,8 +4506,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 scopeEmitStart(node);
                 emitProtectionTempVarsAtBlockStart(node);
                 emitProtectionTempVarsAtBlockStart(body);
-                emitBrandTypesAtBlockStart(node); // [ConcreteTypeScript]
-                emitBrandTypesAtBlockStart(body); // [ConcreteTypeScript]
+                emitLocusTypesAtBlockStart(node); // [ConcreteTypeScript]
+                emitLocusTypesAtBlockStart(body); // [ConcreteTypeScript]
                 increaseIndent();
                 let outPos = writer.getTextPos();
                 emitDetachedComments(node.body);
@@ -4560,8 +4560,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 emitProtectionTempVarsAtBlockStart(node);
                 emitProtectionTempVarsAtBlockStart(body);
 
-                emitBrandTypesAtBlockStart(node); // [ConcreteTypeScript]
-                emitBrandTypesAtBlockStart(body); // [ConcreteTypeScript]
+                emitLocusTypesAtBlockStart(node); // [ConcreteTypeScript]
+                emitLocusTypesAtBlockStart(body); // [ConcreteTypeScript]
 
                 let initialTextPos = writer.getTextPos();
 
@@ -4597,7 +4597,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     // // [ConcreteTypeScript]
                     // if (isFunctionLikeDeclarationWithThisBrand(node)) {
                     //     emitCtsRt("cast($$cts$$brand$$");
-                    //     write(node.parameters.thisType.brandTypeDeclaration.name.text)
+                    //     write(node.parameters.thisType.locusTypeDeclaration.name.text)
                     //     write(".prototype, Object.getPrototypeOf(this))")
                     //     
                     // }
@@ -5911,7 +5911,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
 
             // [ConcretTypeScript]
 
-            function emitBrandTypeDeclaration(node: DeclareTypeDeclaration) {
+            function emitLocusTypeDeclaration(node: LocusTypeDeclaration) {
 
                 // Nothing to do, for now.
 
@@ -7449,7 +7449,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 write("}");
                 // [/ConcreteTypeScript]
                 emitProtectionTempVarsAtBlockStart(node);
-                emitBrandTypesAtBlockStart(node);
+                emitLocusTypesAtBlockStart(node);
 
                 // emit prologue directives prior to __extends
                 let startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ false);
@@ -7521,16 +7521,16 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             }
 
             // [ConcreteTypeScript]
-            function emitBranding(brand:DeclareTypeDeclaration) {
-                let isBrandOfPrototypeObject:boolean = (brand.parent.kind === SyntaxKind.BrandTypeDeclaration);
+            function emitBranding(brand:LocusTypeDeclaration) {
+                let isBrandOfPrototypeObject:boolean = (brand.parent.kind === SyntaxKind.LocusTypeDeclaration);
                 if (isBrandOfPrototypeObject) {
                     writeLine();
                     write("$$cts$$runtime.brand($$cts$$brand$$");
-                    writeTextOfNode(currentSourceFile, (<DeclareTypeDeclaration>brand.parent).name);
+                    writeTextOfNode(currentSourceFile, (<LocusTypeDeclaration>brand.parent).name);
                     write(".prototype")
                     write(", ");
 //                    throw new Error();
-                    //writeTextOfNode(currentSourceFile, (<DeclareTypeDeclaration>brand.parent).functionDeclaration.name);
+                    //writeTextOfNode(currentSourceFile, (<LocusTypeDeclaration>brand.parent).functionDeclaration.name);
                     write(".prototype);");
                 } else {
                     writeLine();
@@ -7581,7 +7581,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 node.nodeLinks.bindingsAfter.forEach(x => emitProtectionAssignment(x));
                 return true;
             }
-            function emitProtectionAssignment({left, member, right, targetDeclareType, type, isTypeComplete, guardVariable, brandGuardVariable, typeVar} : BindingData, brandPrototype = false) {
+            function emitProtectionAssignment({left, member, right, targetLocusType, type, isTypeComplete, guardVariable, brandGuardVariable, typeVar} : BindingData, brandPrototype = false) {
                 let shouldEmitBranding = isTypeComplete();
                 if (shouldEmitBranding) { 
                     emitCtsRt("brandAndForward("); 
@@ -7590,7 +7590,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     } else {
                         write("false, ");
                     }
-                    emitProtectionType(targetDeclareType); 
+                    emitProtectionType(targetLocusType); 
                     write(", "); 
                     emit(left); 
                     if (brandPrototype) {
@@ -7600,7 +7600,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 }
                 // If type is null will result in a cement instead of protection
                 if (isPrototypeAccess(left)) {
-                    // This is a type representing a a Declare type .prototype object.
+                    // This is a type representing a a Locus type .prototype object.
                     emitCtsRt("protectProtoAssignment("); 
                     if (guardVariable) {
                         write(guardVariable + "++, "); 
@@ -7609,7 +7609,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     }
                     emitProtectionType(type); write(", "); 
                     // Emit the target declare type, we are able to query its base types dynamically.
-                    emitProtectionType(targetDeclareType); write(", ");
+                    emitProtectionType(targetLocusType); write(", ");
                     write("'"); write(member); write("', "); emit((left as any).expression); write(", "); 
                 } else {
                     emitCtsRt("protectAssignment("); 
@@ -7761,12 +7761,12 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 if (!node.prototypeSymbol) {
                     return;
                 }
-                let targetDeclareType = (<ConcreteType> node.prototypeSymbol.symbolLinks.type).baseType;
-                if (targetDeclareType && targetDeclareType.emptyFlowType) {
+                let targetLocusType = (<ConcreteType> node.prototypeSymbol.symbolLinks.type).baseType;
+                if (targetLocusType && targetLocusType.emptyFlowType) {
                     emitProtectionAssignment({
                         left: node.name, 
                         member: 'prototype',
-                        targetDeclareType,
+                        targetLocusType,
                         isTypeComplete: () => true
                     }, /*Brand prototype:*/ true);
                 }
@@ -7949,8 +7949,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         return emitClassExpression(<ClassExpression>node);
                     case SyntaxKind.ClassDeclaration:
                         return emitClassDeclaration(<ClassDeclaration>node);
-                    case SyntaxKind.BrandTypeDeclaration:
-                         return emitBrandTypeDeclaration(<DeclareTypeDeclaration>node);
+                    case SyntaxKind.LocusTypeDeclaration:
+                         return emitLocusTypeDeclaration(<LocusTypeDeclaration>node);
                     case SyntaxKind.InterfaceDeclaration:
                         return emitInterfaceDeclaration(<InterfaceDeclaration>node);
                     case SyntaxKind.EnumDeclaration:

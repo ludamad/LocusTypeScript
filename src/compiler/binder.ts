@@ -345,7 +345,7 @@ namespace ts {
                 case SyntaxKind.ClassDeclaration:
                 case SyntaxKind.InterfaceDeclaration:
                 // [ConcreteTypeScript]
-                case SyntaxKind.DeclareTypeDeclaration:
+                case SyntaxKind.LocusTypeDeclaration:
                 // [/ConcreteTypeScript]
                 case SyntaxKind.EnumDeclaration:
                 case SyntaxKind.TypeLiteral:
@@ -409,21 +409,21 @@ namespace ts {
         }
 
         // [ConcreteTypeScript]
-        function bindDeclareTypeDeclaration(node: DeclareTypeDeclaration) {
+        function bindLocusTypeDeclaration(node: LocusTypeDeclaration) {
             let scope = getModuleOrSourceFile(container);
             // The parent of the declaration is expected to be the containing scope:
             if (scope.symbol && scope.symbol.flags & SymbolFlags.HasExports) {
-                var symbol = declareSymbol(scope.symbol.exports, undefined, node, SymbolFlags.Declare | SymbolFlags.ExportType, SymbolFlags.DeclareTypeExcludes);
+                var symbol = declareSymbol(scope.symbol.exports, undefined, node, SymbolFlags.Locus | SymbolFlags.ExportType, SymbolFlags.LocusTypeExcludes);
             } else {
-                var symbol = declareSymbol(scope.locals, undefined, node, SymbolFlags.Declare | SymbolFlags.ExportType, SymbolFlags.DeclareTypeExcludes);
+                var symbol = declareSymbol(scope.locals, undefined, node, SymbolFlags.Locus | SymbolFlags.ExportType, SymbolFlags.LocusTypeExcludes);
             }
             // If we have a 'this' type, create a prototype parameter.
             if (node.parent.kind === SyntaxKind.ThisParameter) { 
-                bindPrototypeAsDeclareType(getFunctionDeclarationParent(node), symbol);
+                bindPrototypeAsLocusType(getFunctionDeclarationParent(node), symbol);
             }
         }
 
-        function bindPrototypeAsDeclareType(node: Declaration, symbol: Symbol) {
+        function bindPrototypeAsLocusType(node: Declaration, symbol: Symbol) {
             // Create identifier:
             let identifier = <Identifier>createSynthesizedNode(SyntaxKind.Identifier);
             identifier.text = "prototype";
@@ -431,13 +431,13 @@ namespace ts {
             identifier.end = 1; 
             identifier.parent = node;
             // Create decl:
-            var decl = <DeclareTypeDeclaration>createNode(SyntaxKind.DeclareType);
+            var decl = <LocusTypeDeclaration>createNode(SyntaxKind.LocusType);
             decl.pos = node.pos;
             decl.name = identifier;
-            decl.enclosingDeclareSymbol = symbol;
+            decl.enclosingLocusSymbol = symbol;
             decl.end = node.end;
             decl.parent = node;
-            let prototypeSymbol = declareSymbol(symbol.exports, undefined, decl, SymbolFlags.Declare | SymbolFlags.Prototype | SymbolFlags.Property | SymbolFlags.ExportType, SymbolFlags.DeclareTypeExcludes); 
+            let prototypeSymbol = declareSymbol(symbol.exports, undefined, decl, SymbolFlags.Locus | SymbolFlags.Prototype | SymbolFlags.Property | SymbolFlags.ExportType, SymbolFlags.LocusTypeExcludes); 
             bindPrototypeSymbol(node, symbol, prototypeSymbol);
         }
 
@@ -496,7 +496,7 @@ namespace ts {
                 case SyntaxKind.ObjectLiteralExpression:
                 case SyntaxKind.InterfaceDeclaration:
                 // [ConcreteTypeScript]
-                case SyntaxKind.DeclareTypeDeclaration:
+                case SyntaxKind.LocusTypeDeclaration:
                 // [/ConcreteTypeScript]
                     // Interface/Object-types always have their children added to the 'members' of
                     // their container. They are only accessible through an instance of their
@@ -938,9 +938,9 @@ namespace ts {
                     return bindPropertyOrMethodOrAccessor(<Declaration>node, SymbolFlags.Property, SymbolFlags.PropertyExcludes);
                 case SyntaxKind.EnumMember:
                     return bindPropertyOrMethodOrAccessor(<Declaration>node, SymbolFlags.EnumMember, SymbolFlags.EnumMemberExcludes);
-                case SyntaxKind.DeclareType:
-                case SyntaxKind.DeclareTypeDeclaration:
-                    return bindDeclareTypeDeclaration(<DeclareTypeDeclaration>node);
+                case SyntaxKind.LocusType:
+                case SyntaxKind.LocusTypeDeclaration:
+                    return bindLocusTypeDeclaration(<LocusTypeDeclaration>node);
                 case SyntaxKind.CallSignature:
                 case SyntaxKind.ConstructSignature:
                 case SyntaxKind.IndexSignature:
@@ -1086,8 +1086,8 @@ namespace ts {
             // module might have an exported variable called 'prototype'.  We can't allow that as
             // that would clash with the built-in 'prototype' for the class.
             // [ConcreteTypeScript]
-            // All prototype symbols have declare types.
-            bindPrototypeAsDeclareType(node, symbol);
+            // All prototype symbols have locus types.
+            bindPrototypeAsLocusType(node, symbol);
             // [/ConcreteTypeScript]
         }
 

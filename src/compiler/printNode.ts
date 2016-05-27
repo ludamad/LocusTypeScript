@@ -21,9 +21,9 @@ module ts {
             return "<undefined>";
         }
     switch (node.kind) {
-        case SyntaxKind.BrandTypeDeclaration: 
-            print(node, "BrandTypeDeclaration");
-            print((<DeclareTypeNode>node).name, "BrandTypeDeclaration.name");
+        case SyntaxKind.LocusTypeDeclaration: 
+            print(node, "LocusTypeDeclaration");
+            print((<LocusTypeNode>node).name, "LocusTypeDeclaration.name");
             return;
         case SyntaxKind.Identifier: return print(node, "Identifier");
         case SyntaxKind.Parameter: return print(node, "Parameter");
@@ -59,7 +59,7 @@ module ts {
         case SyntaxKind.ParenthesizedExpression: return print(node, "ParenthesizedExpression");
         case SyntaxKind.FunctionDeclaration: return print(node, "FunctionDeclaration");
         case SyntaxKind.FunctionExpression: return print(node, "FunctionExpression");
-        case SyntaxKind.DeclareType: return print(node, "DeclareType");
+        case SyntaxKind.LocusType: return print(node, "LocusType");
         case SyntaxKind.ArrowFunction: return print(node, "ArrowFunction");
         case SyntaxKind.DeleteExpression: return print(node, "DeleteExpression");
         case SyntaxKind.TypeOfExpression: return print(node, "TypeOfExpression");

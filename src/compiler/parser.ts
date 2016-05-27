@@ -106,19 +106,19 @@ namespace ts {
             case SyntaxKind.BecomesType:
                 return visitNode(cbNode, (<BecomesTypeNode> node).startingType) ||
                     visitNode(cbNode, (<BecomesTypeNode> node).endingType);
-            case SyntaxKind.DeclareTypeDeclaration:
-                return visitNode(cbNode, (<DeclareTypeDeclaration> node).name) ||
-                    visitNodes(cbNodes, (<DeclareTypeDeclaration> node).heritageClauses) ||
-                    visitNodes(cbNodes, (<DeclareTypeDeclaration> node).members);
-            case SyntaxKind.DeclareType:
-                return visitNode(cbNode, (<DeclareTypeNode> node).name) ||
-                    visitNode(cbNode, (<DeclareTypeNode> node).startingType) ||
-                    visitNodes(cbNodes, (<DeclareTypeNode> node).heritageClauses) ||
-                    visitNodes(cbNodes, (<DeclareTypeNode> node).members);
+            case SyntaxKind.LocusTypeDeclaration:
+                return visitNode(cbNode, (<LocusTypeDeclaration> node).name) ||
+                    visitNodes(cbNodes, (<LocusTypeDeclaration> node).heritageClauses) ||
+                    visitNodes(cbNodes, (<LocusTypeDeclaration> node).members);
+            case SyntaxKind.LocusType:
+                return visitNode(cbNode, (<LocusTypeNode> node).name) ||
+                    visitNode(cbNode, (<LocusTypeNode> node).startingType) ||
+                    visitNodes(cbNodes, (<LocusTypeNode> node).heritageClauses) ||
+                    visitNodes(cbNodes, (<LocusTypeNode> node).members);
             // [/ConcreteTypeScript]
             case SyntaxKind.TypeReference:
                 return visitNode(cbNode, (<TypeReferenceNode>node).typeName) ||
-                    visitNode(cbNode, (<TypeReferenceNode>node).brandTypeDeclaration) ||
+                    visitNode(cbNode, (<TypeReferenceNode>node).locusTypeDeclaration) ||
                     visitNodes(cbNodes, (<TypeReferenceNode>node).typeArguments);
             case SyntaxKind.TypePredicate:
                 return visitNode(cbNode, (<TypePredicateNode>node).parameterName) ||
@@ -1977,8 +1977,8 @@ namespace ts {
             return finishNode(node);
         }
 
-        function parseBrandInterface(): DeclareTypeDeclaration {
-            var node = <DeclareTypeDeclaration>createNode(SyntaxKind.DeclareTypeDeclaration);
+        function parseBrandInterface(): LocusTypeDeclaration {
+            var node = <LocusTypeDeclaration>createNode(SyntaxKind.LocusTypeDeclaration);
             node.pos = getNodePos();
             parseExpected(SyntaxKind.BrandKeyword);
             parseExpected(SyntaxKind.InterfaceKeyword);
@@ -1990,8 +1990,8 @@ namespace ts {
         }
 
         // startingType can be 'undefined'
-        function parseDeclareType(startingType:TypeNode): DeclareTypeNode {
-            var node = <DeclareTypeNode>createNode(SyntaxKind.DeclareType);
+        function parseLocusType(startingType:TypeNode): LocusTypeNode {
+            var node = <LocusTypeNode>createNode(SyntaxKind.LocusType);
             node.pos = (startingType ? startingType.pos : getNodePos());
             nextToken();
             if (token === SyntaxKind.Identifier) {
@@ -2499,7 +2499,7 @@ namespace ts {
                     case SyntaxKind.BecomesKeyword:
                         return parseBecomesType(undefined);
                     case SyntaxKind.DeclareKeyword:
-                        return parseDeclareType(undefined);
+                        return parseLocusType(undefined);
                     // [ConcreteTypeScript] hackishly handle undefined as a type
                     case SyntaxKind.Identifier:
                         if (scanner.getTokenValue() === "undefined") {
@@ -2563,7 +2563,7 @@ namespace ts {
         function parseArrayTypeOrHigher(): TypeNode {
             let typeNode =  parseArrayTypeOrHigherWorker();
             if (token === SyntaxKind.DeclareKeyword) {
-                return parseDeclareType(typeNode);
+                return parseLocusType(typeNode);
             }
             if (token === SyntaxKind.BecomesKeyword) {
                 return parseBecomesType(typeNode);
@@ -2658,7 +2658,7 @@ namespace ts {
                 return parseFunctionOrConstructorType(SyntaxKind.ConstructorType);
             }
             if (token === SyntaxKind.DeclareKeyword) {
-               return parseDeclareType(null);
+               return parseLocusType(null);
             }
             return parseUnionTypeOrHigher();
         }

@@ -303,7 +303,7 @@ namespace ts {
             if (flags & SymbolFlags.SetAccessor) result |= SymbolFlags.SetAccessorExcludes;
             if (flags & SymbolFlags.TypeParameter) result |= SymbolFlags.TypeParameterExcludes;
             if (flags & SymbolFlags.TypeAlias) result |= SymbolFlags.TypeAliasExcludes;
-            if (flags & SymbolFlags.Declare) result |= SymbolFlags.BrandTypeExcludes;
+            if (flags & SymbolFlags.Locus) result |= SymbolFlags.LocusTypeExcludes;
             if (flags & SymbolFlags.Alias) result |= SymbolFlags.AliasExcludes;
             return result;
         }
@@ -1805,10 +1805,10 @@ namespace ts {
                     else if (type.flags & TypeFlags.Reference) {
                         writeTypeReference(<TypeReference>type, flags);
                     }
-                    else if (type.flags & TypeFlags.Declare) {
-/*                        let declareTypeDecl = <DeclareTypeDeclaration>getSymbolDecl(type.symbol, SyntaxKind.DeclareType);
-                        if (declareTypeDecl.parent.kind === SyntaxKind.BrandTypeDeclaration) {
-                            writer.writeSymbol((<DeclareTypeNode>declareTypeDecl.parent).name.text, (<DeclareTypeNode>declareTypeDecl.parent).symbol);
+                    else if (type.flags & TypeFlags.Locus) {
+/*                        let locusTypeDecl = <LocusTypeDeclaration>getSymbolDecl(type.symbol, SyntaxKind.LocusType);
+                        if (locusTypeDecl.parent.kind === SyntaxKind.LocusTypeDeclaration) {
+                            writer.writeSymbol((<LocusTypeNode>locusTypeDecl.parent).name.text, (<LocusTypeNode>locusTypeDecl.parent).symbol);
                             writer.writeOperator(".prototype");
                         } else { */
                             //writer.writeOperator("declare");
@@ -1848,7 +1848,7 @@ namespace ts {
                         }
                     }
                     // [ConcreteTypeScript]
-                    else if (type.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Declare | TypeFlags.Enum | TypeFlags.TypeParameter | TypeFlags.Declare)) {
+                    else if (type.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Locus | TypeFlags.Enum | TypeFlags.TypeParameter | TypeFlags.Locus)) {
                     // [/ConcreteTypeScript]
                         // The specified symbol flags need to be reinterpreted as type flags
                         buildSymbolDisplay(type.symbol, writer, enclosingDeclaration, SymbolFlags.Type, SymbolFormatFlags.None, flags);
@@ -1968,7 +1968,7 @@ namespace ts {
                     let symbol = type.symbol;
                     if (symbol) {
                         // Always use 'typeof T' for type of class, enum, and module objects
-                        if (symbol.flags & (SymbolFlags.Class | SymbolFlags.Declare | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
+                        if (symbol.flags & (SymbolFlags.Class | SymbolFlags.Locus | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
                             writeTypeofSymbol(type, flags);
                         }
                         else if (shouldWriteTypeOfFunctionSymbol()) {
@@ -2148,7 +2148,7 @@ namespace ts {
 
             function buildTypeParameterDisplayFromSymbol(symbol: Symbol, writer: SymbolWriter, enclosingDeclaraiton?: Node, flags?: TypeFormatFlags) {
                 let targetSymbol = getTargetSymbol(symbol);
-                if (targetSymbol.flags & (SymbolFlags.Class | SymbolFlags.Declare) | targetSymbol.flags & SymbolFlags.Interface || targetSymbol.flags & SymbolFlags.TypeAlias) {
+                if (targetSymbol.flags & (SymbolFlags.Class | SymbolFlags.Locus) | targetSymbol.flags & SymbolFlags.Interface || targetSymbol.flags & SymbolFlags.TypeAlias) {
                     buildDisplayForTypeParametersAndDelimiters(getLocalTypeParametersOfClassOrInterfaceOrTypeAlias(symbol), writer, enclosingDeclaraiton, flags);
                 }
             }
@@ -2354,7 +2354,7 @@ namespace ts {
                     case SyntaxKind.ClassDeclaration:
                     case SyntaxKind.InterfaceDeclaration:
                     case SyntaxKind.TypeAliasDeclaration:
-                    case SyntaxKind.BrandTypeDeclaration:
+                    case SyntaxKind.LocusTypeDeclaration:
                     case SyntaxKind.FunctionDeclaration:
                     case SyntaxKind.EnumDeclaration:
                     case SyntaxKind.ImportEqualsDeclaration:
@@ -2552,7 +2552,7 @@ namespace ts {
         
         // [ConcreteTypeScript]
         function getIntermediateFlowTypeOfPrototype(prototype: Symbol, type: Type): Type {
-            return createIntermediateFlowType(prototype.valueDeclaration, /*TODO */ emptyObjectType, createConcreteType(type), <DeclareTypeNode> prototype.valueDeclaration);
+            return createIntermediateFlowType(prototype.valueDeclaration, /*TODO */ emptyObjectType, createConcreteType(type), <LocusTypeNode> prototype.valueDeclaration);
         }
 
         function getTypeOfPrototypeProperty(prototype: Symbol, parentType?: Type): Type {
@@ -2566,7 +2566,7 @@ namespace ts {
             if (!links.type) {
                 let classType = parentType || <InterfaceType>getParentTypeOfPrototypeProperty(prototype);
                 if (classType) {
-                    classType.prototypeDeclareType = links.type;
+                    classType.prototypeLocusType = links.type;
                 }
                 prototype.classType = <InterfaceType> classType;
                 return createConcreteType(getDeclaredTypeOfSymbol(prototype));
@@ -2977,7 +2977,7 @@ namespace ts {
             if (symbol.flags & (SymbolFlags.Variable | SymbolFlags.Property)) {
                 return assertOk(getTypeOfVariableOrParameterOrProperty(symbol));
             }
-            if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method | SymbolFlags.Class | SymbolFlags.Declare | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
+            if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method | SymbolFlags.Class | SymbolFlags.Locus | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
                 return assertOk(getTypeOfFuncClassEnumModule(symbol));
             }
             if (symbol.flags & SymbolFlags.EnumMember) {
@@ -2990,9 +2990,9 @@ namespace ts {
                 return assertOk(getTypeOfAlias(symbol));
             }
             // [ConcreteTypeScript]
-            if (symbol.flags & SymbolFlags.Declare) {
+            if (symbol.flags & SymbolFlags.Locus) {
                 // This seems suspect for now.
-                throw new Error("ConcreteTypeScript bail: Cannot use Brand as value. Until this is handled gracefully, failing ungracefully...");
+                throw new Error("ConcreteTypeScript bail: Cannot use Locus as value. Until this is handled gracefully, failing ungracefully...");
                 //return assertOk(createConcreteType(getTypeOfFuncClassEnumModule(symbol)));
             }
             // [/ConcreteTypeScript]
@@ -3016,7 +3016,7 @@ namespace ts {
                 if (target === checkBase) {
                     return true;
                 }
-                if (!(target.flags & (TypeFlags.Interface | TypeFlags.Declare | TypeFlags.Class))) {
+                if (!(target.flags & (TypeFlags.Interface | TypeFlags.Locus | TypeFlags.Class))) {
                     return false
                 }
                 // [/ConcreteTypeScript]
@@ -3162,8 +3162,8 @@ namespace ts {
             // [/ConcreteTypeScript]
             if (!type.resolvedBaseTypes) {
                 // [ConcreteTypeScript]
-                if (type.flags & TypeFlags.Declare) {
-                    resolveBaseTypesOfDeclare(type);
+                if (type.flags & TypeFlags.Locus) {
+                    resolveBaseTypesOfLocus(type);
                 } else if (!type.symbol) {
                     type.resolvedBaseTypes = [];
                     // [/ConcreteTypeScript]
@@ -3180,23 +3180,23 @@ namespace ts {
         }
 
         // [ConcreteTypeScript]
-        function resolveBaseTypesOfDeclare(type: InterfaceType) {
+        function resolveBaseTypesOfLocus(type: InterfaceType) {
             type.resolvedBaseTypes = [];
-            let brandInterfaceDeclaration = <DeclareTypeDeclaration> getSymbolDecl(type.symbol, SyntaxKind.DeclareTypeDeclaration);
-            let declareTypeDeclaration = <DeclareTypeNode> getSymbolDecl(type.symbol, SyntaxKind.DeclareType)
-            let declaration = brandInterfaceDeclaration || declareTypeDeclaration;
-            if (declareTypeDeclaration && declareTypeDeclaration.startingType) {
-                var baseTypes:TypeNode[] = [declareTypeDeclaration.startingType];
+            let locusInterfaceDeclaration = <LocusTypeDeclaration> getSymbolDecl(type.symbol, SyntaxKind.LocusTypeDeclaration);
+            let locusTypeDeclaration = <LocusTypeNode> getSymbolDecl(type.symbol, SyntaxKind.LocusType)
+            let declaration = locusInterfaceDeclaration || locusTypeDeclaration;
+            if (locusTypeDeclaration && locusTypeDeclaration.startingType) {
+                var baseTypes:TypeNode[] = [locusTypeDeclaration.startingType];
             } else {
                 var baseTypes:TypeNode[] = [];
             }
-            baseTypes = baseTypes.concat(getDeclareTypeBaseTypeNodes(declaration) || []);
+            baseTypes = baseTypes.concat(getLocusTypeBaseTypeNodes(declaration) || []);
             
             //let classType = <InterfaceType>getDeclaredTypeOfSymbol(type.symbol.parent);
             for (let node of baseTypes) {
                 let baseType = getTypeFromTypeNode(node);
                 if (baseType !== unknownType) {
-                    if (getTargetType(baseType).flags & (TypeFlags.Class | TypeFlags.Declare | TypeFlags.Interface)) {
+                    if (getTargetType(baseType).flags & (TypeFlags.Class | TypeFlags.Locus | TypeFlags.Interface)) {
                         if (type !== baseType && !hasBaseType(<InterfaceType>baseType, type)) {
                             type.resolvedBaseTypes.push(createConcreteTypeIfCheckable(baseType));
                         }
@@ -3269,7 +3269,7 @@ namespace ts {
                     for (let node of getInterfaceBaseTypeNodes(<InterfaceDeclaration>declaration)) {
                         let baseType = getTypeFromTypeNode(node);
                         if (baseType !== unknownType) {
-                            if (getTargetType(baseType).flags & (TypeFlags.Class | TypeFlags.Declare | TypeFlags.Interface)) {
+                            if (getTargetType(baseType).flags & (TypeFlags.Class | TypeFlags.Locus | TypeFlags.Interface)) {
                                 if (type !== baseType && !hasBaseType(<InterfaceType>baseType, type)) {
                                     type.resolvedBaseTypes.push(baseType);
                                 }
@@ -3336,14 +3336,14 @@ namespace ts {
         }
 
         //[ConcreteTypeScript]
-        function getDeclaredTypeOfDeclareTypeSymbol(symbol: Symbol): InterfaceType {
+        function getDeclaredTypeOfLocusTypeSymbol(symbol: Symbol): InterfaceType {
             let links = getSymbolLinks(symbol);
             if (!links.declaredType) {
                 // TODO set the declaredProperties somewhere else
                 /* On first occurrence */
-                let declareTypeDecl = getSymbolDeclareTypeDecl(symbol);
-                Debug.assert(!!declareTypeDecl, "Not a BrandTypeDeclaration!");
-                links.declaredType = <InterfaceType>createObjectType(TypeFlags.Declare, symbol);
+                let declareTypeDecl = getSymbolLocusTypeDecl(symbol);
+                Debug.assert(!!declareTypeDecl, "Not a LocusTypeDeclaration!");
+                links.declaredType = <InterfaceType>createObjectType(TypeFlags.Locus, symbol);
             }
             return <InterfaceType>links.declaredType;
         }
@@ -3384,8 +3384,8 @@ namespace ts {
             // [ConcreteTypeScript]
             // This is required to be first because symbols can be marked as 'Class'
             // but should resolve to brands when used as a type.
-            if (symbol.flags & SymbolFlags.Declare) {
-                return getDeclaredTypeOfDeclareTypeSymbol(symbol);
+            if (symbol.flags & SymbolFlags.Locus) {
+                return getDeclaredTypeOfLocusTypeSymbol(symbol);
             }
             if (symbol.flags & (SymbolFlags.Class | SymbolFlags.Interface)) {
                 return getDeclaredTypeOfClassOrInterface(symbol);
@@ -3468,7 +3468,7 @@ namespace ts {
                 return null;
             }
 
-            let funcDecl = getFunctionDeclarationForDeclareType(type);
+            let funcDecl = getFunctionDeclarationForLocusType(type);
             if (funcDecl && funcDecl.symbol && funcDecl.symbol.exports) {
                 let symbol = getExportsOfSymbol(funcDecl.symbol)["prototype"];
                 if (!symbol && funcDecl.symbol.valueDeclaration) {
@@ -3495,7 +3495,7 @@ namespace ts {
             return null;
         }
 
-        // [ConcreteTypeScript] Handles TypeFlags.Declare too
+        // [ConcreteTypeScript] Handles TypeFlags.Locus too
         function resolveClassOrInterfaceMembers(type: InterfaceType): void {
             if (markAsRecursiveFlowAnalysis(type)) {
                 return undefined;
@@ -3535,7 +3535,7 @@ namespace ts {
             // [ConcreteTypeScript]
             // TODO un-resolve classes that were 'resolved' during recursive computation
             let flowData = getFlowDataForType(type);
-            if (isFreshDeclareType(type)) {
+            if (isFreshLocusType(type)) {
                 Debug.assert(!!flowData);
                 //console.log('VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV');
                 //console.log(flowData);
@@ -3825,7 +3825,7 @@ namespace ts {
         function resolveStructuredTypeMembers(type: ObjectType): ResolvedType {
             if (!(<ResolvedType>type).members) {
                 // [ConcreteTypeScript]
-                if (type.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Declare)) {
+                if (type.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Locus)) {
                     resolveClassOrInterfaceMembers(<InterfaceType>type);
                 }
                 else if (type.flags & (TypeFlags.IntermediateFlow)) {
@@ -3875,10 +3875,10 @@ namespace ts {
             // equivalent
             type = unconcrete(type);
 
-            // Access prototype directly, in the case of TypeFlags.Declare. 
+            // Access prototype directly, in the case of TypeFlags.Locus. 
             // This is necessary so that we can access non-flow-dependent parts of the object.
             // TODO this causes redundant checking with below if the locus type is fully resolved.
-            if (type.flags & TypeFlags.Declare) {
+            if (type.flags & TypeFlags.Locus) {
                 let prototypeType = getPrototypeSymbolTypeOfType(<InterfaceType> type);
                 if (prototypeType) {
                     let protoProp = getPropertyOfType(getDeclaredTypeOfSymbol(prototypeType), name);
@@ -4185,7 +4185,7 @@ namespace ts {
         // [ConcreteTypeScript]
         // Mark this type as circularly dependent on the first 
         function markAsRecursiveFlowAnalysis(type: Type) {
-            if (!(type.flags & TypeFlags.Declare)) {
+            if (!(type.flags & TypeFlags.Locus)) {
                 return false;
             }
             if (resolvingLocusTypeStack.indexOf(<LocusType> type) >= 0) {
@@ -4353,7 +4353,7 @@ namespace ts {
             if (isPrototypeType(unconcrete(leftType))) {
                 let symbol = unconcrete(leftType).symbol;
                 return createConcreteType(getParentTypeOfPrototypeProperty(symbol));
-            } else if (unconcrete(leftType).flags & TypeFlags.Declare) {
+            } else if (unconcrete(leftType).flags & TypeFlags.Locus) {
                 return leftType;
             }
         }
@@ -4719,7 +4719,7 @@ namespace ts {
                         case SyntaxKind.ClassDeclaration:
                         case SyntaxKind.InterfaceDeclaration:
                         case SyntaxKind.EnumDeclaration:
-                        case SyntaxKind.BrandTypeDeclaration:
+                        case SyntaxKind.LocusTypeDeclaration:
                             return declaration;
                     }
                 }
@@ -4820,19 +4820,19 @@ namespace ts {
         }
 
         // [ConcreteTypeScript]
-        function createIntermediateFlowType(firstBindingSite:Node, startingType: Type, targetType?: Type, declareTypeNode?:DeclareTypeNode) {
+        function createIntermediateFlowType(firstBindingSite:Node, startingType: Type, targetType?: Type, declareTypeNode?:LocusTypeNode) {
             let type = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
             let flowTypes:FlowType[] = [{type: startingType, firstBindingSite}];
             let memberSet:FlowMemberSet = {};
             // For this-param Declare with an associated prototype-type:
-            var prototypeSymbol = targetType && unconcrete(targetType).flags & TypeFlags.Declare ? 
+            var prototypeSymbol = targetType && unconcrete(targetType).flags & TypeFlags.Locus ? 
                 getPrototypeSymbolOfType(<InterfaceType>targetType)
                 : null;
             if (prototypeSymbol) {
                 flowTypes.push({ type: getTypeOfSymbol(prototypeSymbol), firstBindingSite});
             }
             // For this-param Declare with an associated extends clause:
-            let declTypeNode = getDeclareTypeNode(unconcrete(targetType));
+            let declTypeNode = getLocusTypeNode(unconcrete(targetType));
             if (declTypeNode) {
                 let clause = getHeritageClauseOfType(declareTypeNode);
                 if (clause && clause.types) {
@@ -4872,9 +4872,9 @@ namespace ts {
                     startingType = getTypeFromTypeNode(node.startingType);
                 }
                 let targetType:Type  = getTypeFromTypeNode(node.endingType);
-                if (node.endingType.kind === SyntaxKind.DeclareType) {
+                if (node.endingType.kind === SyntaxKind.LocusType) {
 
-                    let extendedTypes = getDeclareTypeBaseTypeNodes(<DeclareTypeNode> node.endingType).map(getTypeFromTypeNode);
+                    let extendedTypes = getLocusTypeBaseTypeNodes(<LocusTypeNode> node.endingType).map(getTypeFromTypeNode);
                     if (extendedTypes.length > 0) {
                         if (startingType === emptyObjectType) {
                             startingType = extendedTypes[0];
@@ -4890,7 +4890,7 @@ namespace ts {
 
         // [ConcreteTypeScript]
         // May be the 'this' pseudo-variable.
-        function getVariableNameFromDeclareTypeNode(node: DeclareTypeNode): Node {
+        function getVariableNameFromLocusTypeNode(node: LocusTypeNode): Node {
             switch (node.parent.kind) {
                 case SyntaxKind.ThisParameter:
                 case SyntaxKind.VariableDeclaration:
@@ -4899,7 +4899,7 @@ namespace ts {
             }
         }
 
-        function getTypeFromDeclareTypeNode(node: DeclareTypeNode, declareType?: Type): Type {
+        function getTypeFromLocusTypeNode(node: LocusTypeNode, declareType?: Type): Type {
             let links = getNodeLinks(node);
             if (!links.resolvedType) {
                 // Resolve like we resolve becomes-types:
@@ -5191,8 +5191,8 @@ namespace ts {
                     return undefinedType;
                 case SyntaxKind.BecomesType:
                     return getTypeFromBecomesTypeNode(<BecomesTypeNode>node);
-                case SyntaxKind.DeclareType:
-                    return getTypeFromDeclareTypeNode(<DeclareTypeNode>node);
+                case SyntaxKind.LocusType:
+                    return getTypeFromLocusTypeNode(<LocusTypeNode>node);
                     // [/ConcreteTypeScript]
                 case SyntaxKind.BooleanKeyword:
                     return booleanType;
@@ -5962,7 +5962,7 @@ namespace ts {
                 // [ConcreteTypeScript]
                 // TODO Make a test case for this and reevaluate if its needed
                 // We enforce that classes are only related if specified as such
-                if (result && target.flags & (TypeFlags.Class | TypeFlags.Declare) && source.flags & (TypeFlags.Class | TypeFlags.Declare)) {
+                if (result && target.flags & (TypeFlags.Class | TypeFlags.Locus) && source.flags & (TypeFlags.Class | TypeFlags.Locus)) {
                     if (hasBaseType(<InterfaceType> source, <InterfaceType> target)) {
                         result = Ternary.True;
                     } else {
@@ -8917,7 +8917,7 @@ namespace ts {
             }
             // An instance property must be accessed through an instance of the enclosing class
             // TODO: why is the first part of this check here?
-            if (!(getTargetType(type).flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Declare) && hasBaseType(<InterfaceType>type, enclosingClass))) {
+            if (!(getTargetType(type).flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Locus) && hasBaseType(<InterfaceType>type, enclosingClass))) {
                 error(node, Diagnostics.Property_0_is_protected_and_only_accessible_through_an_instance_of_class_1, symbolToString(prop), typeToString(enclosingClass));
                 return false;
             }
@@ -9073,7 +9073,7 @@ namespace ts {
                 return getPropertyProtectionClass(type, member);
             } else if (type.flags & TypeFlags.Anonymous) {
                 return getPropertyProtectionAnonymous(type, member);
-            } else if (type.flags & TypeFlags.Declare) {
+            } else if (type.flags & TypeFlags.Locus) {
                 return getPropertyProtectionDeclare(<InterfaceType>type, member);
             }
             return ProtectionFlags.None;
@@ -9119,7 +9119,7 @@ namespace ts {
             let propType = getTypeOfSymbol(prop);
             if (prop.flags & SymbolFlags.Prototype) {
                 // TODO starting type
-                propType = createIntermediateFlowType(node, emptyObjectType, propType, <DeclareTypeNode> prop.valueDeclaration);
+                propType = createIntermediateFlowType(node, emptyObjectType, propType, <LocusTypeNode> prop.valueDeclaration);
                 propType = getFlowTypeAtLocation(node, propType);
             } 
 
@@ -10542,7 +10542,7 @@ namespace ts {
             let targetType = getTypeFromTypeNode(node.type);
             if (produceDiagnostics && targetType !== unknownType) {
                 let widenedType = getWidenedType(exprType);
-                let brandExemption = (exprType.flags & TypeFlags.Declare) || (targetType.flags & TypeFlags.Declare);
+                let brandExemption = (exprType.flags & TypeFlags.Locus) || (targetType.flags & TypeFlags.Locus);
                 if (!brandExemption && !isTypeAssignableTo(targetType, widenedType)) {
                     checkTypeAssignableTo(exprType, targetType, node, Diagnostics.Neither_type_0_nor_type_1_is_assignable_to_the_other);
                 }
@@ -11723,7 +11723,7 @@ namespace ts {
                 type = instantiateTypeWithSingleGenericCallSignature(<Expression>node, uninstantiatedType, contextualMapper);
             }
 
-            if (isConstEnumObjectType(type) /*ConcreteTypeScript*/ && !(type.symbol.flags & SymbolFlags.Declare) ) {
+            if (isConstEnumObjectType(type) /*ConcreteTypeScript*/ && !(type.symbol.flags & SymbolFlags.Locus) ) {
                 // enum object type for const enums are only permitted in:
                 // - 'left' in property access
                 // - 'object' in indexed access
@@ -12656,7 +12656,7 @@ namespace ts {
                             ? SymbolFlags.ExportNamespace | SymbolFlags.ExportValue
                             : SymbolFlags.ExportNamespace;
                     case SyntaxKind.ClassDeclaration:
-                    case SyntaxKind.BrandTypeDeclaration:
+                    case SyntaxKind.LocusTypeDeclaration:
                     case SyntaxKind.EnumDeclaration:
                         return SymbolFlags.ExportType | SymbolFlags.ExportValue;
                     case SyntaxKind.ImportEqualsDeclaration:
@@ -14249,7 +14249,7 @@ namespace ts {
                         let t = getTypeFromTypeNode(typeRefNode);
                         if (t !== unknownType) {
                             let declaredType = (t.flags & TypeFlags.Reference) ? (<TypeReference>t).target : t;
-                            if (declaredType.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Declare)) {
+                            if (declaredType.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Locus)) {
                                 checkTypeAssignableTo(type, t, node.name || node, Diagnostics.Class_0_incorrectly_implements_interface_1);
                             }
                             else {
@@ -14496,12 +14496,12 @@ namespace ts {
         }
 
         // [ConcreteTypeScript] 
-        function checkDeclareTypeDeclaration(node: DeclareTypeDeclaration) {
+        function checkLocusTypeDeclaration(node: LocusTypeDeclaration) {
             if (produceDiagnostics) {
                 checkTypeNameIsReserved(node.name, Diagnostics.Interface_name_cannot_be_0);
             }
 
-            forEach(getDeclareTypeBaseTypeNodes(node), heritageElement => {
+            forEach(getLocusTypeBaseTypeNodes(node), heritageElement => {
                 if (!isSupportedExpressionWithTypeArguments(heritageElement)) {
                     error(heritageElement.expression, Diagnostics.An_interface_can_only_extend_an_identifier_Slashqualified_name_with_optional_type_arguments);
                 }
@@ -15593,7 +15593,7 @@ namespace ts {
                 case SyntaxKind.TypeParameter:
                 case SyntaxKind.ClassDeclaration:
                 case SyntaxKind.InterfaceDeclaration:
-                case SyntaxKind.BrandTypeDeclaration:
+                case SyntaxKind.LocusTypeDeclaration:
                 case SyntaxKind.TypeAliasDeclaration:
                 case SyntaxKind.EnumDeclaration:
                     return true;
@@ -15821,19 +15821,19 @@ namespace ts {
             return ret;
         }
         // [ConcreteTypeScript]
-        function getBrandInterface(target): DeclareTypeNode {
-            return target.symbol && <DeclareTypeNode> getSymbolDecl(target.symbol, ts.SyntaxKind.DeclareTypeDeclaration);
+        function getBrandInterface(target): LocusTypeNode {
+            return target.symbol && <LocusTypeNode> getSymbolDecl(target.symbol, ts.SyntaxKind.LocusTypeDeclaration);
         }
         // [ConcreteTypeScript]
-        function getDeclareTypeNode(target: Type): DeclareTypeNode {
-            return target.symbol && <DeclareTypeNode> getSymbolDecl(target.symbol, ts.SyntaxKind.DeclareType);
+        function getLocusTypeNode(target: Type): LocusTypeNode {
+            return target.symbol && <LocusTypeNode> getSymbolDecl(target.symbol, ts.SyntaxKind.LocusType);
         }
         // [ConcreteTypeScript]
-        function isFreshDeclareType(target) {
+        function isFreshLocusType(target) {
             // Remove concreteness to see declarations properly:
             target = unconcrete(target);
-            // The target type is fresh if it is is a DeclareTypeNode that does not refer to a brand interface.
-            return !getBrandInterface(target) && getDeclareTypeNode(target);
+            // The target type is fresh if it is is a LocusTypeNode that does not refer to a brand interface.
+            return !getBrandInterface(target) && getLocusTypeNode(target);
         }
         // [ConcreteTypeScript]
         function isIntermediateFlowTypeSubtypeOfTarget(type:IntermediateFlowType): boolean {
@@ -15844,7 +15844,7 @@ namespace ts {
             // of our target type if members are bound to subsets of their types 
             // at the end of the function.
             // We treat this case specially to avoid calling getPropertyOfType in a cycle.
-            if (isFreshDeclareType(type.targetType)) {
+            if (isFreshLocusType(type.targetType)) {
                 // Path 1: Member-capturing becomes through 'declare MyType'
                 let {flowData} = type;
                 let target = unconcrete(type.targetType);
@@ -17694,7 +17694,7 @@ namespace ts {
             }
         }
         function flowDataBecomesType(contextNode:Node, flowData:FlowData, targetType:Type): FlowData {
-            Debug.assert((unconcrete(targetType).flags & (TypeFlags.Interface | TypeFlags.Declare)) !== 0);
+            Debug.assert((unconcrete(targetType).flags & (TypeFlags.Interface | TypeFlags.Locus)) !== 0);
             for (let {type} of flowData.flowTypes) {
                 if (isTypeSubtypeOf(type, targetType)) {
                     // No need to do anything if we are already a supertype of the type we are becoming:
@@ -17972,14 +17972,14 @@ namespace ts {
         }
         type ReferenceDecider = (node:Node) => boolean;
 
-        function getDeclareTypeName(type: Type): Identifier {
+        function getLocusTypeName(type: Type): Identifier {
             return <Identifier> type.symbol.declarations[0].name;
         }
 
         function getTempProtectVar(scope: Node, type: Type, member: string) {
             let text = 'anonymous';
-            if (getDeclareTypeName(type)) {
-                text = `${getDeclareTypeName(type).text}_${type.id}`;
+            if (getLocusTypeName(type)) {
+                text = `${getLocusTypeName(type).text}_${type.id}`;
             }
             return getTempVar(scope, text, member);
         }
@@ -17995,8 +17995,8 @@ namespace ts {
             return getTempVar(sourceFile, 'types', `${id}`);
         }
 
-        function getFunctionDeclarationForDeclareType(type: InterfaceType) {
-            let node:Node = getDeclareTypeNode(type);
+        function getFunctionDeclarationForLocusType(type: InterfaceType) {
+            let node:Node = getLocusTypeNode(type);
             while (node && !isFunctionLike(node)) {
                 node = node.parent;
             }
@@ -18010,27 +18010,27 @@ namespace ts {
             return !!(type.symbol.flags & SymbolFlags.Prototype);
         }
 
-        function getScopeContainerAndIdentifierForDeclareType(type: InterfaceType): [Node, Node] {
+        function getScopeContainerAndIdentifierForLocusType(type: InterfaceType): [Node, Node] {
             if (isPrototypeType(type)) {
-                let funcDecl = getFunctionDeclarationForDeclareType(type.symbol.classType);//getTypeOfSymbol(type.symbol.parent));
+                let funcDecl = getFunctionDeclarationForLocusType(type.symbol.classType);//getTypeOfSymbol(type.symbol.parent));
                 Debug.assert(!!funcDecl)
                 if (!funcDecl) {
                     return [null, null];
                 }
                 return [funcDecl.parent, funcDecl.name];
             } else {
-                let name = getVariableNameFromDeclareTypeNode(getDeclareTypeNode(type));
-                return [getModuleOrSourceFileOrFunction(getDeclareTypeNode(type)), name];
+                let name = getVariableNameFromLocusTypeNode(getLocusTypeNode(type));
+                return [getModuleOrSourceFileOrFunction(getLocusTypeNode(type)), name];
             }
         }
 
-        function getFlowDataForDeclareType(type: LocusType):FlowData {
+        function getFlowDataForLocusType(type: LocusType):FlowData {
             // If ignoredLocusTypeStack.length > 0, we recompute types
             // TODO only recompute if used ignored types
             if (!type.flowData || ignoredLocusTypeStack.length > 0) {
-                var [containerScope, identifier] = getScopeContainerAndIdentifierForDeclareType(type);
+                var [containerScope, identifier] = getScopeContainerAndIdentifierForLocusType(type);
                 Debug.assert(!!containerScope);
-                let flowType = getTypeFromDeclareTypeNode(getDeclareTypeNode(type), type);
+                let flowType = getTypeFromLocusTypeNode(getLocusTypeNode(type), type);
                 return computeFlowData(containerScope, isReference, flowType);
             }
             Debug.assert(!!type.flowData);
@@ -18069,14 +18069,14 @@ namespace ts {
             if (type.flags & TypeFlags.IntermediateFlow) {
                 return (<IntermediateFlowType> type).flowData;
             }
-            if (type.flags & TypeFlags.Declare) {
+            if (type.flags & TypeFlags.Locus) {
                 // TODO add to type
-                let brandInterfaceDeclaration = getSymbolDecl(type.symbol, SyntaxKind.DeclareTypeDeclaration);
+                let brandInterfaceDeclaration = getSymbolDecl(type.symbol, SyntaxKind.LocusTypeDeclaration);
                 if (brandInterfaceDeclaration) {
                     // This was defined using a 'brand interface' declaration. There should be no associated flow data.
                     return undefined;
                 }
-                return getFlowDataForDeclareType(<LocusType>type);
+                return getFlowDataForLocusType(<LocusType>type);
             }
             return undefined;
         }
@@ -18088,19 +18088,22 @@ namespace ts {
         // known from standard TypeScript type inference.
         function getFlowContextualType(type: Type): Type {
             let locusType = unboxLocusType(type);
-            if (locusType && resolvingLocusTypeStack.indexOf(locusType) > -1) {
-                pushIgnoredLocusType(resolvingLocusTypeStack[resolvingLocusTypeStack.length - 1]);
+            if (locusType && resolvingLocusTypeStack.indexOf(locusType) > -1 && getResolvingLocusType() !== type) {
+                pushIgnoredLocusType(getResolvingLocusType());
                 let tempFlowType = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
-                tempFlowType.flowData = getFlowDataForDeclareType(locusType);
+                tempFlowType.flowData = getFlowDataForLocusType(locusType);
                 popIgnoredLocusType();
                 return tempFlowType;
             }
-            if (locusType && ignoredLocusTypeStack.indexOf(locusType) > -1) {
-                let identifier = getVariableNameFromDeclareTypeNode(<DeclareTypeNode>type.symbol.declarations[0]);
+            if (locusType && (ignoredLocusTypeStack.indexOf(locusType) > -1 || getResolvingLocusType() === type)) {
+                let identifier = getVariableNameFromLocusTypeNode(<LocusTypeNode>type.symbol.declarations[0]);
                 Debug.assert(identifier.kind === SyntaxKind.Identifier);
                 return getTypeOfNode(identifier, /* Don't invoke flow analysis: */ true);
             }
             return type;
+        }
+        function getResolvingLocusType() {
+            return resolvingLocusTypeStack[resolvingLocusTypeStack.length - 1];
         }
         function pushIgnoredLocusType(type: LocusType) {
             ignoredLocusTypeStack.push(type);
@@ -18121,7 +18124,7 @@ namespace ts {
 
         function unboxLocusType(targetType: Type) {
             targetType = unconcrete(targetType);
-            if (targetType.flags & TypeFlags.Declare) {
+            if (targetType.flags & TypeFlags.Locus) {
                 return <LocusType> targetType;
             }
             return null;
@@ -18130,12 +18133,12 @@ namespace ts {
         // Temporal logic for becomes-types.
         //function computeFlowDataOverScope({targetType, flowData, declareTypeNode}: IntermediateFlowType, containerScope: Node, isReference: ReferenceDecider) {
 //            // Get the type, be careful not to trigger a loop:
-//            if (unconcrete(targetType).flags & TypeFlags.Declare && !isPrototypeType(unconcrete(targetType))) {
-//                let prototypeSymbol = getPrototypeSymbolOfType(targetDeclareType);
+//            if (unconcrete(targetType).flags & TypeFlags.Locus && !isPrototypeType(unconcrete(targetType))) {
+//                let prototypeSymbol = getPrototypeSymbolOfType(targetLocusType);
 //                if (prototypeSymbol) {
 //                    Debug.assert(!!(prototypeSymbol.flags & SymbolFlags.Prototype));
 //                    // Bug fix: Ensure we always resolve the prototype object first.
-//                    getFlowDataForDeclareType(<InterfaceType> unconcrete(getTypeOfPrototypeProperty(prototypeSymbol)));
+//                    getFlowDataForLocusType(<InterfaceType> unconcrete(getTypeOfPrototypeProperty(prototypeSymbol)));
 //                }
 //            }
 
@@ -18231,10 +18234,10 @@ namespace ts {
                     }
                     let guardVariable = getTempProtectVar(scope, unboxLocusType(targetType), member);
                     let brandGuardVariable = getTempProtectVar(scope, unboxLocusType(targetType), '$$BRAND$$GUARD');
-                    // Creating closures is not ideal for performance but we cannot reason about the targetDeclareType
+                    // Creating closures is not ideal for performance but we cannot reason about the targetLocusType
                     // until this function ends so it's convenient.
                     function isTypeComplete(): boolean {
-                        if (!getDeclareTypeName(unboxLocusType(targetType))) {
+                        if (!getLocusTypeName(unboxLocusType(targetType))) {
                             return false;
                         }
                         let tempFlowType = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
@@ -18244,7 +18247,7 @@ namespace ts {
                     }
                     let bindingData = {
                         left, member, right, type: (isWeakConcreteType(type) ? null : type), 
-                        targetDeclareType: unboxLocusType(targetType), isTypeComplete, guardVariable, brandGuardVariable,
+                        targetLocusType: unboxLocusType(targetType), isTypeComplete, guardVariable, brandGuardVariable,
                         typeVar: getTempTypeVar(getSourceFileOfNode(scope), type)
                     };
                     if (right && isFunctionLike(right)) {
@@ -18261,7 +18264,7 @@ namespace ts {
             }            
             // Where:
             function getTargetTypeForMember(member:string): Type {
-                if (isFreshDeclareType(targetType)) {
+                if (isFreshLocusType(targetType)) {
                     // For a fresh type definition (ie, a standard declare), accept all members.
                     return null;
                 } 

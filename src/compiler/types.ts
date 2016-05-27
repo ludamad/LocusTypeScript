@@ -1,28 +1,27 @@
 namespace ts {
 
     // [ConcreteTypeScript]
-    export interface BecomesOrDeclareTypeNode extends TypeNode {
+    export interface BecomesOrLocusTypeNode extends TypeNode {
         startingType?: TypeNode; // The empty object type by default
     }
 
-    export interface BecomesTypeNode extends BecomesOrDeclareTypeNode {
+    export interface BecomesTypeNode extends BecomesOrLocusTypeNode {
         endingType: TypeNode;
     }
 
-    export interface DeclareTypeDeclaration extends Declaration, Statement {
+    export interface LocusTypeDeclaration extends Declaration, Statement {
         name: Identifier;
         // If eg 'extends Foo' was used
         heritageClauses: NodeArray<HeritageClause>;
         // If our node is a .prototype declare-type, then we 
-        // will have an enclosingDeclareSymbol
-        enclosingDeclareSymbol: Symbol;
+        // will have an enclosingLocusSymbol
+        enclosingLocusSymbol: Symbol;
         members?: NodeArray<Declaration>;
     }
 
     // Both a Declaration and a TypeNode
-    export interface DeclareTypeNode extends BecomesOrDeclareTypeNode, DeclareTypeDeclaration {
+    export interface LocusTypeNode extends BecomesOrLocusTypeNode, LocusTypeDeclaration {
         // REFACTORING: The fields below are for the old separate-pass flow type binder
-
         scope: Node;
         // Set in checkerHelper.ts, null if a prototype-inferred brand
         varOrParamDeclaration?: VariableLikeDeclaration|ParameterDeclaration|ThisParameterDeclaration;
@@ -31,13 +30,13 @@ namespace ts {
         extendedTypeResolved?: Type;
         // If the 'this' type of a function
         functionDeclaration?: FunctionLikeDeclaration;
-        prototypeBrandDeclaration?: DeclareTypeNode;
+        prototypeBrandDeclaration?: LocusTypeNode;
     }
 
     // We resolve the type of a brand property based on
     // the assignments in its declaration site.
     export interface BrandPropertyDeclaration extends PropertyDeclaration {
-        brandTypeDeclaration: DeclareTypeNode;
+        locusTypeDeclaration: LocusTypeNode;
         // Set in checkerHelper.ts during binder.ts
         // bindingAssignments?: FlowTypeAnalysis;
         // Set in checker.ts
@@ -70,14 +69,13 @@ namespace ts {
         // [ConcreteTypeScript]
         BecomesKeyword, // [ConcreteTypeScript]
         BrandKeyword, // [ConcreteTypeScript]
-        DeclareTypeDeclaration, // [ConcreteTypeScript]
         DeclaredAsKeyword, // [ConcreteTypeScript]
         FloatNumberKeyword,   // [ConcreteTypeScript]
         LikeKeyword,          // [ConcreteTypeScript]
         IntNumberKeyword,     // [ConcreteTypeScript]
         BecomesType, // [ConcreteTypeScript]
-        DeclareType, // [ConcreteTypeScript]
-        BrandTypeDeclaration, // [ConcreteTypeScript]
+        LocusType, // [ConcreteTypeScript]
+        LocusTypeDeclaration, // [ConcreteTypeScript]
         BrandPropertyDeclaration, // [ConcreteTypeScript]
         // [/ConcreteTypeScript]
         Unknown,
@@ -524,7 +522,7 @@ namespace ts {
         left: Node;
         member: string;
         right?: Node;
-        targetDeclareType: Type;
+        targetLocusType: Type;
         // If no type is provided, this is a cement operation. Otherwise, a protect.
         type?: Type;
         isTypeComplete: () => boolean;
@@ -762,7 +760,7 @@ namespace ts {
         specifiedConcrete: boolean; // [ConcreteTypeScript]
         isConcrete: boolean; // [ConcreteTypeScript]
         _typeNodeBrand: any;
-        brandTypeDeclaration?: DeclareTypeNode;
+        locusTypeDeclaration?: LocusTypeNode;
     }
 
     export interface FunctionOrConstructorTypeNode extends TypeNode, SignatureDeclaration {
@@ -946,7 +944,7 @@ namespace ts {
         // same scope, we collect a relevant list of expressions for determining
         // the narrowed type of the expression.
         useProtoBrand?: boolean;
-        brandTypeDecl?:DeclareTypeNode;
+        locusTypeDecl?:LocusTypeNode;
     }
 
     export interface ElementAccessExpression extends MemberExpression {
@@ -1783,7 +1781,7 @@ namespace ts {
         Function                = 0x00000010,  // Function
         Class                   = 0x00000020,  // Class
         // [ConcreteTypeScript]
-        Declare                  = 0x80000000,  // Declare
+        Locus                  = 0x80000000,  // Locus
         // [/ConcreteTypeScript]
         Interface               = 0x00000040,  // Interface
         ConstEnum               = 0x00000080,  // Const enum
@@ -1814,8 +1812,8 @@ namespace ts {
         Enum = RegularEnum | ConstEnum,
         Variable = FunctionScopedVariable | BlockScopedVariable,
         Value = Variable | Property | EnumMember | Function | Class |  Enum | ValueModule | Method | GetAccessor | SetAccessor,
-        Type = Class | Declare |  Interface | Enum | TypeLiteral | ObjectLiteral | TypeParameter | TypeAlias,
-        Namespace = ValueModule | NamespaceModule | Declare,
+        Type = Class | Locus |  Interface | Enum | TypeLiteral | ObjectLiteral | TypeParameter | TypeAlias,
+        Namespace = ValueModule | NamespaceModule | Locus,
         Module = ValueModule | NamespaceModule,
         Accessor = GetAccessor | SetAccessor,
 
@@ -1835,7 +1833,7 @@ namespace ts {
         InterfaceExcludes = Type & ~(Interface | Class),
         RegularEnumExcludes = (Value | Type) & ~(RegularEnum | ValueModule), // regular enums merge only with regular enums and modules
         ConstEnumExcludes = (Value | Type) & ~ConstEnum, // const enums merge only with const enums
-        ValueModuleExcludes = Value & ~(Function | Class | Declare |  RegularEnum | ValueModule),
+        ValueModuleExcludes = Value & ~(Function | Class | Locus |  RegularEnum | ValueModule),
         NamespaceModuleExcludes = 0,
         MethodExcludes = Value & ~Method,
         GetAccessorExcludes = Value & ~SetAccessor,
@@ -1844,14 +1842,14 @@ namespace ts {
         TypeAliasExcludes = Type,
         AliasExcludes = Alias,
 
-        ModuleMember = Variable | Function | Class | Declare | Interface | Enum | Module | TypeAlias | Alias,
+        ModuleMember = Variable | Function | Class | Locus | Interface | Enum | Module | TypeAlias | Alias,
 
-        ExportHasLocal = Function | Class | Declare | Enum | ValueModule,
+        ExportHasLocal = Function | Class | Locus | Enum | ValueModule,
 
-        HasExports = Class | Declare | Enum | Module | Function,
-        HasMembers = Class | Declare | Interface | TypeLiteral | ObjectLiteral,
+        HasExports = Class | Locus | Enum | Module | Function,
+        HasMembers = Class | Locus | Interface | TypeLiteral | ObjectLiteral,
 
-        BlockScoped = BlockScopedVariable | Class | Declare |  Enum,
+        BlockScoped = BlockScopedVariable | Class | Locus |  Enum,
 
         PropertyOrAccessor = Property | Accessor,
         Export = ExportNamespace | ExportType | ExportValue,
@@ -1859,9 +1857,8 @@ namespace ts {
         /* @internal */
         // The set of things we consider semantically classifiable.  Used to speed up the LS during
         // classification.
-        Classifiable = Class | Declare |  Enum | TypeAlias | Interface | TypeParameter | Module,
-        BrandTypeExcludes = Type, // [ConcreteTypeScript]
-        DeclareTypeExcludes = Type & ~Declare // [ConcreteTypeScript]
+        Classifiable = Class | Locus |  Enum | TypeAlias | Interface | TypeParameter | Module,
+        LocusTypeExcludes = Type & ~Locus // [ConcreteTypeScript]
     }
 
     export interface Symbol {
@@ -1878,7 +1875,7 @@ namespace ts {
         /* @internal */ parent?: Symbol;        // Parent symbol
         /* @internal */ exportSymbol?: Symbol;  // Exported symbol associated with this symbol
         /* @internal */ constEnumOnlyModule?: boolean; // True if module contains only const enums or other modules with only const enums
-        brandType?: DeclareTypeNode; // [ConcreteTypeScript] set for .prototype properties
+        locusType?: LocusTypeNode; // [ConcreteTypeScript] set for .prototype properties
         classType?: InterfaceType; // [ConcreteTypeScript] set for .prototype properties
         symbolLinks?: SymbolLinks; // HACK: We store SymbolLinks on our symbol, though it was not intended to be used this way. This simplifies type inspection during emit. Never used during type checking.
     }
@@ -1944,8 +1941,8 @@ namespace ts {
         assertFloat?: boolean;        // If set, can assert that this value is always a float instead of generic number
         assertInt?: boolean;          // If set, can assert that this value is always an int instead of generic number
         // Related to flow data/type calculation:
-        brandsToEmitAfterwards?:  DeclareTypeDeclaration[];
-        brandsToEmitAtBeginning?: DeclareTypeDeclaration[]; // Special case for parameter-this
+        brandsToEmitAfterwards?:  LocusTypeDeclaration[];
+        brandsToEmitAtBeginning?: LocusTypeDeclaration[]; // Special case for parameter-this
         // If 'getter' and 'setter' are not present, the field protection is emitted using 'cement', otherwise it is emitted using 'protectAssignment'
         brandProtectionsToEmit?: {getter?: string, setter?: string, expr: Node, field: string}[];
         tempVarsToEmit?: {[member: string]: string};
@@ -2014,7 +2011,7 @@ namespace ts {
         // Flag for the int hint
         IntHint                 = 0x08000000,
         // Object brand, nominal typing stemming from a code location
-        Declare                 = 0x10000000,
+        Locus                 = 0x10000000,
         // For 'becomes' types, holds a 'before' type, the type the object resolves to now, and an 'after' type.
         // 'becomes' declarations are (always?) statically checked (?)
         IntermediateFlow                 = 0x20000000,
@@ -2026,8 +2023,8 @@ namespace ts {
         Primitive = String | Number | Boolean | ESSymbol | Void | Undefined | Null | StringLiteral | Enum,
         StringLike = String | StringLiteral,
         NumberLike = Number | Enum,
-        ObjectType = Class | Declare | Interface | Reference | Tuple | Anonymous | IntermediateFlow,
-        RuntimeCheckable = Intrinsic  | StringLiteral | Class | Declare, // [ConcreteTypeScript] Unconditionally runtime checkable
+        ObjectType = Class | Locus | Interface | Reference | Tuple | Anonymous | IntermediateFlow,
+        RuntimeCheckable = Intrinsic  | StringLiteral | Class | Locus, // [ConcreteTypeScript] Unconditionally runtime checkable
         UnionOrIntersection = Union | Intersection,
         StructuredType = ObjectType | Union | Intersection | IntermediateFlow,
         /* @internal */
@@ -2045,7 +2042,7 @@ namespace ts {
         symbol?: Symbol;                 // Symbol associated with type (if any)
         pattern?: DestructuringPattern;  // Destructuring pattern represented by type (if any)
         concreteType?: ConcreteType;
-        prototypeDeclareType?: Type; // [ConcreteTypeScript] Convenience field for .prototype declare types
+        prototypeLocusType?: Type; // [ConcreteTypeScript] Convenience field for .prototype declare types
         flowRecursivePairs?: Type[];   // [ConcreteTypeScript] Recursively defined Locus types
         emptyFlowType?: boolean;   // [ConcreteTypeScript] Empty flow types must be trearted specially because normally we attach branding actions to type refinement
     }
@@ -2065,7 +2062,7 @@ namespace ts {
     export interface ObjectType extends Type { }
 
     // Class and interface types (TypeFlags.Class and TypeFlags.Interface)
-    // [ConcreteTypeScript] And TypeFlags.Declare
+    // [ConcreteTypeScript] And TypeFlags.Locus
     export interface InterfaceType extends ObjectType {
         typeParameters: TypeParameter[];           // Type parameters (undefined if non-generic)
         outerTypeParameters: TypeParameter[];      // Outer type parameters (undefined if none)
@@ -2079,7 +2076,7 @@ namespace ts {
     export interface LocusType extends InterfaceType {
         _locusType: any;
         // [ConcreteTypeScript]
-        // Locus types are essentially an InterfaceType with TypeFlags.Declare
+        // Locus types are essentially an InterfaceType with TypeFlags.Locus
         // and potentially a computed flowData member (after resolution for implicit declare types)
         flowData?: FlowData;
         // [/ConcreteTypeScript]
@@ -2103,7 +2100,7 @@ namespace ts {
         resolvedProperties?: SymbolTable;
         // Stored if there is an associated declare node.
         // Pragmatically, emit protection will occur in the local context.
-        declareTypeNode?: DeclareTypeNode;
+        declareTypeNode?: LocusTypeNode;
     }
     // [ConcreteTypeScript+Become]
 

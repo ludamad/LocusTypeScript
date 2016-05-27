@@ -49,10 +49,10 @@ namespace ts {
     }
 
     // Used when determinining if a Foo.prototype expression represents a protected declare-type prototype
-    export function getDeclareTypeFromThisParam(param: ThisParameterDeclaration): DeclareTypeNode {
+    export function getLocusTypeFromThisParam(param: ThisParameterDeclaration): LocusTypeNode {
         let typeNode = param.type;
-        if (typeNode.kind === SyntaxKind.DeclareType) {
-            return <DeclareTypeNode> typeNode;
+        if (typeNode.kind === SyntaxKind.LocusType) {
+            return <LocusTypeNode> typeNode;
         }
         return null;
     }
@@ -65,12 +65,12 @@ namespace ts {
         return null;
     }
     
-    export function getDeclareTypeFromFunction(node:Node): DeclareTypeNode {
+    export function getLocusTypeFromFunction(node:Node): LocusTypeNode {
         let thisParam = getThisParamFromFunction(node);
         if (!thisParam) {
             return null;
         }
-        return getDeclareTypeFromThisParam(thisParam);
+        return getLocusTypeFromThisParam(thisParam);
     }
 
     export function getFunctionDeclaration(symbol: Symbol): FunctionLikeDeclaration {
@@ -82,15 +82,15 @@ namespace ts {
         return null;
    }
 
-    export function getBrandTypesInScope(scope:Node):DeclareTypeDeclaration[] {
+    export function getLocusTypesInScope(scope:Node):LocusTypeDeclaration[] {
         var useExports = (scope.symbol && scope.symbol.flags & SymbolFlags.HasExports);
         var symbols:SymbolTable =  (useExports? scope.symbol.exports : scope.locals) || {};
-        var declarations:DeclareTypeDeclaration[] = [];
+        var declarations:LocusTypeDeclaration[] = [];
         for (var symbolName of Object.keys(symbols)) {
-            var brandType = <DeclareTypeDeclaration> getSymbolDecl(symbols[symbolName], SyntaxKind.DeclareType);
-            brandType = brandType || <DeclareTypeDeclaration> getSymbolDecl(symbols[symbolName], SyntaxKind.DeclareTypeDeclaration);
-            if (brandType) {
-                declarations.push(brandType);
+            var locusType = <LocusTypeDeclaration> getSymbolDecl(symbols[symbolName], SyntaxKind.LocusType);
+            locusType = locusType || <LocusTypeDeclaration> getSymbolDecl(symbols[symbolName], SyntaxKind.LocusTypeDeclaration);
+            if (locusType) {
+                declarations.push(locusType);
             }
         }
         return declarations;
@@ -108,12 +108,12 @@ namespace ts {
         return declarations;
     }
 
-    export function getSymbolDeclareTypeDecl(symbol:Symbol): DeclareTypeDeclaration {
-        return <DeclareTypeDeclaration > (getSymbolDecl(symbol, SyntaxKind.DeclareType) || getSymbolDecl(symbol, SyntaxKind.DeclareTypeDeclaration));
+    export function getSymbolLocusTypeDecl(symbol:Symbol): LocusTypeDeclaration {
+        return <LocusTypeDeclaration > (getSymbolDecl(symbol, SyntaxKind.LocusType) || getSymbolDecl(symbol, SyntaxKind.LocusTypeDeclaration));
     }
-    export function getClassOrDeclareBaseType(checker: TypeChecker, type: InterfaceType): Type {
+    export function getClassOrLocusBaseType(checker: TypeChecker, type: InterfaceType): Type {
         for (let baseType of checker.getBaseTypes(type)) {
-            if (baseType.flags & (TypeFlags.Declare | TypeFlags.Class)) {
+            if (baseType.flags & (TypeFlags.Locus | TypeFlags.Class)) {
                 return baseType;
             }
         }
@@ -134,10 +134,10 @@ namespace ts {
         return <FunctionDeclaration[]> getDeclarations(block, isFunctionLikeDeclarationWithThisBrand);
     }
 
-    export function getBrandTypeDeclarations(block:Node):(VariableDeclaration|ThisParameterDeclaration|ParameterDeclaration)[] {
+    export function getLocusTypeDeclarations(block:Node):(VariableDeclaration|ThisParameterDeclaration|ParameterDeclaration)[] {
         let declarations = <(VariableDeclaration|ThisParameterDeclaration|ParameterDeclaration)[]> getDeclarations(block, isBrandDecl);
         if (isFunctionLike(block)) {
-            if (block.parameters.thisParam && block.parameters.thisParam.type && block.parameters.thisParam.type.kind === SyntaxKind.DeclareType) {
+            if (block.parameters.thisParam && block.parameters.thisParam.type && block.parameters.thisParam.type.kind === SyntaxKind.LocusType) {
                 declarations = declarations.concat([block.parameters.thisParam]);
             }
         }
@@ -145,7 +145,7 @@ namespace ts {
         function isBrandDecl(node:Declaration) {
             if (node.kind === SyntaxKind.VariableDeclaration || node.kind == SyntaxKind.Parameter) {
                 var typeNode = (<VariableDeclaration|ParameterDeclaration>node).type;
-                return typeNode && typeNode.kind === SyntaxKind.DeclareType;
+                return typeNode && typeNode.kind === SyntaxKind.LocusType;
             }
             return false;
         };
@@ -288,14 +288,14 @@ namespace ts {
       export function isFunctionLikeDeclarationWithThisBrand(scope:Node): scope is FunctionLikeDeclaration {
           if (isFunctionLike(scope)) {
               let {thisParam} = scope.parameters;
-              return !!(thisParam && thisParam.type.brandTypeDeclaration);
+              return !!(thisParam && thisParam.type.locusTypeDeclaration);
           }
           return false;
       }
 
-      export function isFunctionLikeDeclarationCheckThisBrand(scope:Node, brandTypeDecl: DeclareTypeNode):scope is FunctionLikeDeclaration {
+      export function isFunctionLikeDeclarationCheckThisBrand(scope:Node, locusTypeDecl: LocusTypeNode):scope is FunctionLikeDeclaration {
           if (isFunctionLikeDeclarationWithThisBrand(scope)) {
-              return (<FunctionDeclaration>scope).parameters.thisParam.type.brandTypeDeclaration === brandTypeDecl;
+              return (<FunctionDeclaration>scope).parameters.thisParam.type.locusTypeDeclaration === locusTypeDecl;
           }
           return false;
       }

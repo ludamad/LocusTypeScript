@@ -162,7 +162,7 @@ describe("Calling functions with a declare parameter", () => {
         }
         let typeAfter = checker.getTypeAtLocation(refAfter);
         console.log(checker.typeToString(typeAfter))
-        assert(!!(checker.unconcrete(typeAfter).flags & ts.TypeFlags.Declare), "Should resolve to declare type!");
+        assert(!!(checker.unconcrete(typeAfter).flags & ts.TypeFlags.Locus), "Should resolve to locus type!");
         console.log(checker.getBaseTypes(<any>checker.unconcrete(typeAfter)).map(<any>checker.typeToString))
         assert(checker.getPropertyOfType(typeAfter, "x"), "Does not have 'x' member.");
         assert(checker.getPropertyOfType(typeAfter, "y"), "Does not have 'y' member.");
@@ -193,7 +193,7 @@ describe("Calling functions with a declare parameter", () => {
 // TODO test ensure variable not assignable
 describe("Type relations of ConcreteTypeScript", () => {
 
-    it("DTRTB: test relationships for Declare types related through 'becomes'", () => {
+    it("DTRTB: test relationships for Locus types related through 'becomes'", () => {
         let varName = 'variable';
         let {checker, rootNode} = compileOne(becomesSource(varName));
         let nodes = findWithComment(rootNode, "Member1Ref", ts.isExpression)
@@ -210,19 +210,20 @@ describe("Type relations of ConcreteTypeScript", () => {
     });
 
     it("test relationships for IntermediateFlowType's and their parts", () => {
-        let {checker, declType1, intermType1} = getDeclareTypes(disjointSource);
+        let {checker, declType1, intermType1} = getLocusTypes(disjointSource);
         let targetType1 = (<ts.IntermediateFlowType>intermType1).targetType;
         let startingType1 = (<ts.IntermediateFlowType>intermType1).flowData.flowTypes[0].type;
         let {isTypeIdenticalTo, checkTypeSubtypeOf, checkTypeAssignableTo} = checker;
         assert(checkTypeAssignableTo(intermType1, startingType1, undefined), "Should be assignable to starting type!");
         assert(checkTypeAssignableTo(targetType1, startingType1, undefined), "Should be assignable to starting type!");
         assert(checkTypeAssignableTo(targetType1, intermType1, undefined), "Should be assignable to starting type!");
+        console.log("INTERM " + checker.typeToString(intermType1));
         assert(!checkTypeAssignableTo(startingType1, intermType1, undefined), "Should not be assignable from starting type!");
     });
 
 
-    it("test relationships for disjoint Declare-types", () => {
-        let {checker, declType1, declType2} = getDeclareTypes(disjointSource);
+    it("test relationships for disjoint Locus-types", () => {
+        let {checker, declType1, declType2} = getLocusTypes(disjointSource);
         let {isTypeIdenticalTo, checkTypeSubtypeOf, checkTypeAssignableTo} = checker;
         assert(!isTypeIdenticalTo(declType1, declType2));
         assert(!isTypeIdenticalTo(declType2, declType1));
@@ -233,7 +234,7 @@ describe("Type relations of ConcreteTypeScript", () => {
     });
 
     it("test relationships for 'Decl1 declare Decl2' Declare-types", () => {
-        let {checker, declType1, declType2} = getDeclareTypes(impliedBaseSource);
+        let {checker, declType1, declType2} = getLocusTypes(impliedBaseSource);
         let {getBaseTypes, isTypeIdenticalTo, checkTypeSubtypeOf, checkTypeAssignableTo} = checker;
         console.log("TRIGGERED");
         let [baseType] = getBaseTypes(<ts.InterfaceType> declType2);
@@ -277,7 +278,7 @@ describe("Type relations of ConcreteTypeScript", () => {
             ${varName}2.member = "string";
         `;
     }
-    function getDeclareTypes(source) {
+    function getLocusTypes(source) {
         const varName = "simpleBindingVar";
         let sourceText = source(varName);
         let {rootNode, checker} = compileOne(sourceText);
@@ -301,7 +302,7 @@ describe("Type relations of ConcreteTypeScript", () => {
         function getDeclType(node:ts.Node) {
             let type = getIntermediateType(node);
             let declType = checker.unconcrete((<ts.IntermediateFlowType>type).targetType);
-            assert(!!(declType.flags & ts.TypeFlags.Declare), "getDeclType failure");
+            assert(!!(declType.flags & ts.TypeFlags.Locus), "getDeclType failure");
             return declType;
         }
         function getIntermediateType(node:ts.Node) {
@@ -314,7 +315,7 @@ describe("Type relations of ConcreteTypeScript", () => {
 });
 
 describe("The stages of binding", () => {
-    it("Should test the stages of declare-type binding", () => {
+    it("Should test the stages of locus-type binding", () => {
         testBindingStages(/*Do not use becomes*/ false);
     });
 
@@ -349,7 +350,7 @@ describe("The stages of binding", () => {
             if (useBecomes) {
                 assert(targetTypeNode.kind === ts.SyntaxKind.BecomesType, "Should resolve to becomes type");
             } else {
-                assert(targetTypeNode.kind === ts.SyntaxKind.DeclareType, "Should resolve to declare type");
+                assert(targetTypeNode.kind === ts.SyntaxKind.LocusType, "Should resolve to locus type");
             }
             let intermediateType = checker.getTypeFromTypeNode(targetTypeNode);
             console.log(checker.typeToString(intermediateType))
@@ -382,7 +383,7 @@ describe("The stages of binding", () => {
         function assertHasXAndY() {
             let targetType = getTargetType();
             if (!useBecomes) {
-                assert(checker.unconcrete(targetType).flags & ts.TypeFlags.Declare, "Resulting type should have Declare");
+                assert(checker.unconcrete(targetType).flags & ts.TypeFlags.Locus, "Resulting type should have Locus");
             }
             assert(checker.getPropertyOfType(targetType, "x"), "Target type should have 'x' attribute");
             assert(checker.getPropertyOfType(targetType, "y"), "Target type should have 'y' attribute");

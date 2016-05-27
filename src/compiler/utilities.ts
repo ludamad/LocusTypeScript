@@ -1305,7 +1305,7 @@ namespace ts {
     }
 
     // [/ConcreteTypeScript]
-    export function getDeclareTypeBaseTypeNodes(node: DeclareTypeDeclaration) {
+    export function getLocusTypeBaseTypeNodes(node: LocusTypeDeclaration) {
         let heritageClause = getHeritageClause(node.heritageClauses, SyntaxKind.ExtendsKeyword);
         return heritageClause ? heritageClause.types : undefined;
     }

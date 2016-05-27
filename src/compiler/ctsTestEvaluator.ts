@@ -254,8 +254,8 @@ namespace ts {
         let typeSymbol = checker.resolveName(node, typeName, SymbolFlags.Type, null, typeName);
         var type = checker.getDeclaredTypeOfSymbol(typeSymbol);
         // Special case .prototype:
-        if (right === "prototype" && getSymbolDecl(typeSymbol, SyntaxKind.BrandTypeDeclaration)) {
-            let decl = <DeclareTypeNode> getSymbolDecl(typeSymbol, SyntaxKind.BrandTypeDeclaration);
+        if (right === "prototype" && getSymbolDecl(typeSymbol, SyntaxKind.LocusTypeDeclaration)) {
+            let decl = <LocusTypeNode> getSymbolDecl(typeSymbol, SyntaxKind.LocusTypeDeclaration);
             type = checker.getDeclaredTypeOfSymbol(decl.prototypeBrandDeclaration.symbol);
         }
         if (isConcrete) {
