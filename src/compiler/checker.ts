@@ -3343,7 +3343,9 @@ namespace ts {
                 /* On first occurrence */
                 let declareTypeDecl = getSymbolLocusTypeDecl(symbol);
                 Debug.assert(!!declareTypeDecl, "Not a LocusTypeDeclaration!");
-                links.declaredType = <InterfaceType>createObjectType(TypeFlags.Locus, symbol);
+                let locusType = <LocusType>createObjectType(TypeFlags.Locus, symbol);
+                locusType.declareTypeNode = locusType;
+                links.declaredType = locusType;
             }
             return <InterfaceType>links.declaredType;
         }
