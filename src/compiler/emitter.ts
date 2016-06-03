@@ -7567,7 +7567,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 }
             }
             function emitProtectionAssignmentInstead(node: Node): boolean {
-                if (DISABLE_PROTECTED_MEMBERS || !node.nodeLinks.bindingsAfter) {
+                if (DISABLE_PROTECTED_MEMBERS || !node.nodeLinks.bindingInline) {
                     return false;
                 }
                 emitProtectionAssignment(node.nodeLinks.bindingInline);

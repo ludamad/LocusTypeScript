@@ -3341,10 +3341,10 @@ namespace ts {
             if (!links.declaredType) {
                 // TODO set the declaredProperties somewhere else
                 /* On first occurrence */
-                let declareTypeDecl = getSymbolLocusTypeDecl(symbol);
-                Debug.assert(!!declareTypeDecl, "Not a LocusTypeDeclaration!");
+                let locusTypeDecl = getSymbolLocusTypeDecl(symbol);
+                Debug.assert(!!locusTypeDecl, "Not a LocusTypeDeclaration!");
                 let locusType = <LocusType>createObjectType(TypeFlags.Locus, symbol);
-                locusType.declareTypeNode = locusType;
+                locusType.declaration = locusTypeDecl;
                 links.declaredType = locusType;
             }
             return <InterfaceType>links.declaredType;
@@ -4822,7 +4822,7 @@ namespace ts {
         }
 
         // [ConcreteTypeScript]
-        function createIntermediateFlowType(firstBindingSite:Node, startingType: Type, targetType?: Type, declareTypeNode?:LocusTypeNode) {
+        function createIntermediateFlowType(firstBindingSite:Node, startingType: Type, targetType?: Type, locusTypeNode?:LocusTypeNode) {
             let type = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
             let flowTypes:FlowType[] = [{type: startingType, firstBindingSite}];
             let memberSet:FlowMemberSet = {};
@@ -4836,7 +4836,7 @@ namespace ts {
             // For this-param Declare with an associated extends clause:
             let declTypeNode = getLocusTypeNode(unconcrete(targetType));
             if (declTypeNode) {
-                let clause = getHeritageClauseOfType(declareTypeNode);
+                let clause = getHeritageClauseOfType(locusTypeNode);
                 if (clause && clause.types) {
                     for (let typeNode of clause.types) {
                         flowTypes.push({type: getTypeFromTypeNode(typeNode), firstBindingSite: clause});
@@ -4847,7 +4847,7 @@ namespace ts {
             type.flowData = {flowTypes, memberSet};
             type.targetType = targetType;
             // Clearly marks this as a node computing members captured in some type:
-            type.declareTypeNode = declareTypeNode;
+            type.locusTypeNode = locusTypeNode;
             return type;
         }
         // [/ConcreteTypeScript]
@@ -4901,12 +4901,12 @@ namespace ts {
             }
         }
 
-        function getTypeFromLocusTypeNode(node: LocusTypeNode, declareType?: Type): Type {
+        function getTypeFromLocusTypeNode(node: LocusTypeNode, locusType?: Type): Type {
             let links = getNodeLinks(node);
             if (!links.resolvedType) {
                 // Resolve like we resolve becomes-types:
                 let startingType = node.startingType ? getTypeFromTypeNode(node.startingType) : emptyObjectType;
-                let targetType = declareType || getDeclaredTypeOfSymbol(node.symbol);
+                let targetType = locusType || getDeclaredTypeOfSymbol(node.symbol);
                 Debug.assert(!isTypeAny(startingType));
                 Debug.assert(!isTypeAny(targetType));
                 links.resolvedType = createIntermediateFlowType(node, startingType, createConcreteType(targetType), node);
@@ -9005,7 +9005,7 @@ namespace ts {
         // [ConcreteTypeScript]
         function getPropertyProtectionIntermediateFlow(type: IntermediateFlowType, member: string): ProtectionFlags {
             let targetType = (<IntermediateFlowType>type).targetType;
-            if ((<IntermediateFlowType>type).declareTypeNode) {
+            if ((<IntermediateFlowType>type).locusTypeNode) {
                 let flowData = getFlowDataForType(type);
                 let memberData = getProperty(flowData.memberSet, member);
                 if (memberData) {
@@ -15973,7 +15973,7 @@ namespace ts {
                 }
                 let intermediateFlowType = <IntermediateFlowType> createObjectType(TypeFlags.IntermediateFlow);
                 intermediateFlowType.targetType = (<IntermediateFlowType> type).targetType;
-                intermediateFlowType.declareTypeNode = (<IntermediateFlowType> type).declareTypeNode;
+                intermediateFlowType.locusTypeNode = (<IntermediateFlowType> type).locusTypeNode;
                 intermediateFlowType.flowData = currentFlowData;
                 return intermediateFlowType;
 //            } else if (currentFlowData) {
@@ -18133,7 +18133,7 @@ namespace ts {
         }
 
         // Temporal logic for becomes-types.
-        //function computeFlowDataOverScope({targetType, flowData, declareTypeNode}: IntermediateFlowType, containerScope: Node, isReference: ReferenceDecider) {
+        //function computeFlowDataOverScope({targetType, flowData, locusTypeNode}: IntermediateFlowType, containerScope: Node, isReference: ReferenceDecider) {
 //            // Get the type, be careful not to trigger a loop:
 //            if (unconcrete(targetType).flags & TypeFlags.Locus && !isPrototypeType(unconcrete(targetType))) {
 //                let prototypeSymbol = getPrototypeSymbolOfType(targetLocusType);
@@ -18175,15 +18175,19 @@ namespace ts {
             if (!(type.flags & TypeFlags.IntermediateFlow)) {
                 return null;
             }
-            let {flowData: initialFlowData, targetType, declareTypeNode} = <IntermediateFlowType> type;
-            if (!!declareTypeNode) { // Are we analyzing a 'declare' type declaration?
+            let {flowData: initialFlowData, targetType, locusTypeNode} = <IntermediateFlowType> type;
+            if (locusTypeNode) { // Are we analyzing a locus type declaration?
+                console.log((new Error() as any).stack);
                 if (ignoredLocusTypeStack.indexOf(unboxLocusType(type)) > -1) {
                     var cachedNodeLinks = nodeLinks;
+                    var cachedSymbolLinks = symbolLinks;
                     nodeLinks = cachedNodeLinks.map(objectCopy); // HACK
+                    symbolLinks = cachedSymbolLinks.map(objectCopy); // HACK
                 }
                 var finalFlowData = computeFlowDataForLocusTypeWorker(scope, isReference, initialFlowData, targetType);
                 if (ignoredLocusTypeStack.indexOf(unboxLocusType(type)) > -1) {
                     nodeLinks = cachedNodeLinks;
+                    symbolLinks = cachedNodeLinks;
                 }
             } else {
                 var finalFlowData = computeFlowDataForNonLocusTypeWorker(scope, isReference, initialFlowData, targetType);

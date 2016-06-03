@@ -2073,13 +2073,13 @@ namespace ts {
         resolvedBaseTypes: ObjectType[];           // Resolved base types
     }
 
+    // [ConcreteTypeScript]
+    // Locus types are essentially an InterfaceType with TypeFlags.Locus
+    // and potentially a computed flowData member (after resolution for implicit declare types)
     export interface LocusType extends InterfaceType {
         _locusType: any;
-        // [ConcreteTypeScript]
-        // Locus types are essentially an InterfaceType with TypeFlags.Locus
-        // and potentially a computed flowData member (after resolution for implicit declare types)
         flowData?: FlowData;
-        // [/ConcreteTypeScript]
+        declaration?: LocusTypeDeclaration;
     }
 
     export interface InterfaceTypeWithDeclaredMembers extends InterfaceType {
@@ -2100,7 +2100,7 @@ namespace ts {
         resolvedProperties?: SymbolTable;
         // Stored if there is an associated declare node.
         // Pragmatically, emit protection will occur in the local context.
-        declareTypeNode?: LocusTypeNode;
+        locusTypeNode?: LocusTypeNode;
     }
     // [ConcreteTypeScript+Become]
 
