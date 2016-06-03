@@ -4190,7 +4190,7 @@ namespace ts {
             if (!(type.flags & TypeFlags.Locus)) {
                 return false;
             }
-            if (resolvingLocusTypeStack.indexOf(<LocusType> type) >= 0) {
+            if (isFreshLocusType(type) && resolvingLocusTypeStack.indexOf(<LocusType> type) >= 0) {
             Debug.assert(false); // TODO
                 // May be marked on self. Thats OK.
                 markRecursiveTypeDependency(type, resolvingLocusTypeStack[0]);
@@ -9044,7 +9044,12 @@ namespace ts {
             return ProtectionFlags.None;
         }
         // [ConcreteTypeScript]
-        function getPropertyProtectionDeclare(type: InterfaceType, member: string): ProtectionFlags {
+        // Get the property protection status for a locus type member
+        function getPropertyProtectionLocus(type: InterfaceType, member: string): ProtectionFlags {
+            let locusType = unboxLocusType(type);
+            if (ignoredLocusTypeStack.indexOf(locusType) > -1 || getResolvingLocusType() == locusType) {
+                return ProtectionFlags.None;
+            }
             let flowData = getFlowDataForType(type);
             let propType: Type;
             if (flowData) {
@@ -9076,7 +9081,7 @@ namespace ts {
             } else if (type.flags & TypeFlags.Anonymous) {
                 return getPropertyProtectionAnonymous(type, member);
             } else if (type.flags & TypeFlags.Locus) {
-                return getPropertyProtectionDeclare(<InterfaceType>type, member);
+                return getPropertyProtectionLocus(<InterfaceType>type, member);
             }
             return ProtectionFlags.None;
         }
@@ -18090,15 +18095,18 @@ namespace ts {
         // known from standard TypeScript type inference.
         function getFlowContextualType(type: Type): Type {
             let locusType = unboxLocusType(type);
-            if (locusType && resolvingLocusTypeStack.indexOf(locusType) > -1 && getResolvingLocusType() !== type) {
+            if (locusType && !isFreshLocusType(type)) {
+                return type;
+            }
+            /*if (locusType && resolvingLocusTypeStack.indexOf(locusType) > -1 && getResolvingLocusType() !== type) {
                 pushIgnoredLocusType(getResolvingLocusType());
                 let tempFlowType = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
                 tempFlowType.flowData = getFlowDataForLocusType(locusType);
                 popIgnoredLocusType();
                 return tempFlowType;
-            }
-            if (locusType && (ignoredLocusTypeStack.indexOf(locusType) > -1 || getResolvingLocusType() === type)) {
-                let identifier = getVariableNameFromLocusTypeNode(<LocusTypeNode>type.symbol.declarations[0]);
+            }*/
+            if (locusType && (ignoredLocusTypeStack.indexOf(locusType) > -1 || resolvingLocusTypeStack.indexOf(locusType) > -1)) { //|| getResolvingLocusType() === type)) {
+                let identifier = getVariableNameFromLocusTypeNode(<LocusTypeNode>locusType.symbol.declarations[0]);
                 Debug.assert(identifier.kind === SyntaxKind.Identifier);
                 return getTypeOfNode(identifier, /* Don't invoke flow analysis: */ true);
             }
@@ -18177,7 +18185,6 @@ namespace ts {
             }
             let {flowData: initialFlowData, targetType, locusTypeNode} = <IntermediateFlowType> type;
             if (locusTypeNode) { // Are we analyzing a locus type declaration?
-                console.log((new Error() as any).stack);
                 if (ignoredLocusTypeStack.indexOf(unboxLocusType(type)) > -1) {
                     var cachedNodeLinks = nodeLinks;
                     var cachedSymbolLinks = symbolLinks;
@@ -18526,8 +18533,12 @@ namespace ts {
             function scanIfStatement(node: IfStatement) {
                 prev = recurse(node.expression, prev);
                 let ifTrue = recurse(node.thenStatement, flowDataConditionalBarrier(prev));
-                let ifFalse = recurse(node.elseStatement, flowDataConditionalBarrier(prev));
-                prev = flowDataUnion(ifTrue, ifFalse);
+                if (node.elseStatement) {
+                    let ifFalse = recurse(node.elseStatement, flowDataConditionalBarrier(prev));
+                    prev = flowDataUnion(ifTrue, ifFalse);
+                } else {
+                    prev = flowDataUnion(ifTrue, prev);
+                }
             }
             function scanPropertyAccessExpression(node: PropertyAccessExpression) {
                 prev = recurse(node.expression, prev);

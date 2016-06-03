@@ -1,3 +1,4 @@
+// @KnownDefect while becomes-analysis is off by default
 function addSquareValue(notFooYet: {x: number, y: number} declare) {
     /* @assertType("number") */ (notFooYet.x);
     /* @assertType("number") */ (notFooYet.y);
