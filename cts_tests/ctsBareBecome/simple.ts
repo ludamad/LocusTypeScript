@@ -1,3 +1,5 @@
+// @KnownDefect until flow analysis is done on arbitrary variables
+
 function addSquareValueNotConcrete(notFooYet: {x: number, y: number} declare HasSquareValue1) {
     notFooYet.square = notFooYet.x*notFooYet.x + notFooYet.y*notFooYet.y;
 }

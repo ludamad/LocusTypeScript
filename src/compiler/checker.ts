@@ -210,6 +210,7 @@ namespace ts {
         let nodeLinks: NodeLinks[] = [];
         let potentialThisCollisions: Node[] = [];
         let awaitedTypeStack: number[] = [];
+        let errorsDisabled = false;
 
         let diagnostics = createDiagnosticCollection();
 
@@ -274,12 +275,16 @@ namespace ts {
             //console.log((<any>new Error()).stack);
         }
         function error(location: Node, message: DiagnosticMessage, arg0?: any, arg1?: any, arg2?: any): void {
-            showStack();
-            let diagnostic = location
-                ? createDiagnosticForNode(location, message, arg0, arg1, arg2)
-                : createCompilerDiagnostic(message, arg0, arg1, arg2);
-            // [/ConcreteTypeScript]
-            diagnostics.add(diagnostic);
+            // [ConcreteTypeScript]
+            if (!errorsDisabled) {
+                showStack();
+                // [/ConcreteTypeScript]
+                let diagnostic = location
+                    ? createDiagnosticForNode(location, message, arg0, arg1, arg2)
+                    : createCompilerDiagnostic(message, arg0, arg1, arg2);
+                // [/ConcreteTypeScript]
+                diagnostics.add(diagnostic);
+            }
         }
 
         function createSymbol(flags: SymbolFlags, name: string): Symbol {
@@ -4333,8 +4338,9 @@ namespace ts {
                     links.resolvedSignature.resolvedThisType = getTypeFromTypeNode(declaration.parameters.thisParam.type);
                 } else if (declaration.kind === SyntaxKind.FunctionExpression && declaration.parent.kind === SyntaxKind.BinaryExpression) {
                     links.resolvedSignature.resolvedThisType = getThisTypeFromAssignment(<FunctionExpression> declaration, <BinaryExpression> declaration.parent);
-                } else if (declaration.kind === SyntaxKind.MethodDeclaration && declaration.parent.kind === SyntaxKind.ClassDeclaration) {
-                    // If we are a method in a class, we are cemented, and therefore have concrete 'this':
+                } else if (declaration.kind === SyntaxKind.MethodDeclaration && !(declaration.flags & NodeFlags.Static) && 
+                        declaration.parent.kind === SyntaxKind.ClassDeclaration) {
+                    // If we are a (non-static) method in a class, we are cemented, and therefore have concrete 'this':
                     let symbol = getSymbolOfNode(declaration.parent);
                     links.resolvedSignature.resolvedThisType = createConcreteType(getDeclaredTypeOfSymbol(symbol));
                 }
@@ -5853,7 +5859,7 @@ namespace ts {
             function typeRelatedToConcreteType(source: Type, target: ConcreteType, reportErrors: boolean): Ternary {
                 if (isConcreteType(source)) {
                     // !x <: !y iff x <: y
-                    return isRelatedTo((<ConcreteType>source).baseType, target.baseType, reportErrors);
+                    return isRelatedTo(unconcrete(source), unconcrete(target), reportErrors);
                 }
                 return Ternary.False;
             }
@@ -5861,10 +5867,10 @@ namespace ts {
             function concreteTypeRelatedToType(source: ConcreteType, target: Type, reportErrors: boolean): Ternary {
                 if (isConcreteType(target)) {
                     // !x <: !y iff x <: y
-                    return isRelatedTo(source.baseType, (<ConcreteType>target).baseType, reportErrors);
+                    return isRelatedTo(unconcrete(source), unconcrete(target), reportErrors);
                 } else {
                     // !x <: y iff x <: y
-                    return isRelatedTo(source.baseType, target, reportErrors);
+                    return isRelatedTo(unconcrete(source), target, reportErrors);
                 }
             }
             // [/ConcreteTypeScript]
@@ -18094,21 +18100,24 @@ namespace ts {
         // are represented by an IntermediateFlowType object of the type information 
         // known from standard TypeScript type inference.
         function getFlowContextualType(type: Type): Type {
+            Debug.assert(!!type);
             let locusType = unboxLocusType(type);
             if (locusType && !isFreshLocusType(type)) {
                 return type;
             }
-            /*if (locusType && resolvingLocusTypeStack.indexOf(locusType) > -1 && getResolvingLocusType() !== type) {
-                pushIgnoredLocusType(getResolvingLocusType());
-                let tempFlowType = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
+            if (locusType && (ignoredLocusTypeStack.indexOf(locusType) > -1)) {
+                let locusTypeDecl = ts.getSymbolLocusTypeDecl(locusType.symbol);
+                let retType = getTypeFromLocusTypeNode(getLocusTypeNode(locusType), locusType);
+                ts.Debug.assert(!!retType);
+                return retType;
+            }
+            if (locusType && resolvingLocusTypeStack.indexOf(locusType) > -1) {
+                let resolving = getResolvingLocusType();
+                pushIgnoredLocusType(resolving);
+                let tempFlowType = <IntermediateFlowType> createObjectType(TypeFlags.IntermediateFlow);
                 tempFlowType.flowData = getFlowDataForLocusType(locusType);
                 popIgnoredLocusType();
                 return tempFlowType;
-            }*/
-            if (locusType && (ignoredLocusTypeStack.indexOf(locusType) > -1 || resolvingLocusTypeStack.indexOf(locusType) > -1)) { //|| getResolvingLocusType() === type)) {
-                let identifier = getVariableNameFromLocusTypeNode(<LocusTypeNode>locusType.symbol.declarations[0]);
-                Debug.assert(identifier.kind === SyntaxKind.Identifier);
-                return getTypeOfNode(identifier, /* Don't invoke flow analysis: */ true);
             }
             return type;
         }
@@ -18211,7 +18220,7 @@ namespace ts {
             
         function computeFlowDataForLocusTypeWorker(scope: Node, isReference: ReferenceDecider, initialFlowData: FlowData, targetType: Type): FlowData {
             Debug.assert(unboxLocusType(targetType) != null);
-            Debug.assert(resolvingLocusTypeStack.indexOf(unboxLocusType(targetType)) === -1);
+            //Debug.assert(resolvingLocusTypeStack.indexOf(unboxLocusType(targetType)) === -1);
             let protectionQueue = [];
             pushResolvingLocusType(unboxLocusType(targetType)); 
             // Analysis was not yet run for this scope
@@ -18288,6 +18297,8 @@ namespace ts {
 
         // Carefully avoid problems we may run into.
         function getNonContextualType(thisType: Type, node: Node): Type {
+            var oldErrorStatus = errorsDisabled;
+            errorsDisabled = true;
             if (isFunctionLike(node)) {
                 let callSignatures = getSignaturesOfType(getTypeOfSymbol(node.symbol), SignatureKind.Call).map(cloneSignature);
                 for (let signature of callSignatures) {
@@ -18301,11 +18312,13 @@ namespace ts {
                     }
                 }
                 // Function-like nodes are concrete:
-                let type = createAnonymousType(undefined, emptySymbols, callSignatures, emptyArray, undefined, undefined);
-                return createConcreteType(type, /*Weakly concrete*/ false);
+                var type:Type = createAnonymousType(undefined, emptySymbols, callSignatures, emptyArray, undefined, undefined);
+                type = createConcreteType(type, /*Weakly concrete*/ false);
             } else {
-                return getTypeOfNode(node);
+                var type:Type = getTypeOfNode(node);
             }
+            errorsDisabled = oldErrorStatus;
+            return type;
         }
 
         // Recursively find all references to our node object descending from the node 'node'
@@ -18318,14 +18331,13 @@ namespace ts {
                                          // Current node in recursive scan:
                                          node:Node, prev:FlowData, orig:FlowData, 
                                          emitProtection: (flowDataAfter: FlowData, node:Node, left: Node, member: string, right: Node) => void):FlowData {
-            /** Function skeleton: **/
-            // Correct conditional marks: (TODO inefficient)
             if (isReference(node)) {
-                Debug.assert(!getNodeLinks(node).ctsFlowData);
+                //Debug.assert(!getNodeLinks(node).ctsFlowData);
                 getNodeLinks(node).ctsFlowData = prev;
             } else {
                 let orig = prev;
                 scanWorker();
+                // Correct conditional marks: (TODO inefficient)
                 prev = flowDataPopConditionalMarks(orig, prev);
             }
             return prev;
