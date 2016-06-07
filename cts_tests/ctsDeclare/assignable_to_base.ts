@@ -4,5 +4,5 @@ class Foo {
     }
 }
 let foo = new Foo();
-let myVar: Foo declare MyVar = foo;
+let myVar: !Foo declare MyVar = foo;
 foo = myVar;

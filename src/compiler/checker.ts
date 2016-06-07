@@ -849,6 +849,7 @@ namespace ts {
                 if (target.flags & TypeFlags.Intersection) {
                     return getIntersectionType((<IntersectionType>target).types.map(unconcrete));
                 } else {
+                    Debug.assert(!isConcreteType((<ConcreteType>target).baseType))
                     return (<ConcreteType>target).baseType;
                 }
             } else {
@@ -1855,8 +1856,12 @@ namespace ts {
                     // [ConcreteTypeScript]
                     else if (type.flags & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.Locus | TypeFlags.Enum | TypeFlags.TypeParameter | TypeFlags.Locus)) {
                     // [/ConcreteTypeScript]
-                        // The specified symbol flags need to be reinterpreted as type flags
-                        buildSymbolDisplay(type.symbol, writer, enclosingDeclaration, SymbolFlags.Type, SymbolFormatFlags.None, flags);
+                        if (!type.symbol) {
+                            writeAnonymousType(<ObjectType>type, flags);
+                        } else {
+                            // The specified symbol flags need to be reinterpreted as type flags
+                            buildSymbolDisplay(type.symbol, writer, enclosingDeclaration, SymbolFlags.Type, SymbolFormatFlags.None, flags);
+                        }
                     }
                     else if (type.flags & TypeFlags.Tuple) {
                         writeTupleType(<TupleType>type);
@@ -3161,9 +3166,10 @@ namespace ts {
         function getBaseTypes(type: InterfaceType): ObjectType[] {
             // [ConcreteTypeScript]
             type = <InterfaceType> unconcrete(type);
-            if (markAsRecursiveFlowAnalysis(type)) {
-                return emptyArray;
-            }
+            Debug.assert(!isConcreteType(type));
+//            if (markAsRecursiveFlowAnalysis(type)) {
+//                return emptyArray;
+//            }
             // [/ConcreteTypeScript]
             if (!type.resolvedBaseTypes) {
                 // [ConcreteTypeScript]
@@ -3215,7 +3221,6 @@ namespace ts {
                     }
                 }
             }
-
             let flowData = getFlowDataForType(type);
             if (flowData) {
                 let {flowTypes} = flowData;
@@ -15874,15 +15879,16 @@ namespace ts {
                 properties.push(property);
             }
 
-            let anonType = <ResolvedType>createObjectType(TypeFlags.Anonymous);
+            let anonType = <ResolvedType & InterfaceType>createObjectType(TypeFlags.Interface);
             anonType.properties = properties;
             anonType.members = createSymbolTable(anonType.properties);
             anonType.callSignatures = [];
             anonType.constructSignatures = [];
+            anonType.resolvedBaseTypes = flowData.flowTypes.map(ft => ft.type);
             // Intersect the anonymous type with its base types:
-            let typeComponents = flowData.flowTypes.map(ft => ft.type);
-            typeComponents.push(anonType);
-            return getIntersectionType(getMinimalTypeList(typeComponents));
+            //typeComponents.push(anonType);
+            //return getIntersectionType(getMinimalTypeList(typeComponents));
+            return anonType;
         }
         // [ConcreteTypeScript]
         // Returns whether the intermediate type fulfils the target type.
