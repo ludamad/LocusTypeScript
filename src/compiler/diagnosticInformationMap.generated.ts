@@ -8,7 +8,7 @@ namespace ts {
         ConcreteTypeScript_Object_of_type_0_cannot_call_methods_expecting_1_as_their_receiver: { code: 2002, category: DiagnosticCategory.Error, key: "[ConcreteTypeScript] Object of type '{0}' cannot call methods expecting '{1}' as their receiver." },
         ConcreteTypeScript_Cannot_create_check_for_type_0_but_required_to_confirm_correct_type_after_becomes_parameter_in_function_call: { code: 2003, category: DiagnosticCategory.Error, key: "[ConcreteTypeScript] Cannot create check for type '{0}', but required to confirm correct type after 'becomes' parameter in function call." },
         ConcreteTypeScript_Cannot_become_type_0_Can_only_become_interface_brand_interface_or_Declare_types: { code: 2004, category: DiagnosticCategory.Error, key: "[ConcreteTypeScript] Cannot become type '{0}'. Can only become interface, brand interface, or Declare types." },
-        ConcreteTypeScript_Failed_to_become_type_0_Missing_fields_1: { code: 2005, category: DiagnosticCategory.Error, key: "[ConcreteTypeScript] Failed to become type '{0}'. Missing fields '{1}'." },
+        ConcreteTypeScript_Failed_to_become_type_0_Missing_field_1_Colon_2: { code: 2005, category: DiagnosticCategory.Error, key: "[ConcreteTypeScript] Failed to become type '{0}'. Missing field '{1}: {2}'." },
         ConcreteTypeScript_Cannot_create_check_for_type_0_required_by_cast_to_concrete_type: { code: 2006, category: DiagnosticCategory.Error, key: "[ConcreteTypeScript] Cannot create check for type '{0}', required by cast to concrete type." },
         Unterminated_string_literal: { code: 1002, category: DiagnosticCategory.Error, key: "Unterminated string literal." },
         Identifier_expected: { code: 1003, category: DiagnosticCategory.Error, key: "Identifier expected." },

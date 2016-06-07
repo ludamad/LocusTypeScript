@@ -19,7 +19,7 @@
         "category": "Error",
         "code": 2004
     },
-   "[ConcreteTypeScript] Failed to become type '{0}'. Missing fields '{1}'.": {
+   "[ConcreteTypeScript] Failed to become type '{0}'. Missing field '{1}: {2}'.": {
         "category": "Error",
         "code": 2005
     },

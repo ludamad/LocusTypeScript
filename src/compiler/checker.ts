@@ -15848,10 +15848,40 @@ namespace ts {
             // The target type is fresh if it is is a LocusTypeNode that does not refer to a brand interface.
             return !getBrandInterface(target) && getLocusTypeNode(target);
         }
+
         // [ConcreteTypeScript]
+        // Returns whether the intermediate type fulfils the target type.
         function isIntermediateFlowTypeSubtypeOfTarget(type:IntermediateFlowType): boolean {
+            return checkIntermediateFlowTypeSubtypeOfTarget(type, /*no errors:*/ undefined);
+        }
+
+        // [ConcreteTypeScript]
+        // Reuse routines for comparing intersection types using conversion
+        function flowDataToIntersectionType(flowData: FlowData): Type {
+            // Create an anonymous type for the members held:
+            let properties = [];
+            for (let name of Object.keys(flowData.memberSet)) {
+                let member = flowData.memberSet[name];
+                let property = createSymbol(SymbolFlags.Transient | SymbolFlags.Property, name);
+                getSymbolLinks(property).type = flowTypeGet(member);
+                properties.push(property);
+            }
+
+            let anonType = <ResolvedType>createObjectType(TypeFlags.Anonymous);
+            anonType.properties = properties;
+            anonType.members = createSymbolTable(anonType.properties);
+            anonType.callSignatures = [];
+            anonType.constructSignatures = [];
+            // Intersect the anonymous type with its base types:
+            let typeComponents = flowData.flowTypes.map(ft => ft.type);
+            typeComponents.push(anonType);
+            return getIntersectionType(typeComponents);
+        }
+        // [ConcreteTypeScript]
+        // Returns the array of unfulfilled members for a brand-interface declare, or a becomes.
+        function checkIntermediateFlowTypeSubtypeOfTarget(type:IntermediateFlowType, headMessage?: DiagnosticMessage): boolean {
             if (!type.targetType) {
-                return false;
+                return true;
             }
             // If we are defining a new type through 'declare', we are a subset 
             // of our target type if members are bound to subsets of their types 
@@ -18217,7 +18247,15 @@ namespace ts {
             });
             return finalFlowData;
         }
-            
+        function checkFlowDataCompletesType(flowData: FlowData, targetType: Type, headMessage?: DiagnosticMessage): boolean {
+            if (!getLocusTypeName(unboxLocusType(targetType))) {
+                return false;
+            }
+            let tempFlowType = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
+            tempFlowType.flowData = flowData;
+            tempFlowType.targetType = targetType;
+            return checkIntermediateFlowTypeSubtypeOfTarget(tempFlowType, headMessage);
+        }
         function computeFlowDataForLocusTypeWorker(scope: Node, isReference: ReferenceDecider, initialFlowData: FlowData, targetType: Type): FlowData {
             Debug.assert(unboxLocusType(targetType) != null);
             //Debug.assert(resolvingLocusTypeStack.indexOf(unboxLocusType(targetType)) === -1);
@@ -18246,6 +18284,17 @@ namespace ts {
             }
             // Cache the result:
             unboxLocusType(targetType).flowData = finalFlowData;
+            // Error if we do not correctly 'become' our target type.
+            // This can occur with 'becomes' or with 'declare' of a brand interface.
+            if (targetType) {
+                let headMessage = Diagnostics.Argument_of_type_0_is_not_assignable_to_parameter_of_type_1;
+                checkFlowDataCompletesType(finalFlowData, targetType);
+//                if (!isFlowDataSubtypeOfTargetType(flowDataAfterAssignment, targetType)) {
+//                    error(scope, Diagnostics.ConcreteTypeScript_Failed_to_become_type_0_Missing_field_1_Colon_2,
+                    //let headMessage = Diagnostics.Argument_of_type_0_is_not_assignable_to_parameter_of_type_1;
+//                        );
+                //}
+            }
             return finalFlowData;
             // Note: 'right' can be null, signifying that we are protecting the existing value.
             function emitProtection(flowDataAfterAssignment: FlowData, node:Node, left: Node, member: string, right?: Node) {
@@ -18258,18 +18307,11 @@ namespace ts {
                     let brandGuardVariable = getTempProtectVar(scope, unboxLocusType(targetType), '$$BRAND$$GUARD');
                     // Creating closures is not ideal for performance but we cannot reason about the targetLocusType
                     // until this function ends so it's convenient.
-                    function isTypeComplete(): boolean {
-                        if (!getLocusTypeName(unboxLocusType(targetType))) {
-                            return false;
-                        }
-                        let tempFlowType = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
-                        tempFlowType.flowData = flowDataAfterAssignment;
-                        tempFlowType.targetType = targetType;
-                        return isIntermediateFlowTypeSubtypeOfTarget(tempFlowType);
-                    }
                     let bindingData = {
                         left, member, right, type: (isWeakConcreteType(type) ? null : type), 
-                        targetLocusType: unboxLocusType(targetType), isTypeComplete, guardVariable, brandGuardVariable,
+                        targetLocusType: unboxLocusType(targetType), 
+                        isTypeComplete: () => isFlowDataSubtypeOfTargetType(flowDataAfterAssignment, targetType),
+                        guardVariable, brandGuardVariable,
                         typeVar: getTempTypeVar(getSourceFileOfNode(scope), type)
                     };
                     if (right && isFunctionLike(right)) {
