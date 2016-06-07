@@ -5591,7 +5591,7 @@ namespace ts {
                 // [/ConcreteTypeScript] 
                 let result: Ternary;
                 // both types are the same - covers 'they are the same primitive type or both are Any' or the same type parameter cases
-                // [ConcreteTypeScript] TODO hack
+                // [ConcreteTypeScript] TODO hack for IDE support
                 if (source === target || source.id === target.id) {
                     return Ternary.True;
                 }
@@ -5968,12 +5968,25 @@ namespace ts {
                 depth--;
 
                 // [ConcreteTypeScript]
-                // TODO Make a test case for this and reevaluate if its needed
-                // We enforce that classes are only related if specified as such
-                if (result && target.flags & (TypeFlags.Class | TypeFlags.Locus) && source.flags & (TypeFlags.Class | TypeFlags.Locus)) {
-                    if (hasBaseType(<InterfaceType> source, <InterfaceType> target)) {
-                        result = Ternary.True;
-                    } else {
+                // This code block (re-)introduces nominal typing to TypeScript.
+                //
+                // As a departure from the structurally-typed nature of TypeScript,
+                // we enforce that classes and locus types are only related if specified
+                // to be in a nominal fashion.
+                //
+                if (result && (unconcrete(target).flags & (TypeFlags.Class | TypeFlags.Locus))) {
+                    // TODO HACK to bypass nominal type check for flow data completion check.
+                    // This was used to combat the rigidity of the error reporting in TypeScript.
+                    if ((unconcrete(target) as any).HACK_bypass_nominal_check) {
+                        // We instead check all our subtypes:
+                        for (let baseType of getBaseTypes(<InterfaceType>target)) {
+                            if (unconcrete(baseType).flags & (TypeFlags.Class | TypeFlags.Locus) && 
+                                    !hasBaseType(<InterfaceType> unconcrete(source), <InterfaceType> unconcrete(baseType))) {
+                                if (errorNode) console.log("TODO MAKE ERROR: missing " + typeToString(baseType) + " as base type.");
+                                result = Ternary.False;
+                            }
+                        }
+                    } else if (!hasBaseType(<InterfaceType> unconcrete(source), <InterfaceType> unconcrete(target))) {
                         result = Ternary.False;
                     }
                 }
@@ -15850,12 +15863,6 @@ namespace ts {
         }
 
         // [ConcreteTypeScript]
-        // Returns whether the intermediate type fulfils the target type.
-        function isIntermediateFlowTypeSubtypeOfTarget(type:IntermediateFlowType): boolean {
-            return checkIntermediateFlowTypeSubtypeOfTarget(type, /*no errors:*/ undefined);
-        }
-
-        // [ConcreteTypeScript]
         // Reuse routines for comparing intersection types using conversion
         function flowDataToIntersectionType(flowData: FlowData): Type {
             // Create an anonymous type for the members held:
@@ -15875,68 +15882,36 @@ namespace ts {
             // Intersect the anonymous type with its base types:
             let typeComponents = flowData.flowTypes.map(ft => ft.type);
             typeComponents.push(anonType);
-            return getIntersectionType(typeComponents);
+            return getIntersectionType(getMinimalTypeList(typeComponents));
+        }
+        // [ConcreteTypeScript]
+        // Returns whether the intermediate type fulfils the target type.
+        function isIntermediateFlowTypeSubtypeOfTarget(type:IntermediateFlowType): boolean {
+            return checkIntermediateFlowTypeSubtypeOfTarget(type, /*no errors:*/ undefined, undefined);
         }
         // [ConcreteTypeScript]
         // Returns the array of unfulfilled members for a brand-interface declare, or a becomes.
-        function checkIntermediateFlowTypeSubtypeOfTarget(type:IntermediateFlowType, headMessage?: DiagnosticMessage): boolean {
+        function checkIntermediateFlowTypeSubtypeOfTarget(type:IntermediateFlowType, errorNode?: Node, headMessage?: DiagnosticMessage): boolean {
             if (!type.targetType) {
                 return true;
             }
+            let currentType = flowDataToIntersectionType(type.flowData);
+            let targetType = type.targetType;
+            
             // If we are defining a new type through 'declare', we are a subset 
             // of our target type if members are bound to subsets of their types 
             // at the end of the function.
             // We treat this case specially to avoid calling getPropertyOfType in a cycle.
-            if (isFreshLocusType(type.targetType)) {
-                // Path 1: Member-capturing becomes through 'declare MyType'
-                let {flowData} = type;
-                let target = unconcrete(type.targetType);
-                let finalFlowData = getFlowDataForType(target);
-                if (!finalFlowData) {
-                    // Recursive case; assume true.
-                    return true;
-                }
-                for (let i = 0; i < finalFlowData.flowTypes.length; i++) {
-                    let hasOne = false;
-                    for (let j = 0; j < flowData.flowTypes.length; j++) {
-                        let {type: tF} = finalFlowData.flowTypes[i]; // Final
-                        let {type: tC} = flowData.flowTypes[j]; // Current
-                        // Must have at least one subsetting type:
-                        if (typeSubSet(tC, tF)) {
-                            hasOne = true; break;
-                        }
-                    }
-                    if (!hasOne) return false;
-                }
-                for (let memberFinal of values(finalFlowData.memberSet)) { 
-                    let memberCurrent = getProperty(flowData.memberSet, memberFinal.key);
-                    if (!memberCurrent) {
-                        return false;
-                    }
-                    let tC = flowTypeGet(memberCurrent);
-                    let tF = flowTypeGet(memberFinal);
-                    if (!typeSubSet(tC, tF)) {
-                        return false;
-                    }
-                }
-                return true;
-            } 
-            // Otherwise, this is 'declare' with a brand interface or plain 'becomes'.
-            // We can call getPropertyOfType directly.
-            else {
-                for (let property of getPropertiesOfType(type.targetType)) {
-                    let targetPropType = getTypeOfSymbol(property);
-                    let currentProp = getPropertyOfType(type, property.name);
-                    if (!currentProp) {
-                        return false;
-                    }
-                    var currentPropType = getTypeOfSymbol(currentProp);
-                    if (!typeSubSet(currentPropType, targetPropType)) {
-                        return false;
-                    }
-                }
-                return true;
+            if (isFreshLocusType(targetType)) {
+                let finalFlowData = getFlowDataForType(targetType);
+                Debug.assert(!!finalFlowData);
+                targetType = flowDataToIntersectionType(finalFlowData);
             }
+            // TODO HACK to bypass nominal type check
+            (unconcrete(targetType) as any).HACK_bypass_nominal_check = true;
+            let matches = checkTypeSubtypeOf(currentType, targetType, errorNode, headMessage);
+            (unconcrete(targetType) as any).HACK_bypass_nominal_check = void 0;
+            return matches;
         }
 
         // [ConcreteTypeScript] The minimal intersection that represents the same declare-types, classes, and members.
@@ -18247,14 +18222,14 @@ namespace ts {
             });
             return finalFlowData;
         }
-        function checkFlowDataCompletesType(flowData: FlowData, targetType: Type, headMessage?: DiagnosticMessage): boolean {
+        function checkFlowDataCompletesType(flowData: FlowData, targetType: Type, errorNode?: Node, headMessage?: DiagnosticMessage): boolean {
             if (!getLocusTypeName(unboxLocusType(targetType))) {
                 return false;
             }
             let tempFlowType = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
             tempFlowType.flowData = flowData;
             tempFlowType.targetType = targetType;
-            return checkIntermediateFlowTypeSubtypeOfTarget(tempFlowType, headMessage);
+            return checkIntermediateFlowTypeSubtypeOfTarget(tempFlowType, errorNode, headMessage);
         }
         function computeFlowDataForLocusTypeWorker(scope: Node, isReference: ReferenceDecider, initialFlowData: FlowData, targetType: Type): FlowData {
             Debug.assert(unboxLocusType(targetType) != null);
@@ -18287,13 +18262,8 @@ namespace ts {
             // Error if we do not correctly 'become' our target type.
             // This can occur with 'becomes' or with 'declare' of a brand interface.
             if (targetType) {
-                let headMessage = Diagnostics.Argument_of_type_0_is_not_assignable_to_parameter_of_type_1;
-                checkFlowDataCompletesType(finalFlowData, targetType);
-//                if (!isFlowDataSubtypeOfTargetType(flowDataAfterAssignment, targetType)) {
-//                    error(scope, Diagnostics.ConcreteTypeScript_Failed_to_become_type_0_Missing_field_1_Colon_2,
-                    //let headMessage = Diagnostics.Argument_of_type_0_is_not_assignable_to_parameter_of_type_1;
-//                        );
-                //}
+                let headMessage = Diagnostics.ConcreteTypeScript_Flow_data_analysis_gives_0_which_does_not_correctly_complete_type_1;
+                checkFlowDataCompletesType(finalFlowData, targetType, /*Error node: */ scope, headMessage);
             }
             return finalFlowData;
             // Note: 'right' can be null, signifying that we are protecting the existing value.
@@ -18310,7 +18280,7 @@ namespace ts {
                     let bindingData = {
                         left, member, right, type: (isWeakConcreteType(type) ? null : type), 
                         targetLocusType: unboxLocusType(targetType), 
-                        isTypeComplete: () => isFlowDataSubtypeOfTargetType(flowDataAfterAssignment, targetType),
+                        isTypeComplete: () => checkFlowDataCompletesType(flowDataAfterAssignment, targetType, /* No error checking: */ undefined),
                         guardVariable, brandGuardVariable,
                         typeVar: getTempTypeVar(getSourceFileOfNode(scope), type)
                     };

@@ -19,7 +19,7 @@
         "category": "Error",
         "code": 2004
     },
-   "[ConcreteTypeScript] Failed to become type '{0}'. Missing field '{1}: {2}'.": {
+   "[ConcreteTypeScript] Flow data analysis gives '{0}' which does not correctly complete type '{1}'.": {
         "category": "Error",
         "code": 2005
     },
