@@ -3015,6 +3015,7 @@ namespace ts {
 
         function hasBaseType(type: InterfaceType, checkBase: InterfaceType) {
             // [ConcreteTypeScript]
+            checkBase = <InterfaceType>getTargetType(checkBase);
             if (isPrototypeType(checkBase) && type.symbol.parent === type.symbol) {
                 return true;
             }
@@ -5979,6 +5980,17 @@ namespace ts {
                 // we enforce that classes and locus types are only related if specified
                 // to be in a nominal fashion.
                 //
+
+                // Ensure that our strict nominality does not break IntermediateFlowType's that have become their target type:
+                if (source.flags & TypeFlags.IntermediateFlow) {
+                    if (isIntermediateFlowTypeSubtypeOfTarget(<IntermediateFlowType> source)) {
+                        source = (<IntermediateFlowType>source).targetType;
+                    }
+                }
+                if (target.flags & TypeFlags.IntermediateFlow) {
+                    if (errorNode) console.log("TODO MAKE ERROR: cannot assign to 'becomes' variable");
+                    result = Ternary.False;
+                }
                 if (result && (unconcrete(target).flags & (TypeFlags.Class | TypeFlags.Locus))) {
                     // TODO HACK to bypass nominal type check for flow data completion check.
                     // This was used to combat the rigidity of the error reporting in TypeScript.
@@ -18226,6 +18238,12 @@ namespace ts {
                     getNodeLinks(node).ctsFinalFlowData = finalFlowData;
                 }
             });
+            // Error if we do not correctly 'become' our target type.
+            // This can occur with 'becomes' or with 'declare' of a brand interface.
+            if (targetType && !isFreshLocusType(targetType)) {
+                checkFlowDataCompletesType(finalFlowData, targetType, /*Error node: */ scope, 
+                        Diagnostics.ConcreteTypeScript_Flow_data_analysis_gives_0_which_does_not_correctly_complete_type_1);
+            }
             return finalFlowData;
         }
         function checkFlowDataCompletesType(flowData: FlowData, targetType: Type, errorNode?: Node, headMessage?: DiagnosticMessage): boolean {
@@ -18265,12 +18283,6 @@ namespace ts {
             }
             // Cache the result:
             unboxLocusType(targetType).flowData = finalFlowData;
-            // Error if we do not correctly 'become' our target type.
-            // This can occur with 'becomes' or with 'declare' of a brand interface.
-            if (targetType) {
-                let headMessage = Diagnostics.ConcreteTypeScript_Flow_data_analysis_gives_0_which_does_not_correctly_complete_type_1;
-                checkFlowDataCompletesType(finalFlowData, targetType, /*Error node: */ scope, headMessage);
-            }
             return finalFlowData;
             // Note: 'right' can be null, signifying that we are protecting the existing value.
             function emitProtection(flowDataAfterAssignment: FlowData, node:Node, left: Node, member: string, right?: Node) {

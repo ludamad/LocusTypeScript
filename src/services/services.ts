@@ -7215,6 +7215,10 @@ namespace ts {
         }
 
 
+        function getExtractedTypeInfo(fileName: string, position: number): RenameInfo {
+            TODO HERE
+        }
+
         function getRenameInfo(fileName: string, position: number): RenameInfo {
             synchronizeHostData();
 
