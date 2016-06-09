@@ -7,6 +7,7 @@
 /// <reference path='patternMatcher.ts' />
 /// <reference path='signatureHelp.ts' />
 /// <reference path='utilities.ts' />
+/// <reference path='../compiler/ctsUtilities.ts' />
 /// <reference path='formatting\formatting.ts' />
 /// <reference path='formatting\smartIndenter.ts' />
 
@@ -1267,6 +1268,17 @@ namespace ts {
         kindModifiers: string;
         triggerSpan: TextSpan;
     }
+
+    // [ConcreteTypeScript]
+    // Encapsulates information necessary to extract a locus type
+    export interface LocusTypeExtractionInfo {
+        content: string;
+        // Replaced with a brand interface. Either the 
+        // location just before the function, or the previous brand
+        // interface location.
+        locusTypeContentSpan: TextSpan;
+    }
+
 
     export interface SignatureHelpParameter {
         name: string;
@@ -7215,8 +7227,23 @@ namespace ts {
         }
 
 
-        function getExtractedTypeInfo(fileName: string, position: number): RenameInfo {
-            TODO HERE
+        function getExtractedTypeInfo(fileName: string, position: number): LocusTypeExtractionInfo {
+            synchronizeHostData();
+            let sourceFile = getValidSourceFile(fileName);
+            let typeChecker = program.getTypeChecker();
+
+            let node = getTouchingWord(sourceFile, position);
+            let result = {content: undefined, locusTypeContentSpan: undefined};
+
+            // Can only extract type information from locus type node.
+            if (node && node.kind === SyntaxKind.Identifier) {// && node.parent && node.parent.kind === SyntaxKind.LocusType && node.parent.symbol) {
+                let locusType = <LocusTypeNode> node.parent;
+                // TODO update old brand interfaces
+                let enclosingScope:Node = getModuleOrSourceFileOrFunction(locusType);
+                let locusTypeContentSpan = {pos: enclosingScope.pos, end: enclosingScope.pos};
+                result = {content: 'Foobar!', locusTypeContentSpan};
+            }
+            return result;
         }
 
         function getRenameInfo(fileName: string, position: number): RenameInfo {

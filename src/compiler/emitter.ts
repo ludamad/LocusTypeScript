@@ -7558,7 +7558,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 }
                 for (let member of Object.keys(node.nodeLinks.tempVarsToEmit)) {
                     let tempVarName = node.nodeLinks.tempVarsToEmit[member];
-                    if (tempVarName.indexOf("cts$$temp$$") === 0) {
+                    if (tempVarName.indexOf("cts$$temp$$types_") === 0) {
                         write(`var ${tempVarName};`);
                     } else {
                         write(`var ${tempVarName} = 0;`);
