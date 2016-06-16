@@ -7232,6 +7232,7 @@ namespace ts {
             let sourceFile = getValidSourceFile(fileName);
             let typeChecker = program.getTypeChecker();
 
+            if (true) return {content: 'Foobar!', locusTypeContentSpan: {start: 0, length: 0}};
             let node = getTouchingWord(sourceFile, position);
             let result = {content: undefined, locusTypeContentSpan: undefined};
 
@@ -7241,7 +7242,6 @@ namespace ts {
                 // TODO update old brand interfaces
                 let enclosingScope:Node = getModuleOrSourceFileOrFunction(locusType);
                 let locusTypeContentSpan = {pos: enclosingScope.pos, end: enclosingScope.pos};
-                result = {content: 'Foobar!', locusTypeContentSpan};
             }
             return result;
         }

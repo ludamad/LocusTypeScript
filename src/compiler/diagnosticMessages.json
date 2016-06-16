@@ -27,7 +27,10 @@
         "category": "Error",
         "code": 2006
     },
-
+   "[ConcreteTypeScript] Cannot assign type '{0}' to variable under analysis with type '{1}'.": {
+        "category": "Error",
+        "code": 2007
+    },
     "Unterminated string literal.": {
         "category": "Error",
         "code": 1002

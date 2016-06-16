@@ -5988,7 +5988,6 @@ namespace ts {
                     }
                 }
                 if (target.flags & TypeFlags.IntermediateFlow) {
-                    if (errorNode) console.log("TODO MAKE ERROR: cannot assign to 'becomes' variable");
                     result = Ternary.False;
                 }
                 if (result && (unconcrete(target).flags & (TypeFlags.Class | TypeFlags.Locus))) {
@@ -13462,8 +13461,12 @@ namespace ts {
                 // Node is the primary declaration of the symbol, just validate the initializer
                 if (node.initializer) {
                     // Use default messages
-                    checkTypeAssignableTo(getBindingType(checkExpressionCached(node.initializer)), type, node, /*headMessage*/ undefined);
                     // [ConcreteTypeScript]
+                    // The formal type of our RHS (if IntermediateFlowType) must be assignable to the starting type of our LHS (if IntermediateFlowType) 
+                    checkTypeAssignableTo(
+                        getBindingType(checkExpressionCached(node.initializer), /*don't degrade weak concrete: */ false), 
+                        getBindingType(type, /*don't degrade weak concrete: */ false), 
+                        node, /*headMessage*/ undefined);
                     let initType =checkExpressionCached(node.initializer); // FIXME: rechecking
                     checkCtsCoercion(node.initializer, initType, type);
                     // [/ConcreteTypeScript]
@@ -15981,13 +15984,12 @@ namespace ts {
             }
             return degrade ? flowDataFormalType(type.flowData) : type;
         }
-
         // [ConcreteTypeScript] 
-        function getBindingType(type: Type): Type {
+        function getBindingType(type: Type, degradeWeak:boolean = true): Type {
             if (type.flags & TypeFlags.IntermediateFlow) {
                 return getFormalTypeFromIntermediateFlowType(<IntermediateFlowType>type, /*Degrade*/ true);   
             }
-            return stripWeakConcreteType(type);
+            return degradeWeak ? stripWeakConcreteType(type) : type;
         }
 
         // [ConcreteTypeScript] 
@@ -18247,7 +18249,7 @@ namespace ts {
             return finalFlowData;
         }
         function checkFlowDataCompletesType(flowData: FlowData, targetType: Type, errorNode?: Node, headMessage?: DiagnosticMessage): boolean {
-            if (!getLocusTypeName(unboxLocusType(targetType))) {
+            if (unboxLocusType(targetType) && !getLocusTypeName(unboxLocusType(targetType))) {
                 return false;
             }
             let tempFlowType = <IntermediateFlowType>createObjectType(TypeFlags.IntermediateFlow);
@@ -18663,4 +18665,5 @@ namespace ts {
         }
 
     }
+
 }

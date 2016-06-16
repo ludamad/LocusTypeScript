@@ -10,6 +10,7 @@ namespace ts {
         ConcreteTypeScript_Cannot_become_type_0_Can_only_become_interface_brand_interface_or_Declare_types: { code: 2004, category: DiagnosticCategory.Error, key: "[ConcreteTypeScript] Cannot become type '{0}'. Can only become interface, brand interface, or Declare types." },
         ConcreteTypeScript_Flow_data_analysis_gives_0_which_does_not_correctly_complete_type_1: { code: 2005, category: DiagnosticCategory.Error, key: "[ConcreteTypeScript] Flow data analysis gives '{0}' which does not correctly complete type '{1}'." },
         ConcreteTypeScript_Cannot_create_check_for_type_0_required_by_cast_to_concrete_type: { code: 2006, category: DiagnosticCategory.Error, key: "[ConcreteTypeScript] Cannot create check for type '{0}', required by cast to concrete type." },
+        ConcreteTypeScript_Cannot_assign_type_0_to_variable_under_analysis_with_type_1: { code: 2007, category: DiagnosticCategory.Error, key: "[ConcreteTypeScript] Cannot assign type '{0}' to variable under analysis with type '{1}'." },
         Unterminated_string_literal: { code: 1002, category: DiagnosticCategory.Error, key: "Unterminated string literal." },
         Identifier_expected: { code: 1003, category: DiagnosticCategory.Error, key: "Identifier expected." },
         _0_expected: { code: 1005, category: DiagnosticCategory.Error, key: "'{0}' expected." },

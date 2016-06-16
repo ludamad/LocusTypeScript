@@ -216,8 +216,8 @@ describe("Type relations of ConcreteTypeScript", () => {
         let {isTypeIdenticalTo, checkTypeSubtypeOf, checkTypeAssignableTo} = checker;
         assert(checkTypeAssignableTo(intermType1, startingType1, undefined), "Should be assignable to starting type!");
         assert(checkTypeAssignableTo(targetType1, startingType1, undefined), "Should be assignable to starting type!");
-        assert(checkTypeAssignableTo(targetType1, intermType1, undefined), "Should be assignable to starting type!");
-        console.log("INTERM " + checker.typeToString(intermType1));
+        // Make sure that our intermediate result is not reassignable, as this would invalidate analysis:
+        assert(!checkTypeAssignableTo(targetType1, intermType1, undefined), "Should not be assignable to starting type!");
         assert(!checkTypeAssignableTo(startingType1, intermType1, undefined), "Should not be assignable from starting type!");
     });
 
@@ -236,9 +236,8 @@ describe("Type relations of ConcreteTypeScript", () => {
     it("test relationships for 'Decl1 declare Decl2' Declare-types", () => {
         let {checker, declType1, declType2} = getLocusTypes(impliedBaseSource);
         let {getBaseTypes, isTypeIdenticalTo, checkTypeSubtypeOf, checkTypeAssignableTo} = checker;
-        console.log("TRIGGERED");
         let [baseType] = getBaseTypes(<ts.InterfaceType> declType2);
-        assert(baseType === declType1, "Base type should be declType1");
+        assert(checker.unconcrete(baseType) === declType1, "Base type should be declType1");
         assert(!isTypeIdenticalTo(declType1, declType2), "Types should not be identical");
         assert(!isTypeIdenticalTo(declType2, declType1), "Types should not be identical");
         assert(checkTypeSubtypeOf(declType2, declType1, undefined), "declType2 should be a subtype of declType1");
@@ -388,7 +387,7 @@ describe("The stages of binding", () => {
             assert(checker.getPropertyOfType(targetType, "x"), "Target type should have 'x' attribute");
             assert(checker.getPropertyOfType(targetType, "y"), "Target type should have 'y' attribute");
             let refType = checker.getTypeAtLocation(getLastVarRef())
-            console.log(checker.getFlowDataAtLocation(getLastVarRef(), refType));
+            //console.log(checker.getFlowDataAtLocation(getLastVarRef(), refType));
             assert(checker.getPropertyOfType(refType, "x"), "Should infer 'x' attribute");
             assert(checker.getPropertyOfType(refType, "y"), "Should infer 'y' attribute");
         }
@@ -417,10 +416,11 @@ describe("Simple sequential assignments", () => {
         let [xAssign, yAssign] = find(rootNode, ts.SyntaxKind.PropertyAccessExpression);
 
         let varType = checker.getTypeAtLocation(before);
+        assert(!!(<ts.IntermediateFlowType>varType).targetType, "Must be IntermediateFlowType with targetType");
         let {memberSet: {x: x0, y: y0}} = checker.getFlowDataAtLocation(before, varType);
         let {memberSet: {x: x1, y: y1}} = checker.getFlowDataAtLocation(findFirst(xAssign, expectedKind), varType);
         let {memberSet: {x: x2, y: y2}} = checker.getFlowDataAtLocation(findFirst(yAssign, expectedKind), varType);
-        let {memberSet: {x: x3, y: y3}} = checker.getFlowDataForType(varType);
+        let {memberSet: {x: x3, y: y3}} = checker.getFlowDataForType((<ts.IntermediateFlowType>varType).targetType);
 
         assert(!x0 && !y0, "Incorrect members before first assignment.");
         assert( x1 && !y1, "Incorrect members during first assignment.");
