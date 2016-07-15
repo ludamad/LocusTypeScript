@@ -18693,17 +18693,17 @@ namespace ts {
                 return getRefactorData(targetType);
             }
             // Where:
-            function getRefactorData(type: LocusType): string {
+            function getRefactorData(type: LocusType): RefactorData {
                 let baseTypes = getBaseTypes(type).map(unconcrete).map(typeToString as any);
                 let extendsPart = (baseTypes.length ? ' extends ' : '') + baseTypes.join(', ');
                 let members = getPropertiesOfType(type).map(symbolToMember).reverse();
-                let startingSpaces = getSourceIndentPrefix(getSourceFileOfNode(node), pos);
+                let outerScopePos = getModuleOrSourceFileOrFunction(node).pos;
+                let startingSpaces = getSourceIndentPrefix(getSourceFileOfNode(node), outerScopePos);
                 let lines = [`brand interface ${typeToString(targetType)}${extendsPart} {\n`];
                 for (let member of members) {
                     lines.push(`    ${member}\n`);
                 }
                 lines.push("}\n");
-                let outerScopePos = getModuleOrSourceFileOrFunction(node).pos;
                 return {
                     replaceSpan: createTextSpanFromBounds(outerScopePos, outerScopePos), 
                     replaceText: lines.map(x => startingSpaces + x).join('')
