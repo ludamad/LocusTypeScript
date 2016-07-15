@@ -85,9 +85,10 @@ namespace ts {
             checkTypeRelatedTo,
             checkSourceFile,
             isTypeAny,
+        // Refactoring helpers:
+            getBrandInterfaceRefactorData,
+            getAddTypeDeclarationRefactorData,
             // [/ConcreteTypeScript]
-            // The language service will always care about the narrowed type of a symbol, because that is
-            // the type the language says the symbol should have.
             getTypeOfSymbolAtLocation: getNarrowedTypeOfSymbol,
             getDeclaredTypeOfSymbol,
             getPropertiesOfType,
@@ -3227,7 +3228,7 @@ namespace ts {
                 let {flowTypes} = flowData;
                 let minimalFlowTypes = getMinimalTypeList(flowTypes.map(ft => ft.type));
                 type.resolvedBaseTypes = type.resolvedBaseTypes.concat(minimalFlowTypes);
-                type.resolvedBaseTypes = type.resolvedBaseTypes.filter(s => !isTypeIdenticalTo(unconcrete(s), type));
+                type.resolvedBaseTypes = type.resolvedBaseTypes.filter(s => !isTypeIdenticalTo(unconcrete(s), type) && !isTypeIdenticalTo(s, emptyObjectType));
             }
         }
         // [/ConcreteTypeScript]
@@ -5988,6 +5989,7 @@ namespace ts {
                     }
                 }
                 if (target.flags & TypeFlags.IntermediateFlow) {
+                    // TODO make error
                     result = Ternary.False;
                 }
                 if (result && (unconcrete(target).flags & (TypeFlags.Class | TypeFlags.Locus))) {
@@ -18166,7 +18168,7 @@ namespace ts {
             }
         }
 
-        function unboxLocusType(targetType: Type) {
+        function unboxLocusType(targetType: Type): LocusType {
             targetType = unconcrete(targetType);
             if (targetType.flags & TypeFlags.Locus) {
                 return <LocusType> targetType;
@@ -18664,6 +18666,63 @@ namespace ts {
 
         }
 
+        // Refactoring helpers:
+        function getBrandInterfaceRefactorData(node: Node): RefactorData {
+            let type: Type;
+            if (isExpression(node)) {
+                type = getTypeOfExpression(<Expression>node);
+            } else if (node.kind == SyntaxKind.Identifier) {
+                type = getTypeOfNode(node.parent);  
+            } else {
+                let replaceSpan = createTextSpanFromBounds(0, 0);
+                return { replaceText: "Error: trying to get brand interface data of node type " + (ts as any).SyntaxKind[node.kind], replaceSpan: replaceSpan };
+            }
+            let targetType = (type.flags & TypeFlags.IntermediateFlow) && unboxLocusType((type as IntermediateFlowType).targetType);
+            if (!targetType) { // We are a locus type definition
+                return undefined;
+            }
+            let locusTypeDecl = <LocusTypeDeclaration>getSymbolDecl(targetType.symbol, SyntaxKind.LocusTypeDeclaration);
+            // If a locus type is already declared, simply remove it.
+            // This is a bit of a kludge to trigger re-analysis. 
+            // TODO Properly update just types that type-error. 
+            if (locusTypeDecl) {
+                let {pos, end} = locusTypeDecl;
+                let replaceSpan = createTextSpanFromBounds(pos, end);
+                return {replaceSpan, replaceText: ''};
+            } else {
+                return getRefactorData(targetType);
+            }
+            // Where:
+            function getRefactorData(type: LocusType): string {
+                let baseTypes = getBaseTypes(type).map(unconcrete).map(typeToString as any);
+                let extendsPart = (baseTypes.length ? ' extends ' : '') + baseTypes.join(', ');
+                let members = getPropertiesOfType(type).map(symbolToMember).reverse();
+                let startingSpaces = getSourceIndentPrefix(getSourceFileOfNode(node), pos);
+                let lines = [`brand interface ${typeToString(targetType)}${extendsPart} {\n`];
+                for (let member of members) {
+                    lines.push(`    ${member}\n`);
+                }
+                lines.push("}\n");
+                let outerScopePos = getModuleOrSourceFileOrFunction(node).pos;
+                return {
+                    replaceSpan: createTextSpanFromBounds(outerScopePos, outerScopePos), 
+                    replaceText: lines.map(x => startingSpaces + x).join('')
+                };
+            }
+            function symbolToMember(symbol: Symbol) {
+                let type = getTypeOfSymbol(symbol);
+                return `${symbol.name}: ${typeToString(type, symbol.declarations[0])};`;
+            }
+        }
+        function getAddTypeDeclarationRefactorData(node: Node): RefactorData {
+            let replaceText: string = null;
+            let replaceSpan: TextSpan = null;
+            let type = getTypeOfNode(node);
+            if (node.kind === SyntaxKind.Identifier) {
+                replaceSpan = {start: 0, length: 0}; // TODO
+                replaceText = `${node.kind}`;
+            }
+            return {replaceText, replaceSpan};
+        }
     }
-
 }

@@ -24,6 +24,37 @@ describe("getPropertyOfType", () => {
     }
 });
 
+
+// use ./run.sh 'brand i'
+describe("emitBrandInterface", () => {
+    let implicitSource = `var bar: declare Bar = {};
+        var foo: declare Foo = bar;
+        foo.x = 1;
+        foo.y = 1;
+        /*foo*/ foo;`;
+
+    let explicitSource = implicitSource + `\nbrand interface Foo {
+    x: !number;
+}`;
+    // TODO organize this better:
+    it("should emit brand interface with x and y", () => {
+        let {rootNode: sourceFile, checker} = compileOne(implicitSource);
+        let [ref] = findWithComment(sourceFile, "foo", ts.isExpression);
+        let {replaceText, replaceSpan} = checker.getBrandInterfaceRefactorData(ref);
+        console.log(replaceText);
+        assert(replaceSpan.start === 0);
+    });
+
+    // TODO organize this better:
+    it("should update brand interface with x and y", () => {
+        let {rootNode: sourceFile, checker} = compileOne(explicitSource);
+        let [ref] = findWithComment(sourceFile, "foo", ts.isExpression);
+        let {replaceText, replaceSpan} = checker.getBrandInterfaceRefactorData(ref);
+        console.log(replaceText);
+        assert(replaceSpan.length == 40);
+    });
+});
+
 describe("Nominal this", () => {
     let sourceText = `function Foo(this: declare Foo) {
         /* first */ /*x*/ (this.x); 
@@ -181,14 +212,6 @@ describe("Calling functions with a declare parameter", () => {
         callFunctionWithDeclareParameter(letContext, "testVar", ts.SyntaxKind.Identifier);
     });
 });
-
-// TODO test getting the resolved members of an intermediate flow type
-
-/*describe("Various resolution points", () => {
-    it("", () => {
-        
-    });
-});*/
 
 // TODO test ensure variable not assignable
 describe("Type relations of ConcreteTypeScript", () => {

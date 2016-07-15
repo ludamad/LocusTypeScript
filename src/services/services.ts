@@ -1068,6 +1068,7 @@ namespace ts {
         getSignatureHelpItems(fileName: string, position: number): SignatureHelpItems;
 
         getRenameInfo(fileName: string, position: number): RenameInfo;
+        getExtractedTypeInfo(fileName: string, position: number): RefactorData;
         findRenameLocations(fileName: string, position: number, findInStrings: boolean, findInComments: boolean): RenameLocation[];
 
         getDefinitionAtPosition(fileName: string, position: number): DefinitionInfo[];
@@ -1268,18 +1269,7 @@ namespace ts {
         kindModifiers: string;
         triggerSpan: TextSpan;
     }
-
-    // [ConcreteTypeScript]
-    // Encapsulates information necessary to extract a locus type
-    export interface LocusTypeExtractionInfo {
-        content: string;
-        // Replaced with a brand interface. Either the 
-        // location just before the function, or the previous brand
-        // interface location.
-        locusTypeContentSpan: TextSpan;
-    }
-
-
+    
     export interface SignatureHelpParameter {
         name: string;
         documentation: SymbolDisplayPart[];
@@ -7226,24 +7216,12 @@ namespace ts {
             }
         }
 
-
-        function getExtractedTypeInfo(fileName: string, position: number): LocusTypeExtractionInfo {
+        function getExtractedTypeInfo(fileName: string, position: number): RefactorData {
             synchronizeHostData();
             let sourceFile = getValidSourceFile(fileName);
             let typeChecker = program.getTypeChecker();
-
-            if (true) return {content: 'Foobar!', locusTypeContentSpan: {start: 0, length: 0}};
             let node = getTouchingWord(sourceFile, position);
-            let result = {content: undefined, locusTypeContentSpan: undefined};
-
-            // Can only extract type information from locus type node.
-            if (node && node.kind === SyntaxKind.Identifier) {// && node.parent && node.parent.kind === SyntaxKind.LocusType && node.parent.symbol) {
-                let locusType = <LocusTypeNode> node.parent;
-                // TODO update old brand interfaces
-                let enclosingScope:Node = getModuleOrSourceFileOrFunction(locusType);
-                let locusTypeContentSpan = {pos: enclosingScope.pos, end: enclosingScope.pos};
-            }
-            return result;
+            return typeChecker.getBrandInterfaceRefactorData(node);
         }
 
         function getRenameInfo(fileName: string, position: number): RenameInfo {
@@ -7330,6 +7308,7 @@ namespace ts {
             getBreakpointStatementAtPosition,
             getNavigateToItems,
             getRenameInfo,
+            getExtractedTypeInfo,
             findRenameLocations,
             getNavigationBarItems,
             getOutliningSpans,

@@ -1555,6 +1555,10 @@ namespace ts {
         getSourceFile(fileName: string): SourceFile;
     }
 
+    export interface RefactorData {
+        replaceSpan: TextSpan;
+        replaceText: string;
+    }
     export interface TypeChecker {
         getTypeOfSymbolAtLocation(symbol: Symbol, node: Node): Type;
         getDeclaredTypeOfSymbol(symbol: Symbol): Type;
@@ -1588,6 +1592,8 @@ namespace ts {
             headMessage?: DiagnosticMessage,
             containingMessageChain?: DiagnosticMessageChain): boolean;
         isTypeAny(type: Type): boolean;
+        getBrandInterfaceRefactorData(node: Node): RefactorData;
+        getAddTypeDeclarationRefactorData(node: Node): RefactorData;
         // [/ConcreteTypeScript]
         getPrimitiveTypeInfo():Map<{ type: Type; flags: TypeFlags }>;
         getSymbolsInScope(location: Node, meaning: SymbolFlags): Symbol[];

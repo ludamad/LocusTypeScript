@@ -206,6 +206,28 @@ namespace ts {
         return skipTrivia((sourceFile || getSourceFileOfNode(node)).text, node.decorators.end);
     }
 
+    // [ConcreteTypeScript]
+    export function getSourceIndentPrefix(sourceFile: SourceFile, pos: number): string {
+        let front = pos;
+        let text = sourceFile.text;
+        front++;
+        while (front != 0 && text.charAt(front - 1) == '\n') {
+            front--;
+        }
+        let back = front;
+        while (back < text.length) {
+            let chr = text.charAt(back);
+            if (chr === '\n') {
+                break;
+            }
+            if (chr != '\t' && chr != '\r' && chr != ' ') {
+                break;
+            }
+            back++;
+        }
+        return text.substring(front, back);
+    }
+
     export function getSourceTextOfNodeFromSourceFile(sourceFile: SourceFile, node: Node, includeTrivia = false): string {
         if (nodeIsMissing(node) /* [ConcreteTypeScript]: */ || !sourceFile) {
             return "";
