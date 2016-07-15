@@ -18671,7 +18671,7 @@ namespace ts {
             let type: Type;
             if (isExpression(node)) {
                 type = getTypeOfExpression(<Expression>node);
-            } else if (node.kind == SyntaxKind.Identifier) {
+            } else if (node.kind == SyntaxKind.Identifier || node.kind === SyntaxKind.ThisKeyword) {
                 type = getTypeOfNode(node.parent);  
             } else {
                 let replaceSpan = createTextSpanFromBounds(0, 0);
@@ -18688,7 +18688,7 @@ namespace ts {
             if (locusTypeDecl) {
                 let {pos, end} = locusTypeDecl;
                 let replaceSpan = createTextSpanFromBounds(pos, end);
-                return {replaceSpan, replaceText: ''};
+                return {replaceSpan, replaceText: '\n'};
             } else {
                 return getRefactorData(targetType);
             }
