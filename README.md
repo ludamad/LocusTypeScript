@@ -1,7 +1,5 @@
 # LocusTypeScript
 
-[![Join the chat at https://gitter.im/Microsoft/TypeScript](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/Microsoft/TypeScript?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
 LocusTypeScript is a fork of [TypeScript](https://github.com/Microsoft/TypeScript), introducing a new concept called ``locus types''.
 
 LocusTypeScript aims to tackle exactly one problem in TypeScript, giving an appropriate type to objects that are under construction or extension:
@@ -14,7 +12,7 @@ conn.sendName = function() { // New field
 ```
 This sort of dynamic object extension is very common in JavaScript.
 However, in TypeScript, *conn* would be inferred to be of type *Connection*, which lacks our new fields.
-We should have to create a new type with these fields, and cast the new Connection object unsafely, and keep the type in sync with any new assignments.
+We would have to create a new type with these fields, and cast the new Connection object unsafely, and keep the type in sync with any new assignments.
 As an additional pain-point, TypeScript will allow the fields then to be used before they are actually assigned. 
 
 Locus types allow programmers to solve these problems with an on-the-spot type creation keyword:
