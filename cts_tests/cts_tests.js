@@ -96,8 +96,8 @@ function createTestBundle(testBundle) {
         var outputFiles = fs.readdirSync(testBundle);
         outputFiles = outputFiles.map(function (s) { return path.join(testBundle, s); });
         outputFiles = outputFiles.filter(function (s) { return s.match(outputfileRegex); });
-        for (var _i = 0; _i < outputFiles.length; _i++) {
-            var outputFile = outputFiles[_i];
+        for (var _i = 0, outputFiles_1 = outputFiles; _i < outputFiles_1.length; _i++) {
+            var outputFile = outputFiles_1[_i];
             var content = fs.readFileSync(outputFile, 'utf8');
             for (var _a = 0, _b = content.split('\n'); _a < _b.length; _a++) {
                 var line = _b[_a];
