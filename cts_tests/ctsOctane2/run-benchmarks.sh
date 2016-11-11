@@ -1,5 +1,5 @@
-#n -sf ../../src/concretetypescript/cts-runtime.js .
-ln -sf ../../src/concretetypescript-v8/cts-runtime.js .
+ln -sf ../../src/concretetypescript/cts-runtime.js .
+#ln -sf ../../src/concretetypescript-v8/cts-runtime.js .
 function ctsc() {
     node ../../built/local/tsc.js $@
 }

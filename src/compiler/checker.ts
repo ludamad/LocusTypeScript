@@ -4106,7 +4106,7 @@ namespace ts {
                     }
                 }
                 if (resolved === anyFunctionType || resolved.callSignatures.length || resolved.constructSignatures.length) {
-                    if (type.symbol && type.symbol.declarations) {
+                    if (name == 'prototype' && type.symbol && type.symbol.declarations) {
                         return type.symbol.declarations[0].prototypeSymbol;
                     }
 
@@ -18365,6 +18365,7 @@ namespace ts {
                                          // Current node in recursive scan:
                                          node:Node, prev:FlowData, orig:FlowData, 
                                          emitProtection: (flowDataAfter: FlowData, node:Node, left: Node, member: string, right: Node) => void):FlowData {
+            Debug.assert(!!node, "Should have valid node object!");
             if (isReference(node)) {
                 //Debug.assert(!getNodeLinks(node).ctsFlowData);
                 getNodeLinks(node).ctsFlowData = prev;
@@ -18521,8 +18522,12 @@ namespace ts {
                 }
             }
             function scanForStatement(node: ForStatement) {
-                prev = recurse(node.initializer, prev);
-                prev = recurse(node.condition, prev);
+                if (node.initializer) {
+                    prev = recurse(node.initializer, prev);
+                }
+                if (node.condition) {
+                    prev = recurse(node.condition, prev);
+                }
                 // Flow analysis: Merge the result of entering the loop and of not
                 prev = flowDataUnion(recurse(node.statement, prev), prev);
             }

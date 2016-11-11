@@ -33,12 +33,14 @@ function timeIt(f) {
     for (let i = 0; i < 10; i++) {
         f();
     }
-    let timeBefore = new Date();
-    for (let i = 0; i < 1000; i++) {
-        f();
+    for (let z = 0; z < 100; z++) { 
+        let timeBefore = new Date();
+        for (let i = 0; i < 1000; i++) {
+            f();
+        }
+        let timeDelta = (new Date() as any) - (timeBefore as any);
+        console.log("Milliseconds: " + timeDelta);
     }
-    let timeDelta = (new Date() as any) - (timeBefore as any);
-    console.log("Milliseconds: " + timeDelta);
 }
 
 // Bits per digit
@@ -188,10 +190,10 @@ BigInteger.prototype.am4 = function(i:!number,x:!number,w:!BigInteger,j:!number,
     return c;
 }
 
-BigInteger.setup = 3;
+var setup = 3;
 
 BigInteger.prototype.am = function(i:!number,x:!number,w:!BigInteger,j:!number,c:!number,n:!number) {
-    switch (BigInteger.setup) {
+    switch (setup) {
         case 1: return this.am1(i,x,w,j,c,n);
         case 2: return this.am2(i,x,w,j,c,n);
         case 3: return this.am3(i,x,w,j,c,n);
