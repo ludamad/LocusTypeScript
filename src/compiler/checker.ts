@@ -3228,6 +3228,11 @@ namespace ts {
                 let {flowTypes} = flowData;
                 let minimalFlowTypes = getMinimalTypeList(flowTypes.map(ft => ft.type));
                 type.resolvedBaseTypes = type.resolvedBaseTypes.concat(minimalFlowTypes);
+                // Hack to get initialized type:
+                if ((<any>declaration).parent && (<any>declaration).parent.initializer) {
+                    let initializerTyper: Type = getTypeOfExpression(<Expression>(<any>declaration).parent.initializer);
+                    type.resolvedBaseTypes = type.resolvedBaseTypes.concat([initializerTyper]);
+                }
                 type.resolvedBaseTypes = type.resolvedBaseTypes.filter(s => !isTypeIdenticalTo(unconcrete(s), type) && !isTypeIdenticalTo(s, emptyObjectType));
             }
         }
@@ -18287,6 +18292,16 @@ namespace ts {
             }
             // Cache the result:
             unboxLocusType(targetType).flowData = finalFlowData;
+            let {memberSet} = finalFlowData;
+            for (let member of Object.keys(memberSet)) {
+                (checker as any).HACK_globalFields[member] = (checker as any).HACK_globalFields[member] || {};
+                let prevType: Type = (checker as any).HACK_globalFields[member];
+                if (prevType && !isTypeIdenticalTo(prevType, flowTypeGet(memberSet[member]))) {
+                    console.log(`WARNING: Have #{member} : #{typeToString(flowTypeGet(memberSet[member]))}, previously had #{member} : #{typeToString(prevType)}`)
+                } else {
+                   (checker as any).HACK_globalFields[member] = flowTypeGet(memberSet[member]);
+                }
+            }
             return finalFlowData;
             // Note: 'right' can be null, signifying that we are protecting the existing value.
             function emitProtection(flowDataAfterAssignment: FlowData, node:Node, left: Node, member: string, right?: Node) {

@@ -35,7 +35,11 @@ function timeIt(f) {
     }
     let timeBefore = new Date();
     for (let i = 0; i < 1000; i++) {
-        f();
+        for (let z = 0; z < 25; z++) {
+            f();
+        }
+        gc();
+        console.log(process.memoryUsage());
     }
     let timeDelta = (new Date() as any) - (timeBefore as any);
     console.log("Milliseconds: " + timeDelta);
