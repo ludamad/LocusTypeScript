@@ -18699,7 +18699,7 @@ namespace ts {
             }
             // Where:
             function getRefactorData(type: LocusType): RefactorData {
-                let baseTypes = getBaseTypes(type).map(unconcrete).map(typeToString as any);
+                let baseTypes = [] ; //getBaseTypes(type).map(unconcrete).map(typeToString as any);
                 let extendsPart = (baseTypes.length ? ' extends ' : '') + baseTypes.join(', ');
                 let members = getPropertiesOfType(type).map(symbolToMember).reverse();
                 let outerScopePos = getModuleOrSourceFileOrFunction(node).pos;
